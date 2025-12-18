@@ -87,159 +87,231 @@ Expected: "No errors found"
 
 ---
 
-## Task 2: Filesystem Queue Monitoring (Drop-in)
+## Task 2: Filesystem Queue Monitoring (Drop-in) - Python Watchdog
 
 **Files:**
-- Modify: `/srv/ai_radio/radio.liq`
+- Create: `/srv/ai_radio/scripts/watch_drops.py`
+- Create: `/etc/systemd/system/ai-radio-watch-drops.service`
 
-**Step 1: Add playlist.reloadable for drops directory**
+**Step 1: Create Python watchdog service for drop-in files**
 
-The drop-in directory allows operators to copy MP3 files that will be automatically enqueued to the override queue.
+**ARCHITECTURAL NOTE:** Liquidsoap 2.x cannot reliably inspect filesystem or queue internals. We move this intelligence to Python where it belongs.
 
-Add to `radio.liq`:
+Create file `/srv/ai_radio/scripts/watch_drops.py`:
 
-```liquidsoap
-# ============================================================================
-# FILESYSTEM DROP-IN QUEUE (Phase 3)
-# ============================================================================
+```python
+#!/usr/bin/env python3
+"""
+AI Radio Station - Drop-in File Watchdog
+Monitors /srv/ai_radio/drops/ directory and pushes files to Liquidsoap override queue
+"""
+import time
+import shutil
+import socket
+from pathlib import Path
+from watchdog.observers import Observer
+from watchdog.events import FileSystemEventHandler
+import logging
 
-# Drop directory for operator files
-# Place .mp3 files here → automatically added to override queue
-drops_dir = "/srv/ai_radio/drops"
-
-# Reloadable playlist that watches drops/ directory
-drops_playlist = playlist.reloadable(
-    id="drops",
-    mode="normal",  # Play in order
-    reload_mode="watch",  # Watch for filesystem changes
-    drops_dir
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
+logger = logging.getLogger(__name__)
 
-# Function to move files from drops/ to override queue
-def process_drops()
-    # Get current playlist
-    files = request.queue.queue(override_queue)
+DROPS_DIR = Path("/srv/ai_radio/drops")
+PROCESSED_DIR = DROPS_DIR / "processed"
+LIQUIDSOAP_SOCKET = Path("/run/liquidsoap/radio.sock")
 
-    # For each file in drops playlist
-    list.iter(fun(uri) -> begin
-        # Extract filename
-        filename = path.basename(uri)
 
-        # Add to override queue
-        request.queue.push(override_queue, uri)
+def send_liquidsoap_command(cmd: str) -> str:
+    """Send command to Liquidsoap via Unix socket"""
+    try:
+        sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        sock.connect(str(LIQUIDSOAP_SOCKET))
+        sock.sendall(f"{cmd}\n".encode())
+        response = sock.recv(4096).decode()
+        sock.close()
+        return response.strip()
+    except Exception as e:
+        logger.error(f"Failed to send command to Liquidsoap: {e}")
+        return ""
 
-        # Move file to processed/ directory (atomic operation)
-        processed_path = "#{drops_dir}/processed/#{filename}"
-        file.move(uri, processed_path)
 
-        log("Processed drop-in file: #{filename}")
-    end, playlist.files(drops_playlist))
-end
+class DropInHandler(FileSystemEventHandler):
+    """Handles filesystem events for drop-in files"""
 
-# Process drops every 10 seconds
-thread.run(delay=10., process_drops)
+    def on_created(self, event):
+        if event.is_directory:
+            return
 
-log("Drop-in queue monitoring enabled: #{drops_dir}")
+        filepath = Path(event.src_path)
+
+        # Only process .mp3 files
+        if filepath.suffix.lower() != '.mp3':
+            logger.warning(f"Ignoring non-MP3 file: {filepath.name}")
+            return
+
+        # Wait briefly for file to finish writing
+        time.sleep(0.5)
+
+        try:
+            # FIX: Move file BEFORE pushing to queue (no race condition)
+            processed_path = PROCESSED_DIR / filepath.name
+            shutil.move(str(filepath), str(processed_path))
+            logger.info(f"Moved {filepath.name} to processed/")
+
+            # Push to Liquidsoap override queue
+            cmd = f"override.push {processed_path}"
+            response = send_liquidsoap_command(cmd)
+            logger.info(f"Pushed {filepath.name} to override queue: {response}")
+
+        except Exception as e:
+            logger.error(f"Failed to process {filepath.name}: {e}")
+
+
+def main():
+    """Start watchdog observer"""
+    PROCESSED_DIR.mkdir(exist_ok=True)
+
+    logger.info(f"Starting drop-in watchdog: {DROPS_DIR}")
+
+    event_handler = DropInHandler()
+    observer = Observer()
+    observer.schedule(event_handler, str(DROPS_DIR), recursive=False)
+    observer.start()
+
+    try:
+        while True:
+            time.sleep(1)
+    except KeyboardInterrupt:
+        observer.stop()
+
+    observer.join()
+    logger.info("Drop-in watchdog stopped")
+
+
+if __name__ == "__main__":
+    main()
 ```
 
 Run:
 ```bash
-# Create drops directory and processed subdirectory
-sudo -u ai-radio mkdir -p /srv/ai_radio/drops/processed
-
-# Append to radio.liq
-cat << 'EOF' | sudo -u ai-radio tee -a /srv/ai_radio/radio.liq
+# Create script
+sudo -u ai-radio tee /srv/ai_radio/scripts/watch_drops.py << 'EOF'
 [content above]
 EOF
+
+sudo chmod +x /srv/ai_radio/scripts/watch_drops.py
+
+# Create directories
+sudo -u ai-radio mkdir -p /srv/ai_radio/drops/processed
 ```
 
-Expected: Drops directory monitoring configured
+Expected: Python watchdog script created
 
-**Step 2: Test drop-in functionality**
+**Step 2: Create systemd service for watchdog**
+
+Create file `/etc/systemd/system/ai-radio-watch-drops.service`:
+
+```ini
+[Unit]
+Description=AI Radio Station - Drop-in File Watchdog
+After=network.target ai-radio-liquidsoap.service
+Requires=ai-radio-liquidsoap.service
+
+[Service]
+Type=simple
+User=ai-radio
+Group=ai-radio
+WorkingDirectory=/srv/ai_radio
+
+# Start watchdog
+ExecStart=/srv/ai_radio/.venv/bin/python /srv/ai_radio/scripts/watch_drops.py
+
+# Restart on failure
+Restart=always
+RestartSec=10
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=ai-radio-watch-drops
+
+[Install]
+WantedBy=multi-user.target
+```
 
 Run:
 ```bash
-# Copy a test file to drops (will be added in verification later)
-# For now, just verify directory exists
-ls -la /srv/ai_radio/drops/
+sudo tee /etc/systemd/system/ai-radio-watch-drops.service << 'EOF'
+[content above]
+EOF
+
+sudo systemctl daemon-reload
+sudo systemctl enable ai-radio-watch-drops.service
+sudo systemctl start ai-radio-watch-drops.service
 ```
 
-Expected: Directory exists with `processed/` subdirectory
+Expected: Watchdog service running
+
+**Step 3: Verify watchdog is running**
+
+Run:
+```bash
+sudo systemctl status ai-radio-watch-drops.service
+```
+
+Expected: Service active and running
 
 ---
 
-## Task 3: Break Freshness Checking
+## Task 3: Break Freshness Checking - Moved to Producer
 
 **Files:**
-- Modify: `/srv/ai_radio/radio.liq`
+- None (documentation only)
 
-**Step 1: Implement break staleness check function**
+**Step 1: Document break freshness strategy**
 
-Breaks should not play if they're older than 65 minutes (to ensure hourly freshness).
+**ARCHITECTURAL NOTE:** Break freshness is a **producer responsibility**, not a consumer responsibility. Liquidsoap should never inspect file metadata or filesystem attributes.
 
-Add to `radio.liq`:
+**Correct Pattern:**
+- Producer (`news_gen.py` in Phase 4) checks break age before generating new content
+- If latest break is older than 50 minutes, generate a new one
+- Producer only pushes fresh breaks to Liquidsoap
+- Liquidsoap blindly plays whatever is in the break queue
 
-```liquidsoap
-# ============================================================================
-# BREAK FRESHNESS CHECKING (Phase 3)
-# ============================================================================
+**Implementation Location:** Phase 4 (Content Generation)
 
-# Maximum age for break files (65 minutes = 3900 seconds)
-max_break_age_seconds = 3900.0
+Add to documentation notes:
 
-def is_break_fresh(filename)
-    # Check if file exists
-    if not file.exists(filename) then
-        log("Break file does not exist: #{filename}")
-        false
-    else
-        # Get file modification time
-        mtime = file.mtime(filename)
-        current_time = time()
+```markdown
+# Break Freshness - Producer Pattern
 
-        # Calculate age in seconds
-        age_seconds = current_time - mtime
+The news_gen.py service (Phase 4) will implement:
 
-        if age_seconds > max_break_age_seconds then
-            log("Break file is stale (#{age_seconds}s old, max #{max_break_age_seconds}s): #{filename}")
-            false
-        else
-            log("Break file is fresh (#{age_seconds}s old): #{filename}")
-            true
-        end
-    end
-end
+```python
+def should_generate_break() -> bool:
+    """Check if we need a new break"""
+    latest_break = get_latest_break_file()
 
-# Wrapper for break queue that only plays fresh breaks
-fresh_break_queue = source.available(
-    break_queue,
-    fun() -> begin
-        # Check if break queue has content
-        if not source.is_ready(break_queue) then
-            false
-        else
-            # Get current request
-            req = request.queue.current(break_queue)
+    if not latest_break:
+        return True  # No break exists, generate one
 
-            match req with
-            | null -> false  # No current request
-            | r -> is_break_fresh(request.filename(r))
-            end
-        end
-    end
-)
+    age = datetime.now() - datetime.fromtimestamp(latest_break.stat().st_mtime)
 
-log("Break freshness checking enabled (max age: #{max_break_age_seconds}s)")
+    # Generate if older than 50 minutes (safety margin before 60-minute deadline)
+    return age > timedelta(minutes=50)
 ```
 
-Run:
-```bash
-cat << 'EOF' | sudo -u ai-radio tee -a /srv/ai_radio/radio.liq
-[content above]
-EOF
+This ensures:
+- Liquidsoap remains simple (no filesystem inspection)
+- Break logic lives in Python (easier to test/debug)
+- Producer can crash without affecting stream
+- Break queue always contains fresh content
 ```
 
-Expected: Freshness checking function defined
+Expected: Strategy documented for Phase 4 implementation
 
 ---
 
@@ -261,33 +333,45 @@ Add to `radio.liq`:
 # ============================================================================
 
 # Flag file for forcing immediate break
-force_break_flag = "/srv/ai_radio/control/force_break"
+force_break_flag_file = "/srv/ai_radio/control/force_break"
 
-# Check if force break is requested
-def should_force_break()
-    if file.exists(force_break_flag) then
-        log("Force break triggered! Removing flag file.")
-        file.remove(force_break_flag)
+# Reference to track when flag was set
+force_break_ref = ref(false)
+
+# Check if force break flag exists (read-only check)
+def check_force_break() =
+    if file.exists(force_break_flag_file) then
+        force_break_ref := true
         true
     else
-        false
+        !force_break_ref  # Return current state
     end
 end
 
-# Wrapper for break queue that respects force break flag
+# Wrapper for break queue with force break support
+# FIX: Use switch with predicate function (not inline call)
 forced_break_queue = switch(
     id="forced_breaks",
     track_sensitive=true,
     [
         # If force break flag exists, play break immediately
-        ({should_force_break()}, fresh_break_queue),
-
-        # Otherwise, only play at top of hour (handled by scheduler in Phase 5)
-        ({false}, blank())  # Never play here, scheduler handles timing
+        (check_force_break, break_queue)
     ]
 )
 
-log("Force break trigger enabled: #{force_break_flag}")
+# Reset flag when break actually starts playing
+forced_break_queue.on_track(fun(m) ->
+    if !force_break_ref then
+        # Break is now playing, safe to remove flag
+        if file.exists(force_break_flag_file) then
+            file.remove(force_break_flag_file)
+            log("Force break playing, flag file removed")
+        end
+        force_break_ref := false
+    end
+end)
+
+log("Force break trigger enabled: #{force_break_flag_file}")
 ```
 
 Run:
@@ -341,7 +425,40 @@ Expected: Force break script created and executable
 **Files:**
 - Modify: `/srv/ai_radio/radio.liq`
 
-**Step 1: Build complete fallback chain**
+**Step 1: Define bumpers source (missing level 4)**
+
+Add bumpers playlist before building fallback chain:
+
+```liquidsoap
+# ============================================================================
+# BUMPERS PLAYLIST (Phase 3)
+# ============================================================================
+
+# Short station ID bumpers for fallback (level 4)
+# These play when music queue is empty but we don't want evergreen yet
+bumpers = playlist(
+    id="bumpers",
+    mode="random",
+    reload=3600,  # Reload every hour
+    "/srv/ai_radio/assets/bumpers"
+)
+
+log("Bumpers playlist configured")
+```
+
+Run:
+```bash
+# Create bumpers directory
+sudo -u ai-radio mkdir -p /srv/ai_radio/assets/bumpers
+
+cat << 'EOF' | sudo -u ai-radio tee -a /srv/ai_radio/radio.liq
+[content above]
+EOF
+```
+
+Expected: Bumpers source defined
+
+**Step 2: Build complete fallback chain**
 
 The fallback chain ensures zero dead air by cascading through sources until one is available.
 
@@ -356,7 +473,7 @@ Add to `radio.liq`:
 # 1. Operator override queue (drop-in files)
 # 2. Forced breaks (operator-triggered)
 # 3. Music queue (main content)
-# 4. Scheduled breaks (top-of-hour, handled by switch in Phase 5)
+# 4. Bumpers (short station IDs when queue is empty)
 # 5. Evergreen playlist (fallback music)
 # 6. Safety bumper (last resort, loops forever)
 
@@ -364,9 +481,6 @@ Add to `radio.liq`:
 fallback_chain = fallback(
     id="main_fallback",
     track_sensitive=true,  # Wait for track boundaries
-    transitions=[  # Smooth transitions between sources
-        fun(old, new) -> add([fade.out(duration=0.5, old), fade.in(duration=0.5, new)])
-    ],
     [
         # Level 1 (highest): Operator override
         override_queue,
@@ -377,8 +491,8 @@ fallback_chain = fallback(
         # Level 3: Music queue (main content)
         music_queue,
 
-        # Level 4: Breaks will be inserted here via switch (Phase 5)
-        # For now, this level is handled by the scheduler
+        # Level 4: Bumpers (station IDs)
+        bumpers,
 
         # Level 5: Evergreen playlist (fallback music)
         evergreen,
@@ -398,9 +512,9 @@ cat << 'EOF' | sudo -u ai-radio tee -a /srv/ai_radio/radio.liq
 EOF
 ```
 
-Expected: Fallback chain defined
+Expected: Fallback chain defined with all 6 levels
 
-**Step 2: Add crossfade for smooth transitions**
+**Step 3: Add crossfade for smooth transitions**
 
 Add crossfade to the fallback chain output:
 
@@ -411,6 +525,14 @@ Add crossfade to the fallback chain output:
 
 # Apply crossfade for smooth transitions between tracks
 # Duration: 2.0s per validation recommendation (was 1.5s in Phase 1)
+# FIX: Add `=` after function parameters
+def crossfade_transition(old, new) =
+    add([
+        sequence([blank(duration=0.5), fade.in(duration=1.0, new)]),
+        fade.out(duration=1.0, old)
+    ])
+end
+
 output_with_crossfade = crossfade(
     duration=2.0,
     fade_in=1.0,
