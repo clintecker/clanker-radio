@@ -1,0 +1,43 @@
+#cloud-config
+
+# AI Radio Station - Cloud-Init User Data
+# Template: Replace ${SSH_PUBLIC_KEY} with actual key before use
+
+users:
+  - name: ubuntu
+    groups: sudo
+    shell: /bin/bash
+    sudo: ['ALL=(ALL) NOPASSWD:ALL']
+    ssh_authorized_keys:
+      - ${SSH_PUBLIC_KEY}
+
+package_update: true
+package_upgrade: true
+
+packages:
+  - git
+  - curl
+  - wget
+  - build-essential
+  - sqlite3
+  - ffmpeg
+
+# Set timezone to UTC
+timezone: UTC
+
+# Disable SSH password authentication
+ssh_pwauth: false
+
+# Enable SSH
+ssh:
+  emit_keys_to_console: false
+
+runcmd:
+  # Ensure /srv directory exists with correct permissions
+  - mkdir -p /srv
+  - chmod 755 /srv
+
+  # Log cloud-init completion
+  - echo "Cloud-init completed at $(date)" >> /var/log/cloud-init-complete.log
+
+final_message: "AI Radio Station VM is ready for deployment. Cloud-init completed in $UPTIME seconds."
