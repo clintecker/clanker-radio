@@ -67,38 +67,46 @@ Expected: Both commands show version output
 
 **Step 1: Verify assets table schema**
 
-The schema should already exist from Phase 0. Verify it matches SOW requirements:
+The schema should already exist from Phase 0. Verify it matches SOW Section 6 requirements:
 
 ```sql
 CREATE TABLE IF NOT EXISTS assets (
     id TEXT PRIMARY KEY,              -- SHA256 hash
-    type TEXT NOT NULL,               -- 'music', 'break', 'bumper'
     path TEXT NOT NULL UNIQUE,        -- Absolute path to normalized file
-    original_path TEXT,               -- Source file path
+    kind TEXT NOT NULL,               -- 'music', 'break', 'bumper' (SOW calls this 'kind')
+    duration_sec REAL,                -- Duration in seconds (SOW: duration_sec)
+    loudness_lufs REAL,               -- Integrated loudness (top-level, not JSON)
+    true_peak_dbtp REAL,              -- True peak (top-level, not JSON)
+    energy_level INTEGER,             -- Optional energy classification
     title TEXT,                       -- Track title
     artist TEXT,                      -- Artist name
     album TEXT,                       -- Album name
-    duration_seconds REAL NOT NULL,   -- Duration in seconds
-    created_at TEXT NOT NULL,         -- ISO timestamp
-    metadata TEXT                     -- JSON blob for extra data
+    created_at TEXT NOT NULL          -- ISO timestamp
 );
 ```
 
+**CRITICAL:** Schema must match SOW Section 6 exactly. Note the column name changes:
+- `type` → `kind`
+- `duration_sec` → `duration_sec`
+- Loudness/peak data moved from JSON blob to top-level columns
+
 Run:
 ```bash
-sqlite3 /srv/ai_radio/data/radio.db ".schema assets"
+sqlite3 /srv/ai_radio/db/radio.sqlite3 ".schema assets"
 ```
 
 Expected: Schema matches above
 
-**Step 2: Create database index for type lookups**
+**Step 2: Create database index for kind lookups**
 
 Run:
 ```bash
-sqlite3 /srv/ai_radio/data/radio.db "CREATE INDEX IF NOT EXISTS idx_assets_type ON assets(type);"
+sqlite3 /srv/ai_radio/db/radio.sqlite3 "CREATE INDEX IF NOT EXISTS idx_assets_kind ON assets(kind);"
 ```
 
 Expected: Index created
+
+**Note:** Database path is `/srv/ai_radio/db/radio.sqlite3` per SOW Section 5 (not `data/radio.db`).
 
 ---
 
@@ -178,13 +186,13 @@ class AudioMetadata:
         title: Optional[str] = None,
         artist: Optional[str] = None,
         album: Optional[str] = None,
-        duration_seconds: float = 0.0,
+        duration_sec: float = 0.0,  # SOW Section 6: duration_sec
     ):
         self.path = path
         self.title = title or path.stem  # Fallback to filename
         self.artist = artist or "Unknown Artist"
         self.album = album or "Unknown Album"
-        self.duration_seconds = duration_seconds
+        self.duration_sec = duration_sec  # SOW-compliant naming
 
     @property
     def sha256_id(self) -> str:
@@ -237,7 +245,7 @@ def extract_metadata(file_path: Path) -> AudioMetadata:
             title=title,
             artist=artist,
             album=album,
-            duration_seconds=duration,
+            duration_sec=duration,  # Store as duration_sec per SOW Section 6
         )
 
     except Exception as e:
@@ -277,7 +285,7 @@ def test_extract_metadata_from_test_track():
     assert metadata.title == "Test Tone 440Hz"
     assert metadata.artist == "Test Artist"
     assert metadata.album == "Test Album"
-    assert metadata.duration_seconds > 0
+    assert metadata.duration_sec > 0
 
 
 def test_extract_metadata_nonexistent_file():
@@ -445,7 +453,7 @@ def test_normalize_audio():
 
         # Verify output is valid audio
         metadata = extract_metadata(output)
-        assert metadata.duration_seconds > 0
+        assert metadata.duration_sec > 0
 
     finally:
         # Clean up
@@ -507,20 +515,22 @@ from .audio import AudioMetadata
 def insert_asset(
     db_path: Path,
     asset_id: str,
-    asset_type: str,
+    asset_kind: str,
     normalized_path: Path,
     metadata: AudioMetadata,
-    original_path: Optional[Path] = None,
+    loudness_lufs: float = -18.0,
+    true_peak_dbtp: float = -1.0,
 ) -> None:
     """Insert asset record into database.
 
     Args:
         db_path: Path to SQLite database
         asset_id: SHA256 hash of file
-        asset_type: Asset type ('music', 'break', 'bumper')
+        asset_kind: Asset kind ('music', 'break', 'bumper') - SOW calls this 'kind'
         normalized_path: Path to normalized audio file
         metadata: Extracted audio metadata
-        original_path: Optional source file path
+        loudness_lufs: Integrated loudness (default: -18.0 LUFS)
+        true_peak_dbtp: True peak (default: -1.0 dBTP)
 
     Raises:
         sqlite3.IntegrityError: If asset_id already exists
@@ -530,37 +540,34 @@ def insert_asset(
     try:
         cursor = conn.cursor()
 
-        # Prepare metadata JSON
-        metadata_json = json.dumps({
-            "original_path": str(original_path) if original_path else None,
-            "normalized": True,
-            "loudness_target": -18.0,
-            "true_peak": -1.0,
-        })
-
         cursor.execute(
             """
             INSERT INTO assets (
-                id, type, path, original_path,
-                title, artist, album, duration_seconds,
-                created_at, metadata
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                id, path, kind,
+                duration_sec, loudness_lufs, true_peak_dbtp,
+                energy_level, title, artist, album, created_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 asset_id,
-                asset_type,
                 str(normalized_path),
-                str(original_path) if original_path else None,
+                asset_kind,
+                metadata.duration_sec,
+                loudness_lufs,
+                true_peak_dbtp,
+                None,  # energy_level (optional, compute later if needed)
                 metadata.title,
                 metadata.artist,
                 metadata.album,
-                metadata.duration_seconds,
                 datetime.now(timezone.utc).isoformat(),
-                metadata_json,
             ),
         )
 
         conn.commit()
+
+    except sqlite3.IntegrityError as e:
+        # Asset already exists (duplicate asset_id or path)
+        raise sqlite3.IntegrityError(f"Asset {asset_id[:16]}... already exists") from e
 
     finally:
         conn.close()
@@ -585,22 +592,22 @@ def asset_exists(db_path: Path, asset_id: str) -> bool:
         conn.close()
 
 
-def get_asset_count_by_type(db_path: Path, asset_type: str) -> int:
-    """Get count of assets by type.
+def get_asset_count_by_kind(db_path: Path, asset_kind: str) -> int:
+    """Get count of assets by kind.
 
     Args:
         db_path: Path to SQLite database
-        asset_type: Asset type to count
+        asset_kind: Asset kind to count ('music', 'break', 'bumper')
 
     Returns:
-        Number of assets of given type
+        Number of assets of given kind
     """
     conn = sqlite3.connect(db_path)
     try:
         cursor = conn.cursor()
         cursor.execute(
-            "SELECT COUNT(*) FROM assets WHERE type = ?",
-            (asset_type,),
+            "SELECT COUNT(*) FROM assets WHERE kind = ?",
+            (asset_kind,),
         )
         result = cursor.fetchone()
         return result[0] if result else 0
@@ -631,7 +638,7 @@ from pathlib import Path
 from ai_radio.db_assets import (
     insert_asset,
     asset_exists,
-    get_asset_count_by_type,
+    get_asset_count_by_kind,
 )
 from ai_radio.audio import AudioMetadata
 
@@ -642,20 +649,21 @@ def temp_db():
     with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as f:
         db_path = Path(f.name)
 
-    # Create schema
+    # Create schema (SOW Section 6 compliant)
     conn = sqlite3.connect(db_path)
     conn.execute("""
         CREATE TABLE assets (
             id TEXT PRIMARY KEY,
-            type TEXT NOT NULL,
             path TEXT NOT NULL UNIQUE,
-            original_path TEXT,
+            kind TEXT NOT NULL,
+            duration_sec REAL,
+            loudness_lufs REAL,
+            true_peak_dbtp REAL,
+            energy_level INTEGER,
             title TEXT,
             artist TEXT,
             album TEXT,
-            duration_seconds REAL NOT NULL,
-            created_at TEXT NOT NULL,
-            metadata TEXT
+            created_at TEXT NOT NULL
         )
     """)
     conn.commit()
@@ -674,13 +682,13 @@ def test_insert_asset(temp_db):
         title="Test Track",
         artist="Test Artist",
         album="Test Album",
-        duration_seconds=180.5,
+        duration_sec=180.5,
     )
 
     insert_asset(
         db_path=temp_db,
         asset_id="test_sha256_hash",
-        asset_type="music",
+        asset_kind="music",
         normalized_path=Path("/srv/ai_radio/assets/music/test.mp3"),
         metadata=metadata,
         original_path=Path("/srv/ai_radio/assets/source_music/test.mp3"),
@@ -704,13 +712,13 @@ def test_asset_exists(temp_db):
 
     metadata = AudioMetadata(
         path=Path("/test.mp3"),
-        duration_seconds=100.0,
+        duration_sec=100.0,
     )
 
     insert_asset(
         db_path=temp_db,
         asset_id="existing_id",
-        asset_type="music",
+        asset_kind="music",
         normalized_path=Path("/test.mp3"),
         metadata=metadata,
     )
@@ -718,26 +726,26 @@ def test_asset_exists(temp_db):
     assert asset_exists(temp_db, "existing_id")
 
 
-def test_get_asset_count_by_type(temp_db):
+def test_get_asset_count_by_kind(temp_db):
     """Test counting assets by type."""
-    assert get_asset_count_by_type(temp_db, "music") == 0
+    assert get_asset_count_by_kind(temp_db, "music") == 0
 
     # Insert two music assets
     for i in range(2):
         metadata = AudioMetadata(
             path=Path(f"/test{i}.mp3"),
-            duration_seconds=100.0,
+            duration_sec=100.0,
         )
         insert_asset(
             db_path=temp_db,
             asset_id=f"id_{i}",
-            asset_type="music",
+            asset_kind="music",
             normalized_path=Path(f"/test{i}.mp3"),
             metadata=metadata,
         )
 
-    assert get_asset_count_by_type(temp_db, "music") == 2
-    assert get_asset_count_by_type(temp_db, "break") == 0
+    assert get_asset_count_by_kind(temp_db, "music") == 2
+    assert get_asset_count_by_kind(temp_db, "break") == 0
 ```
 
 Run:
@@ -779,7 +787,6 @@ from typing import List
 
 from .audio import extract_metadata, normalize_audio
 from .db_assets import insert_asset, asset_exists
-from .config import get_config
 
 
 # Configure logging
@@ -861,21 +868,29 @@ def ingest_file(
 
         # Insert into database
         logger.info(f"  ↳ Inserting to database: {asset_id[:16]}...")
-        insert_asset(
-            db_path=db_path,
-            asset_id=asset_id,
-            asset_type="music",
-            normalized_path=output_path,
-            metadata=normalized_metadata,
-            original_path=source_path,
-        )
+        try:
+            insert_asset(
+                db_path=db_path,
+                asset_id=asset_id,
+                asset_kind="music",  # SOW: use 'kind' not 'type'
+                normalized_path=output_path,
+                metadata=normalized_metadata,
+                loudness_lufs=-18.0,
+                true_peak_dbtp=-1.0,
+            )
+        except Exception as db_error:
+            # Clean up orphaned file if database insert fails
+            if output_path.exists():
+                output_path.unlink()
+            logger.error(f"  ✗ Database insert failed, cleaned up file: {db_error}")
+            return False
 
         logger.info(f"  ✓ Success: {metadata.title} - {metadata.artist}")
         return True
 
     except Exception as e:
         logger.error(f"  ✗ Failed to ingest {source_path.name}: {e}")
-        raise
+        return False  # Don't re-raise, allow batch to continue
 
 
 def ingest_library(
@@ -963,7 +978,7 @@ def main():
     parser.add_argument(
         "--db",
         type=Path,
-        default=Path("/srv/ai_radio/data/radio.db"),
+        default=Path("/srv/ai_radio/db/radio.sqlite3"),
         help="SQLite database path",
     )
     parser.add_argument(
@@ -1041,7 +1056,7 @@ Expected: Test track ingested successfully, summary shows "Ingested: 1"
 
 Run:
 ```bash
-sqlite3 /srv/ai_radio/data/radio.db "SELECT id, title, artist, duration_seconds FROM assets LIMIT 1;"
+sqlite3 /srv/ai_radio/db/radio.sqlite3 "SELECT id, title, artist, duration_sec FROM assets LIMIT 1;"
 ```
 
 Expected: One row with test track metadata
@@ -1074,7 +1089,7 @@ import shutil
 from pathlib import Path
 
 from ai_radio.ingest import ingest_library, discover_audio_files
-from ai_radio.db_assets import get_asset_count_by_type
+from ai_radio.db_assets import get_asset_count_by_kind
 
 
 @pytest.fixture
@@ -1084,21 +1099,22 @@ def temp_dirs():
     output = Path(tempfile.mkdtemp())
     db_file = Path(tempfile.mktemp(suffix=".db"))
 
-    # Create database schema
+    # Create database schema (SOW Section 6 compliant)
     import sqlite3
     conn = sqlite3.connect(db_file)
     conn.execute("""
         CREATE TABLE assets (
             id TEXT PRIMARY KEY,
-            type TEXT NOT NULL,
             path TEXT NOT NULL UNIQUE,
-            original_path TEXT,
+            kind TEXT NOT NULL,
+            duration_sec REAL,
+            loudness_lufs REAL,
+            true_peak_dbtp REAL,
+            energy_level INTEGER,
             title TEXT,
             artist TEXT,
             album TEXT,
-            duration_seconds REAL NOT NULL,
-            created_at TEXT NOT NULL,
-            metadata TEXT
+            created_at TEXT NOT NULL
         )
     """)
     conn.commit()
@@ -1134,7 +1150,7 @@ def test_full_ingestion_pipeline(temp_dirs):
     )
 
     # Verify results
-    assert get_asset_count_by_type(db_path, "music") == 1
+    assert get_asset_count_by_kind(db_path, "music") == 1
     assert len(list(output_dir.glob("*.mp3"))) == 1
 
 
@@ -1223,10 +1239,10 @@ uv run ai-radio-ingest --source /path/to/music --limit 0
 
 ```bash
 # Count music assets
-sqlite3 /srv/ai_radio/data/radio.db "SELECT COUNT(*) FROM assets WHERE type='music';"
+sqlite3 /srv/ai_radio/db/radio.sqlite3 "SELECT COUNT(*) FROM assets WHERE kind='music';"
 
 # List recent assets
-sqlite3 /srv/ai_radio/data/radio.db "SELECT title, artist, duration_seconds FROM assets ORDER BY created_at DESC LIMIT 10;"
+sqlite3 /srv/ai_radio/db/radio.sqlite3 "SELECT title, artist, duration_sec FROM assets ORDER BY created_at DESC LIMIT 10;"
 ```
 
 ## Test Results
@@ -1283,7 +1299,7 @@ Expected: Documentation created
 uv pip list | grep -E "mutagen|ffmpeg-normalize"
 
 # 2. Verify database schema
-sqlite3 /srv/ai_radio/data/radio.db ".schema assets"
+sqlite3 /srv/ai_radio/db/radio.sqlite3 ".schema assets"
 
 # 3. Run all tests
 cd /srv/ai_radio && uv run pytest -v
@@ -1292,7 +1308,7 @@ cd /srv/ai_radio && uv run pytest -v
 uv run ai-radio-ingest --limit 1
 
 # 5. Verify asset in database
-sqlite3 /srv/ai_radio/data/radio.db "SELECT COUNT(*) FROM assets;"
+sqlite3 /srv/ai_radio/db/radio.sqlite3 "SELECT COUNT(*) FROM assets;"
 
 # 6. Verify normalized file exists
 ls -lh /srv/ai_radio/assets/music/
