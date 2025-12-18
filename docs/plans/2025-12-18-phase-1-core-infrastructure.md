@@ -278,7 +278,74 @@ Expected: JSON status response with empty sources array
 
 ---
 
-## Task 3: Safety Assets Creation
+## Task 3: Icecast Log Rotation (OPERATIONAL FIX)
+
+**Files:**
+- Create: `/etc/logrotate.d/icecast2`
+
+**Why:** Icecast logs grow unbounded without rotation, leading to disk space issues.
+
+**Step 1: Create logrotate configuration for Icecast**
+
+Create file `/etc/logrotate.d/icecast2`:
+```
+/var/log/icecast2/*.log {
+    daily
+    rotate 14
+    compress
+    delaycompress
+    missingok
+    notifempty
+    create 0644 icecast icecast
+    sharedscripts
+    postrotate
+        systemctl reload icecast2 >/dev/null 2>&1 || true
+    endscript
+}
+```
+
+Run:
+```bash
+sudo tee /etc/logrotate.d/icecast2 << 'EOF'
+/var/log/icecast2/*.log {
+    daily
+    rotate 14
+    compress
+    delaycompress
+    missingok
+    notifempty
+    create 0644 icecast icecast
+    sharedscripts
+    postrotate
+        systemctl reload icecast2 >/dev/null 2>&1 || true
+    endscript
+}
+EOF
+```
+
+Expected: Logrotate configuration created
+
+**Step 2: Test logrotate configuration**
+
+Run:
+```bash
+sudo logrotate -d /etc/logrotate.d/icecast2
+```
+
+Expected: Dry-run shows rotation would work without errors
+
+**Step 3: Verify permissions**
+
+Run:
+```bash
+ls -la /etc/logrotate.d/icecast2
+```
+
+Expected: `-rw-r--r-- root root`
+
+---
+
+## Task 4: Safety Assets Creation
 
 **Files:**
 - Create: `/srv/ai_radio/assets/safety/evergreen.m3u`
@@ -385,7 +452,7 @@ Expected: All three safety files present
 
 ---
 
-## Task 4: Liquidsoap Configuration
+## Task 5: Liquidsoap Configuration
 
 **Files:**
 - Create: `/srv/ai_radio/radio.liq`
@@ -416,8 +483,17 @@ icecast_password = ref("")
 # Read Icecast source password from secrets file
 def read_icecast_password() =
   result = list.hd(default="", process.read.lines("bash -c 'source /srv/ai_radio/.icecast_secrets && echo $ICECAST_SOURCE_PASSWORD'"))
+
+  # Validate password was successfully read
+  if result == "" then
+    log(level=1, "CRITICAL: Failed to read Icecast password from /srv/ai_radio/.icecast_secrets")
+    log(level=1, "CRITICAL: Ensure .icecast_secrets exists and ICECAST_SOURCE_PASSWORD is set")
+    # Exit with error - cannot continue without password
+    exit(1)
+  end
+
   icecast_password := result
-  log("Icecast password loaded")
+  log("Icecast password loaded successfully")
 end
 
 # Load password on startup
@@ -523,7 +599,63 @@ Expected: "No errors found" or no output (success)
 
 ---
 
-## Task 5: systemd Service Configuration
+## Task 6: Liquidsoap Wrapper Script (CRITICAL FIX)
+
+**Files:**
+- Create: `/srv/ai_radio/scripts/start-liquidsoap.sh`
+
+**Step 1: Create OPAM environment wrapper script**
+
+This wrapper is **CRITICAL** for systemd integration. Without it, Liquidsoap will fail to start because systemd doesn't load OPAM environment variables.
+
+Create file `/srv/ai_radio/scripts/start-liquidsoap.sh`:
+```bash
+#!/bin/bash
+set -euo pipefail
+
+# AI Radio Station - Liquidsoap Startup Wrapper
+# Initializes OPAM environment before starting Liquidsoap
+# CRITICAL: Required for systemd integration
+
+# Load OPAM environment variables
+eval $(opam env)
+
+# Verify Liquidsoap is available
+if ! command -v liquidsoap &> /dev/null; then
+    echo "ERROR: Liquidsoap not found after loading OPAM environment"
+    exit 1
+fi
+
+# Log startup
+echo "[$(date)] Starting Liquidsoap $(liquidsoap --version | head -1)"
+
+# Exec replaces the shell process, preserving proper signal handling for systemd
+exec liquidsoap /srv/ai_radio/radio.liq
+```
+
+Run:
+```bash
+sudo mkdir -p /srv/ai_radio/scripts
+sudo -u ai-radio tee /srv/ai_radio/scripts/start-liquidsoap.sh << 'EOF'
+[content above]
+EOF
+sudo chmod +x /srv/ai_radio/scripts/start-liquidsoap.sh
+```
+
+Expected: Wrapper script created and executable
+
+**Step 2: Test wrapper script manually**
+
+Run:
+```bash
+sudo -u ai-radio /srv/ai_radio/scripts/start-liquidsoap.sh --check
+```
+
+Expected: Liquidsoap version displayed (will exit quickly in check mode)
+
+---
+
+## Task 7: systemd Service Configuration
 
 **Files:**
 - Create: `/etc/systemd/system/ai-radio-icecast.service`
@@ -557,8 +689,12 @@ User=ai-radio
 Group=ai-radio
 WorkingDirectory=/srv/ai_radio
 
-# Load OPAM environment and run Liquidsoap
-ExecStart=/bin/bash -c 'eval $(opam env) && liquidsoap /srv/ai_radio/radio.liq'
+# Create /run/liquidsoap automatically (replaces tmpfiles.d approach)
+RuntimeDirectory=liquidsoap
+RuntimeDirectoryMode=0755
+
+# Use wrapper script that loads OPAM environment
+ExecStart=/srv/ai_radio/scripts/start-liquidsoap.sh
 
 # Restart on failure
 Restart=always
@@ -668,7 +804,7 @@ Expected: Log output showing "AI Radio Station started"
 
 ---
 
-## Task 6: Stream Verification
+## Task 8: Stream Verification
 
 **Files:**
 - None (verification only)
@@ -738,7 +874,7 @@ Expected: Audio playback (if ffplay available) or stream connection success
 
 ---
 
-## Task 7: Deployment Configuration (Proxmox + Tailscale + Cloudflared)
+## Task 9: Deployment Configuration (Proxmox + Tailscale + Cloudflared)
 
 **Files:**
 - Create: `/srv/ai_radio/deploy/cloud-init.yaml`
@@ -1043,7 +1179,7 @@ Expected: All deployment files present and executable
 
 ---
 
-## Task 8: Verification & Documentation
+## Task 10: Verification & Documentation
 
 **Files:**
 - Create: `/srv/ai_radio/docs/PHASE1_COMPLETE.md`
