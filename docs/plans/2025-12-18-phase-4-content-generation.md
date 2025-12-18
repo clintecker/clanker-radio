@@ -392,6 +392,7 @@ Fetches headlines from multiple RSS feeds
 """
 import logging
 from typing import Any
+import httpx
 import feedparser
 
 logger = logging.getLogger(__name__)
@@ -417,8 +418,13 @@ def fetch_news_headlines(
 
     for url in feed_urls:
         try:
-            # Parse RSS feed
-            feed = feedparser.parse(url)
+            # FIX: Fetch with explicit timeout before parsing
+            # feedparser.parse() doesn't have robust timeout handling
+            response = httpx.get(url, timeout=timeout, follow_redirects=True)
+            response.raise_for_status()
+
+            # Parse RSS feed from fetched content
+            feed = feedparser.parse(response.content)
 
             # Extract headlines from entries
             for entry in feed.entries[:max_headlines]:
@@ -1022,7 +1028,8 @@ def mix_voice_with_bed(
             f"afade=t=in:st=0:d={fade_duration},"  # Fade in bed
             f"afade=t=out:st={voice_duration - fade_duration}:d={fade_duration},"  # Fade out
             f"atrim=0:{voice_duration}[bed];"  # Trim to voice duration
-            "[0:a][bed]amix=inputs=2:duration=first:dropout_transition=2",  # Mix
+            # FIX: Add explicit weights to prevent voice attenuation
+            "[0:a][bed]amix=inputs=2:duration=first:dropout_transition=2:weights='1 1'",  # Mix
             "-ac", "2",  # Stereo
             "-ar", "44100",  # Sample rate
             str(output_path)
@@ -1216,7 +1223,7 @@ from .news import fetch_news_headlines, format_headlines_list
 from .bulletin import generate_bulletin_script
 from .tts import synthesize_speech
 from .audio_mixing import mix_voice_with_bed
-from .audio_processing import normalize_audio
+from .audio import normalize_audio  # FIX: Module name is 'audio' not 'audio_processing'
 
 logger = logging.getLogger(__name__)
 
@@ -1379,6 +1386,24 @@ def generate_break(
         # Move normalized file to final location (atomic)
         norm_path.rename(final_path)
 
+        # Step 8: SOW-mandated file rotation (Section 9)
+        # Liquidsoap fallback chain relies on next.mp3 and last_good.mp3
+        next_break = output_dir / "next.mp3"
+        last_good = output_dir / "last_good.mp3"
+
+        # Rotate: current next.mp3 → last_good.mp3
+        if next_break.exists():
+            if last_good.exists():
+                last_good.unlink()
+            next_break.rename(last_good)
+            logger.info(f"Rotated next.mp3 → last_good.mp3")
+
+        # Link new break as next.mp3
+        if next_break.exists():
+            next_break.unlink()
+        next_break.symlink_to(final_path.name)
+        logger.info(f"Updated next.mp3 → {final_path.name}")
+
         logger.info(f"Break generation complete: {final_path}")
         return final_path
 
@@ -1466,7 +1491,8 @@ def main():
     config = get_config()
 
     # Check if generation is needed
-    breaks_dir = Path("/srv/ai_radio/media/breaks")
+    # FIX: Use /assets/breaks per SOW Section 5 (not /media/breaks)
+    breaks_dir = Path("/srv/ai_radio/assets/breaks")
 
     if not should_generate_break(breaks_dir, config.break_freshness_minutes):
         logger.info("Break is still fresh, skipping generation")
