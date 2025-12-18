@@ -174,8 +174,12 @@ class LiquidsoapClient:
             response = self.send_command(f"{queue_name}.queue")
 
             # Parse response - format is typically a list of items
-            # Count non-empty lines
-            lines = [line.strip() for line in response.split('\n') if line.strip()]
+            # Count non-empty lines (filter out Liquidsoap protocol END marker)
+            lines = [
+                line.strip()
+                for line in response.split('\n')
+                if line.strip() and line.strip() != "END"
+            ]
             return len(lines)
 
         except ConnectionError as e:
@@ -537,10 +541,10 @@ RECENT_HISTORY_SIZE = 50  # Track last N played to avoid repetition
 
 def get_recently_played_ids(db_path: Path, count: int = RECENT_HISTORY_SIZE) -> list[str]:
     """
-    Get IDs of recently played tracks from a recent_plays table
+    Get IDs of recently played tracks from play_history table
 
-    Note: This assumes Phase 6 implements recent play tracking.
-    For Phase 5, we'll use a simple approach.
+    Note: Phase 6 implements the writing to play_history.
+    Phase 5 must be able to read it (even if empty initially).
 
     Args:
         db_path: Database path
@@ -549,9 +553,35 @@ def get_recently_played_ids(db_path: Path, count: int = RECENT_HISTORY_SIZE) -> 
     Returns:
         List of track IDs
     """
-    # TODO: Phase 6 will implement proper play history tracking
-    # For now, return empty list (no history)
-    return []
+    import sqlite3
+
+    try:
+        conn = sqlite3.connect(db_path)
+        cursor = conn.cursor()
+
+        # Fetch last N asset_ids from play_history (SOW Section 6)
+        cursor.execute(
+            """
+            SELECT asset_id
+            FROM play_history
+            ORDER BY played_at DESC
+            LIMIT ?
+            """,
+            (count,)
+        )
+
+        ids = [row[0] for row in cursor.fetchall()]
+        conn.close()
+
+        logger.info(f"Loaded {len(ids)} recently played IDs for anti-repetition")
+        return ids
+
+    except sqlite3.Error as e:
+        logger.warning(f"Failed to fetch play history: {e}")
+        return []  # Graceful degradation
+    except Exception as e:
+        logger.error(f"Unexpected error fetching history: {e}")
+        return []
 
 
 def main():
@@ -710,6 +740,12 @@ def main():
 
     logger.info("Near top of hour, scheduling break...")
 
+    # Check if break already queued (prevent double-scheduling)
+    client = LiquidsoapClient()
+    if client.get_queue_length(QUEUE_NAME) > 0:
+        logger.info("Break already queued, skipping")
+        sys.exit(0)
+
     # Find next.mp3 (SOW-mandated file)
     next_break = BREAKS_DIR / "next.mp3"
 
@@ -726,8 +762,6 @@ def main():
             sys.exit(1)
 
     # Push to Liquidsoap break queue
-    client = LiquidsoapClient()
-
     if client.push_track(QUEUE_NAME, next_break):
         logger.info(f"Break scheduled: {next_break}")
         sys.exit(0)
@@ -798,6 +832,9 @@ User=ai-radio
 Group=ai-radio
 WorkingDirectory=/srv/ai_radio
 
+# Set PYTHONPATH so Python can find ai_radio package
+Environment="PYTHONPATH=/srv/ai_radio/src"
+
 ExecStart=/srv/ai_radio/.venv/bin/python /srv/ai_radio/scripts/enqueue_music.py
 
 StandardOutput=journal
@@ -865,6 +902,9 @@ User=ai-radio
 Group=ai-radio
 WorkingDirectory=/srv/ai_radio
 
+# Set PYTHONPATH so Python can find ai_radio package
+Environment="PYTHONPATH=/srv/ai_radio/src"
+
 ExecStart=/srv/ai_radio/.venv/bin/python /srv/ai_radio/scripts/schedule_break.py
 
 StandardOutput=journal
@@ -896,9 +936,10 @@ Description=AI Radio Station - Break Scheduler Timer
 Requires=ai-radio-break-scheduler.service
 
 [Timer]
-# Run every 5 minutes (checks if near top of hour)
-OnBootSec=2min
-OnUnitActiveSec=5min
+# Run every 5 minutes aligned to wall clock (00, 05, 10, 15, 20...)
+# CRITICAL: Must use OnCalendar for deterministic wall-clock timing
+# to ensure timer triggers during the 0-5 minute window
+OnCalendar=*:0/5
 
 Persistent=true
 
