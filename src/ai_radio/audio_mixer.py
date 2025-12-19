@@ -1,0 +1,207 @@
+"""Audio mixing with background beds and ducking.
+
+Combines TTS voice audio with background music beds using ffmpeg.
+Applies sidechain compression (ducking) to reduce bed volume during speech.
+Normalizes output to EBU R128 broadcast standard (-18 LUFS, -1.0 dBTP).
+"""
+
+import logging
+import subprocess
+from dataclasses import dataclass
+from datetime import datetime
+from pathlib import Path
+from typing import Optional
+
+from .config import config
+
+logger = logging.getLogger(__name__)
+
+
+@dataclass
+class MixedAudio:
+    """Mixed audio file with metadata."""
+
+    file_path: Path  # Output mixed audio file
+    duration: float  # Duration in seconds
+    timestamp: datetime
+    voice_file: Path  # Source voice file
+    bed_file: Path  # Source bed file
+    bed_volume_db: float  # Bed volume in dB
+    normalized: bool  # Whether loudness normalization was applied
+
+
+class AudioMixer:
+    """Audio mixer with ducking and normalization.
+
+    Combines voice audio with background music beds, applies sidechain
+    compression (ducking) to reduce bed volume during speech, and
+    normalizes to broadcast loudness standards.
+    """
+
+    def __init__(self):
+        """Initialize audio mixer with config settings."""
+        self.bed_volume_db = config.bed_volume_db
+        self.target_lufs = -18.0  # EBU R128 standard
+        self.true_peak_limit = -1.0  # True peak ceiling
+
+    def get_audio_duration(self, audio_path: Path) -> Optional[float]:
+        """Get duration of audio file in seconds using ffprobe.
+
+        Args:
+            audio_path: Path to audio file
+
+        Returns:
+            Duration in seconds, or None if unable to determine
+        """
+        if not audio_path.exists():
+            logger.error(f"Audio file not found: {audio_path}")
+            return None
+
+        try:
+            result = subprocess.run(
+                [
+                    "ffprobe",
+                    "-v", "error",
+                    "-show_entries", "format=duration",
+                    "-of", "default=noprint_wrappers=1:nokey=1",
+                    str(audio_path),
+                ],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+
+            if result.returncode != 0:
+                logger.error(f"ffprobe failed: {result.stderr}")
+                return None
+
+            duration = float(result.stdout.strip())
+            return duration
+
+        except (ValueError, subprocess.SubprocessError) as e:
+            logger.error(f"Failed to get audio duration: {e}")
+            return None
+
+    def mix_with_bed(
+        self,
+        voice_path: Path,
+        bed_path: Path,
+        output_path: Path,
+        bed_volume_db: Optional[float] = None,
+    ) -> Optional[MixedAudio]:
+        """Mix voice audio with background bed using ducking.
+
+        Applies sidechain compression to duck the bed when voice is present,
+        then normalizes the final mix to EBU R128 broadcast standard.
+
+        Args:
+            voice_path: Path to voice audio file (TTS output)
+            bed_path: Path to background bed music file
+            output_path: Path for mixed output file
+            bed_volume_db: Bed volume in dB (default: from config)
+
+        Returns:
+            MixedAudio with metadata, or None if mixing fails
+        """
+        # Validate inputs
+        if not voice_path.exists():
+            logger.error(f"Voice file not found: {voice_path}")
+            return None
+
+        if not bed_path.exists():
+            logger.error(f"Bed file not found: {bed_path}")
+            return None
+
+        # Get voice duration to trim bed
+        voice_duration = self.get_audio_duration(voice_path)
+        if voice_duration is None:
+            logger.error("Cannot determine voice duration")
+            return None
+
+        # Use configured bed volume if not specified
+        if bed_volume_db is None:
+            bed_volume_db = self.bed_volume_db
+
+        try:
+            # Build ffmpeg filter complex for mixing with ducking
+            # [0:a] = voice (main input)
+            # [1:a] = bed (sidechain input)
+            #
+            # Process:
+            # 1. Trim bed to voice duration
+            # 2. Apply volume to bed
+            # 3. Apply sidechain compression (ducking) using voice as trigger
+            # 4. Mix voice and ducked bed
+            # 5. Normalize to EBU R128 standard
+            filter_complex = (
+                f"[1:a]atrim=duration={voice_duration},volume={bed_volume_db}dB[bed];"
+                f"[bed][0:a]sidechaincompress=threshold=0.02:ratio=3:attack=5:release=200[ducked];"
+                f"[0:a][ducked]amix=inputs=2:duration=first[mixed];"
+                f"[mixed]loudnorm=I={self.target_lufs}:TP={self.true_peak_limit}:LRA=11[normalized]"
+            )
+
+            # Ensure output directory exists
+            output_path.parent.mkdir(parents=True, exist_ok=True)
+
+            # Run ffmpeg
+            cmd = [
+                "ffmpeg",
+                "-y",  # Overwrite output file
+                "-i", str(voice_path),  # Input 0: voice
+                "-i", str(bed_path),  # Input 1: bed
+                "-filter_complex", filter_complex,
+                "-map", "[normalized]",
+                "-c:a", "libmp3lame",
+                "-q:a", "2",  # High quality MP3
+                str(output_path),
+            ]
+
+            logger.info(f"Mixing audio: {voice_path.name} + {bed_path.name}")
+
+            result = subprocess.run(
+                cmd,
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+
+            if result.returncode != 0:
+                logger.error(f"ffmpeg mixing failed: {result.stderr}")
+                return None
+
+            logger.info(f"Mixed audio saved: {output_path}")
+
+            return MixedAudio(
+                file_path=output_path,
+                duration=voice_duration,
+                timestamp=datetime.now(),
+                voice_file=voice_path,
+                bed_file=bed_path,
+                bed_volume_db=bed_volume_db,
+                normalized=True,
+            )
+
+        except subprocess.SubprocessError as e:
+            logger.error(f"Audio mixing failed: {e}")
+            return None
+
+
+def mix_voice_with_bed(
+    voice_path: Path,
+    bed_path: Path,
+    output_path: Path,
+    bed_volume_db: Optional[float] = None,
+) -> Optional[MixedAudio]:
+    """Convenience function to mix voice with background bed.
+
+    Args:
+        voice_path: Path to voice audio
+        bed_path: Path to background bed
+        output_path: Path for output
+        bed_volume_db: Optional bed volume override
+
+    Returns:
+        MixedAudio or None if mixing fails
+    """
+    mixer = AudioMixer()
+    return mixer.mix_with_bed(voice_path, bed_path, output_path, bed_volume_db)
