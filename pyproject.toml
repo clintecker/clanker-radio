@@ -4,6 +4,7 @@ version = "0.1.0"
 description = "Add your description here"
 requires-python = ">=3.11"
 dependencies = [
+    "feedparser>=6.0.12",
     "ffmpeg-normalize>=1.36.0",
     "httpx>=0.28.1",
     "mutagen>=1.47.0",
