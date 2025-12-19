@@ -1,0 +1,20 @@
+[Unit]
+Description=AI Radio Break Generation Timer
+Documentation=https://github.com/clintecker/clanker-radio
+Requires=generate-break.service
+
+[Timer]
+# Run every 50 minutes (matches break_freshness_minutes config)
+OnCalendar=*:00,50:00
+
+# Run immediately if system was off during scheduled time
+Persistent=true
+
+# Randomize start time by up to 2 minutes to avoid precise timing patterns
+RandomizedDelaySec=120
+
+# Start timer immediately on system boot (with random delay)
+OnBootSec=5min
+
+[Install]
+WantedBy=timers.target

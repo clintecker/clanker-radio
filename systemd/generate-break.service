@@ -1,0 +1,39 @@
+[Unit]
+Description=AI Radio Break Generation
+Documentation=https://github.com/clintecker/clanker-radio
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=radio
+Group=radio
+WorkingDirectory=/srv/ai_radio
+
+# Execute break generation script
+ExecStart=/usr/bin/python3 /srv/ai_radio/scripts/generate_break.py
+
+# Environment
+Environment="PYTHONUNBUFFERED=1"
+Environment="PATH=/usr/local/bin:/usr/bin:/bin"
+EnvironmentFile=-/srv/ai_radio/.env
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=generate-break
+
+# Security
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/srv/ai_radio/assets/breaks /srv/ai_radio/tmp /srv/ai_radio/logs
+
+# Resource limits
+MemoryMax=1G
+CPUQuota=50%
+TimeoutSec=300
+
+[Install]
+WantedBy=multi-user.target
