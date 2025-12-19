@@ -5,6 +5,7 @@ description = "Add your description here"
 requires-python = ">=3.11"
 dependencies = [
     "ffmpeg-normalize>=1.36.0",
+    "httpx>=0.28.1",
     "mutagen>=1.47.0",
     "pydantic>=2.12.5",
     "pydantic-settings>=2.12.0",
