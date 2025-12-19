@@ -18,6 +18,37 @@ from .weather import WeatherData
 logger = logging.getLogger(__name__)
 
 
+def _generate_fallback_script(
+    weather: Optional["WeatherData"], news: Optional["NewsData"]
+) -> str:
+    """Generate simple template-based fallback script when LLM fails.
+
+    Args:
+        weather: Weather data to include
+        news: News data to include
+
+    Returns:
+        Simple formatted bulletin script
+    """
+    parts = ["This is your AI Radio Station update."]
+
+    if weather:
+        parts.append(
+            f"The current weather is {weather.temperature} degrees and {weather.conditions}."
+        )
+        if weather.forecast_short:
+            parts.append(weather.forecast_short[:100])
+
+    if news and news.headlines:
+        parts.append("In the news today:")
+        for headline in news.headlines[:2]:
+            parts.append(f"{headline.title}.")
+
+    parts.append("Stay tuned for more updates.")
+
+    return " ".join(parts)
+
+
 @dataclass
 class BulletinScript:
     """Generated radio bulletin script with metadata."""
@@ -55,7 +86,7 @@ Guidelines:
             raise ValueError("RADIO_LLM_API_KEY not configured")
 
         self.client = Anthropic(api_key=self.api_key)
-        self.model = "claude-3-5-sonnet-20241022"
+        self.model = config.llm_model
         self.max_tokens = 512
 
     def generate_bulletin(
@@ -105,8 +136,15 @@ Guidelines:
             )
 
         except APIError as e:
-            logger.error(f"Claude API error: {e}")
-            return None
+            logger.error(f"Claude API error: {e}. Generating fallback script.")
+            fallback_text = _generate_fallback_script(weather, news)
+            return BulletinScript(
+                script_text=fallback_text,
+                word_count=len(fallback_text.split()),
+                timestamp=datetime.now(),
+                includes_weather=weather is not None,
+                includes_news=news is not None,
+            )
         except Exception as e:
             logger.error(f"Bulletin generation failed: {e}")
             return None

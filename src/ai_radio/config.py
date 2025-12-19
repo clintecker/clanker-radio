@@ -40,6 +40,10 @@ class RadioConfig(BaseSettings):
 
     # API keys (required for production, optional for testing)
     llm_api_key: Optional[str] = Field(default=None)
+    llm_model: str = Field(
+        default="claude-3-5-sonnet-20241022",
+        description="Claude model for bulletin script generation"
+    )
     tts_api_key: Optional[str] = Field(default=None)
 
     # Phase 4: Content Generation Settings

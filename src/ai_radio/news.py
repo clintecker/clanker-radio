@@ -10,6 +10,7 @@ from datetime import datetime
 from typing import Optional
 
 import feedparser
+import httpx
 
 from .config import config
 
@@ -46,7 +47,8 @@ class RSSNewsClient:
         """Initialize RSS client with configured feeds."""
         self.feed_urls = config.news_rss_feeds
         self.max_headlines_per_feed = 5
-        self.timeout = 10
+        self.timeout = 10.0
+        self.user_agent = "AIRadioStation/1.0 (https://radio.clintecker.com)"
 
     def fetch_headlines(self) -> Optional[NewsData]:
         """Fetch recent headlines from all configured RSS feeds.
@@ -61,9 +63,16 @@ class RSSNewsClient:
             try:
                 logger.info(f"Fetching RSS feed: {feed_url}")
 
-                # Set timeout in feedparser via custom headers
-                # Note: feedparser doesn't directly support timeout, but we set it for requests
-                feed = feedparser.parse(feed_url)
+                # Fetch with explicit timeout using httpx
+                with httpx.Client(timeout=self.timeout, follow_redirects=True) as client:
+                    response = client.get(
+                        feed_url,
+                        headers={"User-Agent": self.user_agent}
+                    )
+                    response.raise_for_status()
+
+                # Parse the fetched content
+                feed = feedparser.parse(response.content)
 
                 if feed.bozo:
                     # Feed has parsing errors

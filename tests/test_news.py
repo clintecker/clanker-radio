@@ -13,6 +13,7 @@ from datetime import datetime
 from unittest.mock import Mock, patch
 from time import struct_time
 
+import httpx
 import pytest
 
 from ai_radio.news import RSSNewsClient, NewsData, NewsHeadline, get_news
@@ -71,27 +72,29 @@ class TestRSSNewsClient:
         """fetch_headlines should aggregate headlines from multiple feeds."""
         client = RSSNewsClient()
 
-        def mock_parse_side_effect(url):
+        def mock_get_side_effect(url, headers):
             if "npr" in url:
-                mock_feed = Mock()
-                mock_feed.bozo = False
-                mock_feed.feed = {"title": "NPR News"}
-                mock_feed.entries = [
-                    {"title": "NPR Story 1", "link": "https://npr.org/1", "published_parsed": None}
-                ]
-                return mock_feed
+                mock_response = Mock()
+                mock_response.raise_for_status = Mock()
+                mock_response.content = b"""<?xml version="1.0"?>
+                    <rss><channel><title>NPR News</title>
+                    <item><title>NPR Story 1</title><link>https://npr.org/1</link></item>
+                    </channel></rss>"""
+                return mock_response
             elif "tribune" in url:
-                mock_feed = Mock()
-                mock_feed.bozo = False
-                mock_feed.feed = {"title": "Chicago Tribune"}
-                mock_feed.entries = [
-                    {"title": "Tribune Story 1", "link": "https://tribune.com/1", "published_parsed": None}
-                ]
-                return mock_feed
+                mock_response = Mock()
+                mock_response.raise_for_status = Mock()
+                mock_response.content = b"""<?xml version="1.0"?>
+                    <rss><channel><title>Chicago Tribune</title>
+                    <item><title>Tribune Story 1</title><link>https://tribune.com/1</link></item>
+                    </channel></rss>"""
+                return mock_response
             return Mock(bozo=True, entries=[])
 
-        with patch("feedparser.parse") as mock_parse:
-            mock_parse.side_effect = mock_parse_side_effect
+        with patch("httpx.Client") as mock_client_class:
+            mock_client = Mock()
+            mock_client.get = Mock(side_effect=mock_get_side_effect)
+            mock_client_class.return_value.__enter__.return_value = mock_client
 
             news = client.fetch_headlines()
 
@@ -130,25 +133,28 @@ class TestRSSNewsClient:
         """fetch_headlines should skip feeds with parsing errors."""
         client = RSSNewsClient()
 
-        def mock_parse_side_effect(url):
+        def mock_get_side_effect(url, headers):
             if "npr" in url:
-                # First feed has parsing error
-                mock_feed = Mock()
-                mock_feed.bozo = True
-                mock_feed.bozo_exception = Exception("Parse error")
-                mock_feed.entries = []
-                return mock_feed
+                # First feed returns malformed XML that causes parsing error
+                mock_response = Mock()
+                mock_response.raise_for_status = Mock()
+                mock_response.content = b"<invalid xml>"
+                return mock_response
             elif "tribune" in url:
                 # Second feed succeeds
-                mock_feed = Mock()
-                mock_feed.bozo = False
-                mock_feed.feed = {"title": "Working Feed"}
-                mock_feed.entries = [{"title": "Valid Story", "link": "https://example.com/1", "published_parsed": None}]
-                return mock_feed
-            return Mock(bozo=True, entries=[])
+                mock_response = Mock()
+                mock_response.raise_for_status = Mock()
+                mock_response.content = b"""<?xml version="1.0"?>
+                    <rss><channel><title>Working Feed</title>
+                    <item><title>Valid Story</title><link>https://example.com/1</link></item>
+                    </channel></rss>"""
+                return mock_response
+            return Mock()
 
-        with patch("feedparser.parse") as mock_parse:
-            mock_parse.side_effect = mock_parse_side_effect
+        with patch("httpx.Client") as mock_client_class:
+            mock_client = Mock()
+            mock_client.get = Mock(side_effect=mock_get_side_effect)
+            mock_client_class.return_value.__enter__.return_value = mock_client
 
             news = client.fetch_headlines()
 
@@ -161,25 +167,29 @@ class TestRSSNewsClient:
         """fetch_headlines should skip feeds with no entries."""
         client = RSSNewsClient()
 
-        def mock_parse_side_effect(url):
+        def mock_get_side_effect(url, headers):
             if "npr" in url:
-                # First feed is empty
-                mock_feed = Mock()
-                mock_feed.bozo = False
-                mock_feed.feed = {"title": "Empty Feed"}
-                mock_feed.entries = []
-                return mock_feed
+                # First feed is empty (no items)
+                mock_response = Mock()
+                mock_response.raise_for_status = Mock()
+                mock_response.content = b"""<?xml version="1.0"?>
+                    <rss><channel><title>Empty Feed</title></channel></rss>"""
+                return mock_response
             elif "tribune" in url:
                 # Second feed has content
-                mock_feed = Mock()
-                mock_feed.bozo = False
-                mock_feed.feed = {"title": "Working Feed"}
-                mock_feed.entries = [{"title": "Valid Story", "link": "https://example.com/1", "published_parsed": None}]
-                return mock_feed
-            return Mock(bozo=True, entries=[])
+                mock_response = Mock()
+                mock_response.raise_for_status = Mock()
+                mock_response.content = b"""<?xml version="1.0"?>
+                    <rss><channel><title>Working Feed</title>
+                    <item><title>Valid Story</title><link>https://example.com/1</link></item>
+                    </channel></rss>"""
+                return mock_response
+            return Mock()
 
-        with patch("feedparser.parse") as mock_parse:
-            mock_parse.side_effect = mock_parse_side_effect
+        with patch("httpx.Client") as mock_client_class:
+            mock_client = Mock()
+            mock_client.get = Mock(side_effect=mock_get_side_effect)
+            mock_client_class.return_value.__enter__.return_value = mock_client
 
             news = client.fetch_headlines()
 
@@ -252,6 +262,36 @@ class TestRSSNewsClient:
             assert news.headlines[1].link == ""
             assert news.headlines[2].title == "Another Title"
             assert news.headlines[2].link == ""
+
+    def test_fetch_headlines_network_timeout(self):
+        """fetch_headlines should handle network timeouts gracefully."""
+        client = RSSNewsClient()
+
+        # Mock httpx to simulate timeout on first feed, success on second
+        def mock_get_side_effect(url, headers):
+            if "npr" in url:
+                raise httpx.TimeoutException("Request timed out")
+            # Second feed returns valid RSS XML
+            mock_response = Mock()
+            mock_response.raise_for_status = Mock()
+            mock_response.content = b"""<?xml version="1.0"?>
+                <rss><channel><title>Tribune</title>
+                <item><title>Tribune Story</title><link>https://example.com/1</link></item>
+                </channel></rss>"""
+            return mock_response
+
+        with patch("httpx.Client") as mock_client_class:
+            mock_client = Mock()
+            mock_client.get = Mock(side_effect=mock_get_side_effect)
+            mock_client_class.return_value.__enter__.return_value = mock_client
+
+            news = client.fetch_headlines()
+
+            # Should still succeed with data from the second feed
+            assert news is not None
+            assert len(news.headlines) == 1
+            assert news.headlines[0].title == "Tribune Story"
+            assert news.source_count == 1  # Only one feed succeeded
 
 
 class TestGetNewsConvenience:
