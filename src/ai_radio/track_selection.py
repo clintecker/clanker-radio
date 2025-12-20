@@ -15,7 +15,8 @@ def select_next_tracks(
     db_path: Path,
     count: int = 10,
     recently_played_ids: list[str] | None = None,
-    energy_preference: str | None = None
+    energy_preference: str | None = None,
+    conn: sqlite3.Connection | None = None
 ) -> list[dict[str, Any]]:
     """
     Select next tracks from database using energy-aware logic
@@ -25,6 +26,7 @@ def select_next_tracks(
         count: Number of tracks to select
         recently_played_ids: IDs to exclude (anti-repetition)
         energy_preference: "high", "medium", "low", or None for mixed
+        conn: Optional existing database connection (for efficiency)
 
     Returns:
         List of track dictionaries with id, path, title, artist, energy_level
@@ -32,8 +34,13 @@ def select_next_tracks(
     if recently_played_ids is None:
         recently_played_ids = []
 
-    try:
+    # Manage connection lifecycle
+    close_conn = False
+    if conn is None:
         conn = sqlite3.connect(db_path)
+        close_conn = True
+
+    try:
         conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
 
@@ -65,7 +72,6 @@ def select_next_tracks(
         cursor.execute(query, params)
 
         rows = cursor.fetchall()
-        conn.close()
 
         tracks = [dict(row) for row in rows]
         logger.info(f"Selected {len(tracks)} tracks (energy: {energy_preference or 'mixed'})")
@@ -79,6 +85,10 @@ def select_next_tracks(
     except Exception as e:
         logger.error(f"Unexpected error selecting tracks: {e}")
         return []
+
+    finally:
+        if close_conn:
+            conn.close()
 
 
 def build_energy_flow(

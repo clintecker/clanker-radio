@@ -35,6 +35,7 @@ class LiquidsoapClient:
         if not self.socket_path.exists():
             raise ConnectionError(f"Liquidsoap socket not found: {self.socket_path}")
 
+        sock = None
         try:
             sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
             sock.settimeout(timeout)
@@ -45,8 +46,6 @@ class LiquidsoapClient:
 
             # Read response (up to 64KB)
             response = sock.recv(65536).decode().strip()
-
-            sock.close()
             return response
 
         except socket.timeout:
@@ -56,6 +55,10 @@ class LiquidsoapClient:
         except Exception as e:
             logger.error(f"Failed to communicate with Liquidsoap: {e}")
             raise ConnectionError(f"Liquidsoap communication error: {e}")
+
+        finally:
+            if sock:
+                sock.close()
 
     def get_queue_length(self, queue_name: str) -> int:
         """

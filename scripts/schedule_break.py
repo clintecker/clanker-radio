@@ -57,12 +57,18 @@ def main():
             logger.error("No breaks available (neither next.mp3 nor last_good.mp3)")
             sys.exit(1)
 
+    # Final existence check to minimize TOCTOU race window
+    # (file could still be deleted after this check, but push_track will handle gracefully)
+    if not next_break.exists():
+        logger.error(f"Break file disappeared before push: {next_break}")
+        sys.exit(1)
+
     # Push to Liquidsoap break queue
     if client.push_track(QUEUE_NAME, str(next_break)):
         logger.info(f"Break scheduled: {next_break}")
         sys.exit(0)
     else:
-        logger.error("Failed to schedule break")
+        logger.error(f"Failed to schedule break: {next_break}")
         sys.exit(1)
 
 

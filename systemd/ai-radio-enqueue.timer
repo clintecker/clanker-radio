@@ -3,9 +3,10 @@ Description=AI Radio Station - Music Enqueue Timer
 Requires=ai-radio-enqueue.service
 
 [Timer]
-# Run every 5 minutes
+# Run every 5 minutes, aligned to wall clock
+# CRITICAL: Use OnCalendar for deterministic timing without drift
 OnBootSec=1min
-OnUnitActiveSec=5min
+OnCalendar=*:0/5
 
 Persistent=true
 

@@ -1,38 +1,113 @@
 """Tests for Liquidsoap Unix socket client"""
+import socket
+from pathlib import Path
+from unittest.mock import Mock, patch, MagicMock
 import pytest
 from ai_radio.liquidsoap_client import LiquidsoapClient
 
 
-def test_liquidsoap_client_send_command():
-    """Test sending command to Liquidsoap"""
+def test_liquidsoap_client_send_command_success():
+    """Test successful command sending to Liquidsoap"""
     client = LiquidsoapClient()
 
-    # This will fail if Liquidsoap not running, but tests interface
-    try:
-        response = client.send_command("help")
-        assert isinstance(response, str)
-    except ConnectionError:
-        # Expected if Liquidsoap not running in test environment
-        pass
+    with patch('socket.socket') as mock_socket_class:
+        mock_sock = MagicMock()
+        mock_socket_class.return_value = mock_sock
+        mock_sock.recv.return_value = b"OK\nEND\n"
+
+        with patch.object(Path, 'exists', return_value=True):
+            response = client.send_command("help")
+
+        assert response == "OK\nEND"
+        mock_sock.connect.assert_called_once()
+        mock_sock.sendall.assert_called_once_with(b"help\n")
+        mock_sock.close.assert_called_once()
 
 
-def test_liquidsoap_client_get_queue_length():
-    """Test getting queue length"""
+def test_liquidsoap_client_send_command_timeout():
+    """Test socket timeout handling"""
     client = LiquidsoapClient()
 
-    # get_queue_length catches ConnectionError and returns -1
-    length = client.get_queue_length("music")
-    assert isinstance(length, int)
-    # -1 indicates error (Liquidsoap not running), >= 0 is valid queue length
-    assert length >= -1
+    with patch('socket.socket') as mock_socket_class:
+        mock_sock = MagicMock()
+        mock_socket_class.return_value = mock_sock
+        mock_sock.recv.side_effect = socket.timeout()
+
+        with patch.object(Path, 'exists', return_value=True):
+            with pytest.raises(ConnectionError, match="timeout"):
+                client.send_command("help")
+
+        # Socket should still be closed via finally block
+        mock_sock.close.assert_called_once()
 
 
-def test_liquidsoap_client_push_track():
-    """Test pushing track to queue"""
+def test_liquidsoap_client_send_command_socket_not_found():
+    """Test error when socket file doesn't exist"""
     client = LiquidsoapClient()
 
-    try:
-        result = client.push_track("music", "/srv/ai_radio/assets/music/test.mp3")
-        assert isinstance(result, bool)
-    except ConnectionError:
-        pass
+    with patch.object(Path, 'exists', return_value=False):
+        with pytest.raises(ConnectionError, match="not found"):
+            client.send_command("help")
+
+
+def test_liquidsoap_client_get_queue_length_success():
+    """Test getting queue length with valid response"""
+    client = LiquidsoapClient()
+
+    # Simulate Liquidsoap response with 3 tracks
+    mock_response = "track1.mp3\ntrack2.mp3\ntrack3.mp3\nEND\n"
+
+    with patch.object(client, 'send_command', return_value=mock_response):
+        length = client.get_queue_length("music")
+
+    assert length == 3
+
+
+def test_liquidsoap_client_get_queue_length_empty():
+    """Test getting queue length for empty queue"""
+    client = LiquidsoapClient()
+
+    with patch.object(client, 'send_command', return_value="END\n"):
+        length = client.get_queue_length("music")
+
+    assert length == 0
+
+
+def test_liquidsoap_client_get_queue_length_connection_error():
+    """Test get_queue_length returns -1 on connection error"""
+    client = LiquidsoapClient()
+
+    with patch.object(client, 'send_command', side_effect=ConnectionError("test")):
+        length = client.get_queue_length("music")
+
+    assert length == -1
+
+
+def test_liquidsoap_client_push_track_success():
+    """Test successfully pushing track to queue"""
+    client = LiquidsoapClient()
+
+    with patch.object(client, 'send_command', return_value="OK"):
+        result = client.push_track("music", "/path/to/track.mp3")
+
+    assert result is True
+
+
+def test_liquidsoap_client_push_track_error():
+    """Test push_track returns False on error response"""
+    client = LiquidsoapClient()
+
+    with patch.object(client, 'send_command', return_value="ERROR: invalid file"):
+        result = client.push_track("music", "/path/to/track.mp3")
+
+    assert result is False
+
+
+def test_liquidsoap_client_push_track_connection_error():
+    """Test push_track returns False on connection error"""
+    client = LiquidsoapClient()
+
+    with patch.object(client, 'send_command', side_effect=ConnectionError("test")):
+        result = client.push_track("music", "/path/to/track.mp3")
+
+    assert result is False

@@ -4,6 +4,7 @@ AI Radio Station - Music Enqueue Service
 Maintains music queue depth by selecting and pushing tracks to Liquidsoap
 """
 import logging
+import sqlite3
 import sys
 from pathlib import Path
 
@@ -40,8 +41,6 @@ def get_recently_played_ids(db_path: Path, count: int = RECENT_HISTORY_SIZE) -> 
     Returns:
         List of track IDs
     """
-    import sqlite3
-
     try:
         conn = sqlite3.connect(db_path)
         cursor = conn.cursor()
@@ -101,18 +100,29 @@ def main():
         # Build energy flow pattern
         energy_flow = build_energy_flow(tracks_needed, pattern="wave")
 
+        # Open database connection once for all selections
+        conn = sqlite3.connect(config.db_path)
+
         # Select tracks with energy awareness
+        # Use set for efficient exclusion (O(1) lookups instead of O(n))
         all_tracks = []
+        exclusion_ids = set(recently_played)
+
         for energy_pref in energy_flow:
             tracks = select_next_tracks(
                 db_path=config.db_path,
                 count=1,
-                recently_played_ids=recently_played + [t['id'] for t in all_tracks],
-                energy_preference=energy_pref
+                recently_played_ids=list(exclusion_ids),
+                energy_preference=energy_pref,
+                conn=conn
             )
 
             if tracks:
-                all_tracks.extend(tracks)
+                track = tracks[0]
+                all_tracks.append(track)
+                exclusion_ids.add(track['id'])
+
+        conn.close()
 
         if not all_tracks:
             logger.error("No tracks available to enqueue")
@@ -121,11 +131,17 @@ def main():
         # Push tracks to Liquidsoap
         success_count = 0
         for track in all_tracks:
-            if client.push_track(QUEUE_NAME, track['path']):
+            # Validate file exists before pushing
+            track_path = Path(track['path'])
+            if not track_path.exists():
+                logger.warning(f"  - Skipping non-existent track: {track_path}")
+                continue
+
+            if client.push_track(QUEUE_NAME, str(track_path)):
                 success_count += 1
                 logger.info(f"  ✓ Enqueued: {track.get('title', 'Unknown')} by {track.get('artist', 'Unknown')}")
             else:
-                logger.error(f"  ✗ Failed to enqueue: {track['path']}")
+                logger.error(f"  ✗ Failed to enqueue: {track_path}")
 
         logger.info(f"Enqueued {success_count}/{len(all_tracks)} tracks")
 
