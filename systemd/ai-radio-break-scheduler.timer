@@ -1,0 +1,14 @@
+[Unit]
+Description=AI Radio Station - Break Scheduler Timer
+Requires=ai-radio-break-scheduler.service
+
+[Timer]
+# Run every 5 minutes aligned to wall clock (00, 05, 10, 15, 20...)
+# CRITICAL: Must use OnCalendar for deterministic wall-clock timing
+# to ensure timer triggers during the 0-5 minute window
+OnCalendar=*:0/5
+
+Persistent=true
+
+[Install]
+WantedBy=timers.target

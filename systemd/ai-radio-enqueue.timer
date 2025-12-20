@@ -1,0 +1,13 @@
+[Unit]
+Description=AI Radio Station - Music Enqueue Timer
+Requires=ai-radio-enqueue.service
+
+[Timer]
+# Run every 5 minutes
+OnBootSec=1min
+OnUnitActiveSec=5min
+
+Persistent=true
+
+[Install]
+WantedBy=timers.target

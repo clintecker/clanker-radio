@@ -1,11 +1,18 @@
 # Systemd Unit Files
 
-Automatic break generation scheduling using systemd timers.
+Automatic services for AI Radio Station operation.
 
-## Files
+## Phase 4: Content Generation
 
 - `generate-break.service` - Oneshot service that runs break generation script
 - `generate-break.timer` - Timer that triggers service every 50 minutes
+
+## Phase 5: Scheduling & Orchestration
+
+- `ai-radio-enqueue.service` - Music queue management service
+- `ai-radio-enqueue.timer` - Run every 5 minutes (maintains queue depth)
+- `ai-radio-break-scheduler.service` - Break scheduling service
+- `ai-radio-break-scheduler.timer` - Run every 5 minutes (on :00, :05, :10, etc.)
 
 ## Installation
 
