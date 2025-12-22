@@ -86,6 +86,8 @@ assets/**/*
 
 # Database files
 db/
+!db/migrations/
+!db/migrations/**
 *.db
 *.db-shm
 *.db-wal

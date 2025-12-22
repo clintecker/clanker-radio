@@ -6,6 +6,7 @@ track boundary at :15, :30, and :45 minutes past each hour.
 """
 import logging
 import random
+import sqlite3
 import sys
 from datetime import datetime
 from pathlib import Path
@@ -23,40 +24,65 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 STATION_ID_TIMES = [15, 30, 45]  # Minutes when station IDs should play
-TIME_WINDOW = 2  # Minutes before target time to start scheduling
-STATE_FILE = config.state_path / "last_station_id_scheduled.txt"
 
 
-def should_schedule_station_id() -> tuple[bool, int | None]:
+def get_scheduler_state(conn: sqlite3.Connection, key: str) -> str | None:
+    """Get scheduler state from database."""
+    cursor = conn.cursor()
+    cursor.execute("SELECT value FROM scheduler_state WHERE key = ?", (key,))
+    row = cursor.fetchone()
+    return row[0] if row else None
+
+
+def set_scheduler_state(conn: sqlite3.Connection, key: str, value: str) -> None:
+    """Set scheduler state in database."""
+    cursor = conn.cursor()
+    now = datetime.now(ZoneInfo(config.station_tz)).isoformat()
+    cursor.execute(
+        """INSERT INTO scheduler_state (key, value, updated_at)
+           VALUES (?, ?, ?)
+           ON CONFLICT(key) DO UPDATE SET value=?, updated_at=?""",
+        (key, value, now, value, now)
+    )
+    conn.commit()
+
+
+def should_schedule_station_id(conn: sqlite3.Connection) -> tuple[bool, int | None]:
     """Check if we should schedule a station ID now.
+
+    Schedules during the minute before target time (e.g., during minute :14 for :15 target).
+    Uses database state to prevent duplicate scheduling across hour boundaries.
+
+    Args:
+        conn: Database connection
 
     Returns:
         (should_schedule, target_minute): Whether to schedule and which minute target
     """
     now = datetime.now(ZoneInfo(config.station_tz))
     current_minute = now.minute
+    current_hour = now.hour
 
-    # Find the next target minute
+    # Check if we're in a scheduling window (one minute before any target)
     for target in STATION_ID_TIMES:
-        # Schedule within TIME_WINDOW minutes before target
-        if target - TIME_WINDOW <= current_minute < target:
-            # Check if we already scheduled for this target
-            if STATE_FILE.exists():
+        schedule_minute = target - 1  # One minute before target
+
+        if current_minute == schedule_minute:
+            # Check if we already scheduled for this target in this hour
+            state_key = f"station_id_scheduled"
+            state_value = get_scheduler_state(conn, state_key)
+
+            if state_value:
                 try:
-                    last_scheduled = int(STATE_FILE.read_text().strip())
-                    if last_scheduled == target:
-                        logger.info(f"Station ID already scheduled for :{target:02d}")
+                    last_hour, last_target = state_value.split(":")
+                    if int(last_hour) == current_hour and int(last_target) == target:
+                        logger.info(f"Station ID already scheduled for {current_hour:02d}:{target:02d}")
                         return False, None
-                except (ValueError, FileNotFoundError):
-                    pass
+                except ValueError:
+                    pass  # Corrupt state, proceed to schedule
 
-            logger.info(f"Should schedule station ID for :{target:02d} (current: :{current_minute:02d})")
+            logger.info(f"Scheduling station ID for :{target:02d}")
             return True, target
-
-    # Clear state if we're past all targets or before the first window
-    if current_minute >= max(STATION_ID_TIMES) or current_minute < (min(STATION_ID_TIMES) - TIME_WINDOW):
-        if STATE_FILE.exists():
-            STATE_FILE.unlink()
 
     return False, None
 
@@ -87,12 +113,13 @@ def get_random_station_id() -> Path | None:
 
 def main():
     """Entry point"""
+    conn = None
     try:
-        # Ensure state directory exists
-        config.state_path.mkdir(parents=True, exist_ok=True)
+        # Connect to database
+        conn = sqlite3.connect(config.db_path)
 
         # Check if we should schedule
-        should_schedule, target_minute = should_schedule_station_id()
+        should_schedule, target_minute = should_schedule_station_id(conn)
 
         if not should_schedule:
             logger.info("No station ID scheduling needed at this time")
@@ -113,8 +140,9 @@ def main():
         if client.push_track("breaks", str(station_id_file)):
             logger.info(f"Queued station ID: {station_id_file.name}")
 
-            # Record that we scheduled for this target
-            STATE_FILE.write_text(str(target_minute))
+            # Record that we scheduled for this target in this hour (format: "hour:target")
+            now = datetime.now(ZoneInfo(config.station_tz))
+            set_scheduler_state(conn, "station_id_scheduled", f"{now.hour}:{target_minute}")
 
             sys.exit(0)
         else:
@@ -124,6 +152,9 @@ def main():
     except Exception as e:
         logger.error(f"Station ID scheduling failed: {e}")
         sys.exit(1)
+    finally:
+        if conn:
+            conn.close()
 
 
 if __name__ == "__main__":

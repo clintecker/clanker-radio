@@ -44,11 +44,11 @@ station_url = "https://radio.clintecker.com"
 # QUEUE SOURCES
 # ============================================================================
 
-# Level 1: Operator override queue
-override_queue = request.queue(id="override")
-log("Override queue initialized (Level 1)")
+# Level 1: Operator override queue (buffered for instant switching)
+override_queue = buffer(request.queue(id="override"))
+log("Override queue initialized with buffer (Level 1)")
 
-# Level 2: Break queue
+# Level 2: Break queue (no buffer to prevent interrupting during crossfades)
 break_queue = request.queue(id="breaks")
 log("Break queue initialized (Level 2)")
 
@@ -128,26 +128,41 @@ startup_jingle = single(
 log("Startup jingle configured (18 seconds, looped voice)")
 
 # ============================================================================
-# MAIN FALLBACK CHAIN - track_sensitive=true for clean transitions
+# MAIN SWITCHING LOGIC - Breaks interrupt at track boundaries
 # ============================================================================
 
-# CRITICAL: track_sensitive=true waits for tracks to finish before switching
-# This prevents breaks/station IDs from interrupting music mid-track
-# Crossfading between music tracks is handled by music_queue internally
-# Station IDs and breaks both wait for track boundaries
-station_content = fallback(
-    id="main_fallback",
-    track_sensitive=true,  # Waits for tracks to finish
+# CRITICAL: Use switch instead of fallback to allow breaks to interrupt music
+# switch checks conditions top-to-bottom and plays the first match
+# track_sensitive on switch means "wait for track boundary before switching"
+
+station_content = switch(
+    id="main_switch",
+    track_sensitive=true,  # Waits for current track to finish before switching
     [
-        override_queue,           # Level 1: Operator override
-        break_queue,              # Level 2: Breaks & station IDs
-        music_queue,              # Level 3: Music (pre-crossfaded)
-        beds,                     # Level 4: Beds
-        safety_playlist,          # Level 5: Safety playlist
-        emergency_tone            # Level 6: Emergency tone
+        # Level 1: Operator override (always highest priority)
+        # source.is_ready checks if source has content ready to play
+        ({source.is_ready(override_queue)}, override_queue),
+
+        # Level 2: Breaks & station IDs (interrupt music when present)
+        ({source.is_ready(break_queue)}, break_queue),
+
+        # Level 3: Music (default content)
+        ({source.is_ready(music_queue)}, music_queue)
     ]
 )
-log("6-level fallback configured (override, breaks, music, beds, safety, emergency)")
+
+# Safety fallback in case everything above fails
+station_content = fallback(
+    track_sensitive=false,  # Immediately switch to safety if needed
+    [
+        station_content,
+        beds,
+        safety_playlist,
+        emergency_tone
+    ]
+)
+
+log("Interrupt-based switching configured: overrides and breaks interrupt music at track boundaries")
 
 # ============================================================================
 # SEQUENCE - Play startup jingle ONCE, then switch to station content forever
