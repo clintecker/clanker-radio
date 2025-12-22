@@ -3,22 +3,23 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>LAST BYTE RADIO // WASTELAND BROADCAST</title>
-    <meta name="description" content="Pirate radio from the Chicago wasteland">
+    <title>LAST BYTE RADIO // SECURE TRANSMISSION</title>
+    <meta name="description" content="Encrypted broadcast from Chicago wasteland">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Archivo+Black&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Orbitron:wght@700;900&display=swap" rel="stylesheet">
     <style>
         :root {
             --phosphor: #7fff7f;
             --phosphor-bright: #9fff9f;
             --phosphor-dim: #4a9a4a;
-            --screen-bg: #0d1b0d;
+            --phosphor-dark: #2a5a2a;
+            --screen-bg: #0a1509;
             --screen-highlight: #1a2e1a;
-            --paper: #e8e5d8;
-            --ink: #2a2a2a;
-            --red-led: #ff3333;
-            --amber: #ffaa33;
+            --terminal-border: #3a7a3a;
+            --red-alert: #ff3333;
+            --amber-warning: #ffaa33;
+            --blue-data: #33aaff;
         }
 
         * {
@@ -27,23 +28,66 @@
             box-sizing: border-box;
         }
 
-        @keyframes led-blink {
-            0%, 49%, 100% { opacity: 1; }
-            50%, 99% { opacity: 0.3; }
-        }
-
-        @keyframes tape-spin {
-            from { transform: rotate(0deg); }
-            to { transform: rotate(360deg); }
-        }
-
-        @keyframes crt-scanline {
+        @keyframes matrix-rain {
             0% { transform: translateY(-100%); }
             100% { transform: translateY(100vh); }
         }
 
+        @keyframes scan-line {
+            0% { transform: translateY(0); }
+            100% { transform: translateY(100%); }
+        }
+
+        @keyframes glitch {
+            0%, 100% { transform: translate(0); }
+            20% { transform: translate(-2px, 2px); }
+            40% { transform: translate(-2px, -2px); }
+            60% { transform: translate(2px, 2px); }
+            80% { transform: translate(2px, -2px); }
+        }
+
+        @keyframes pulse-glow {
+            0%, 100% {
+                box-shadow: 0 0 5px var(--phosphor-dim),
+                            0 0 10px var(--phosphor-dark),
+                            inset 0 0 5px var(--phosphor-dark);
+            }
+            50% {
+                box-shadow: 0 0 10px var(--phosphor),
+                            0 0 20px var(--phosphor-dim),
+                            inset 0 0 10px var(--phosphor-dark);
+            }
+        }
+
+        @keyframes data-stream {
+            0% { transform: translateX(-100%); opacity: 0; }
+            10% { opacity: 1; }
+            90% { opacity: 1; }
+            100% { transform: translateX(100%); opacity: 0; }
+        }
+
+        @keyframes signal-pulse {
+            0%, 100% { opacity: 0.3; transform: scale(1); }
+            50% { opacity: 1; transform: scale(1.2); }
+        }
+
+        @keyframes cursor-blink {
+            0%, 49% { opacity: 1; }
+            50%, 100% { opacity: 0; }
+        }
+
+        @keyframes waveform {
+            0%, 100% { height: 20%; }
+            50% { height: 80%; }
+        }
+
+        @keyframes hex-scroll {
+            0% { transform: translateY(0); }
+            100% { transform: translateY(-50%); }
+        }
+
         body {
-            font-family: 'IBM Plex Mono', monospace;
+            font-family: 'JetBrains Mono', monospace;
             background: var(--screen-bg);
             color: var(--phosphor);
             min-height: 100vh;
@@ -52,303 +96,431 @@
             justify-content: center;
             padding: 20px;
             position: relative;
-            overflow-x: hidden;
+            overflow: hidden;
         }
 
-        /* CRT scanline effect - subtle */
+        /* Matrix rain background */
+        .matrix-bg {
+            position: fixed;
+            inset: 0;
+            pointer-events: none;
+            z-index: 1;
+            opacity: 0.03;
+            overflow: hidden;
+        }
+
+        .matrix-column {
+            position: absolute;
+            top: -100%;
+            font-size: 14px;
+            line-height: 1.2;
+            white-space: pre;
+            color: var(--phosphor);
+            animation: matrix-rain linear infinite;
+        }
+
+        /* Grid overlay */
         body::before {
+            content: '';
+            position: fixed;
+            inset: 0;
+            background:
+                linear-gradient(90deg, transparent 0%, transparent calc(100% - 1px), var(--phosphor-dark) calc(100% - 1px)),
+                linear-gradient(0deg, transparent 0%, transparent calc(100% - 1px), var(--phosphor-dark) calc(100% - 1px));
+            background-size: 40px 40px;
+            opacity: 0.05;
+            pointer-events: none;
+            z-index: 2;
+        }
+
+        /* Scan line */
+        body::after {
             content: '';
             position: fixed;
             top: 0;
             left: 0;
             width: 100%;
             height: 2px;
-            background: rgba(127, 255, 127, 0.15);
+            background: linear-gradient(
+                to bottom,
+                transparent,
+                var(--phosphor) 50%,
+                transparent
+            );
+            box-shadow: 0 0 10px var(--phosphor);
             pointer-events: none;
             z-index: 9999;
-            animation: crt-scanline 8s linear infinite;
+            animation: scan-line 8s linear infinite;
+            opacity: 0.3;
         }
 
-        /* Screen flicker - DISABLED (was blocking content) */
-
-        .terminal {
+        .terminal-wrapper {
             width: 100%;
-            max-width: 800px;
-            border: 3px solid var(--phosphor-dim);
-            padding: 0;
+            max-width: 1000px;
             position: relative;
+            z-index: 10;
+        }
+
+        /* Terminal frame with corner brackets */
+        .terminal {
+            position: relative;
+            background: rgba(10, 21, 9, 0.95);
+            border: 2px solid var(--terminal-border);
             box-shadow:
-                0 0 1px var(--phosphor),
-                inset 0 0 30px rgba(10, 15, 10, 0.8);
+                0 0 20px rgba(127, 255, 127, 0.1),
+                inset 0 0 40px rgba(0, 0, 0, 0.5);
         }
 
-        /* Hardware bezel */
-        .bezel {
-            background: linear-gradient(135deg, #1a1a1a 0%, #0d0d0d 100%);
-            padding: 15px;
-            border-bottom: 2px solid #000;
-        }
-
-        .bezel-top {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 10px;
-        }
-
-        .station-badge {
-            font-family: 'Archivo Black', sans-serif;
-            font-size: 0.7rem;
-            letter-spacing: 0.15em;
-            color: var(--phosphor-bright);
-            text-shadow: 0 0 12px var(--phosphor);
-            padding: 4px 8px;
-            border: 1px solid var(--phosphor);
-            background: rgba(127, 255, 127, 0.08);
-        }
-
-        .power-indicator {
-            display: flex;
-            gap: 6px;
-            align-items: center;
-        }
-
-        .led {
-            width: 8px;
-            height: 8px;
-            border-radius: 50%;
-            background: var(--red-led);
-            box-shadow: 0 0 6px var(--red-led);
-            animation: led-blink 2s infinite;
-        }
-
-        .led-label {
-            font-size: 0.6rem;
-            color: #666;
-            text-transform: uppercase;
-            letter-spacing: 0.1em;
-        }
-
-        /* Main screen */
-        .screen {
-            background: var(--screen-bg);
-            padding: 20px;
-            font-size: 0.85rem;
-            line-height: 1.6;
-            position: relative;
-        }
-
-        .screen-header {
-            border-bottom: 1px solid var(--phosphor-dim);
-            padding-bottom: 10px;
-            margin-bottom: 15px;
-            display: flex;
-            justify-content: space-between;
-            align-items: baseline;
-        }
-
-        .callsign {
-            font-size: 1.3rem;
-            font-weight: 600;
-            letter-spacing: 0.05em;
-        }
-
-        .location {
-            font-size: 0.75rem;
-            color: var(--phosphor-dim);
-        }
-
-        /* Tape deck section */
-        .tape-deck {
-            border: 1px solid var(--phosphor-dim);
-            padding: 15px;
-            margin-bottom: 20px;
-            position: relative;
-            background: var(--screen-highlight);
-        }
-
-        .deck-label {
-            position: absolute;
-            top: -8px;
-            left: 10px;
-            background: var(--screen-bg);
-            padding: 0 6px;
-            font-size: 0.65rem;
-            color: var(--phosphor-dim);
-            letter-spacing: 0.1em;
-        }
-
-        .tape-visual {
-            display: flex;
-            gap: 40px;
-            justify-content: center;
-            margin: 15px 0 20px;
-        }
-
-        .tape-reel {
-            width: 60px;
-            height: 60px;
-            border: 2px solid var(--phosphor-dim);
-            border-radius: 50%;
-            position: relative;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-
-        .tape-reel::before {
+        /* Corner brackets */
+        .terminal::before,
+        .terminal::after,
+        .terminal .corner-tl,
+        .terminal .corner-tr,
+        .terminal .corner-bl,
+        .terminal .corner-br {
             content: '';
+            position: absolute;
             width: 20px;
             height: 20px;
-            background: var(--screen-bg);
-            border: 2px solid var(--phosphor-dim);
-            border-radius: 50%;
+            border: 2px solid var(--phosphor);
         }
 
-        .tape-reel::after {
-            content: '';
+        .terminal::before {
+            top: -2px;
+            left: -2px;
+            border-right: none;
+            border-bottom: none;
+        }
+
+        .terminal::after {
+            top: -2px;
+            right: -2px;
+            border-left: none;
+            border-bottom: none;
+        }
+
+        .corner-bl {
             position: absolute;
-            width: 100%;
-            height: 2px;
-            background: var(--phosphor-dim);
+            bottom: -2px;
+            left: -2px;
+            border-right: none;
+            border-top: none;
         }
 
-        .tape-reel.spinning::after {
-            animation: tape-spin 2s linear infinite;
+        .corner-br {
+            position: absolute;
+            bottom: -2px;
+            right: -2px;
+            border-left: none;
+            border-top: none;
         }
 
-        /* Transport controls */
-        .transport {
+        /* Header bar */
+        .terminal-header {
+            background: linear-gradient(135deg, #0d1b0d 0%, #1a2e1a 100%);
+            padding: 12px 20px;
+            border-bottom: 1px solid var(--terminal-border);
             display: flex;
-            gap: 10px;
-            justify-content: center;
-            margin-bottom: 15px;
-        }
-
-        .btn {
-            font-family: 'IBM Plex Mono', monospace;
-            background: transparent;
-            border: 1px solid var(--phosphor-dim);
-            color: var(--phosphor);
-            padding: 8px 16px;
-            font-size: 0.75rem;
-            cursor: pointer;
-            letter-spacing: 0.1em;
-            transition: all 0.2s;
-            text-transform: uppercase;
-        }
-
-        .btn:hover {
-            background: rgba(127, 255, 127, 0.15);
-            border-color: var(--phosphor-bright);
-            box-shadow: 0 0 12px rgba(127, 255, 127, 0.4);
-        }
-
-        .btn:active {
-            transform: translateY(1px);
-        }
-
-        .btn-play {
-            min-width: 80px;
-        }
-
-        .btn-play.playing {
-            background: rgba(127, 255, 127, 0.2);
-            box-shadow: 0 0 15px rgba(127, 255, 127, 0.5);
-            border-color: var(--phosphor-bright);
-        }
-
-        /* Volume meter */
-        .meter {
-            display: flex;
+            justify-content: space-between;
             align-items: center;
-            gap: 10px;
-            margin-bottom: 10px;
-        }
-
-        .meter-label {
-            font-size: 0.7rem;
-            color: var(--phosphor-dim);
-            width: 60px;
-        }
-
-        .meter-bar {
-            flex: 1;
-            height: 12px;
-            background: rgba(127, 255, 127, 0.12);
-            border: 1px solid var(--phosphor-dim);
             position: relative;
             overflow: hidden;
         }
 
-        .meter-fill {
-            height: 100%;
-            background: var(--phosphor-bright);
-            width: 70%;
-            transition: width 0.1s;
-            box-shadow: 0 0 15px var(--phosphor);
+        .terminal-header::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 200px;
+            height: 2px;
+            background: linear-gradient(90deg, transparent, var(--phosphor), transparent);
+            animation: data-stream 3s ease-in-out infinite;
         }
 
-        .meter-bar input {
+        .station-id {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 0.9rem;
+            font-weight: 900;
+            letter-spacing: 0.2em;
+            color: var(--phosphor-bright);
+            text-shadow:
+                0 0 10px var(--phosphor),
+                0 0 20px var(--phosphor-dim);
+        }
+
+        .system-status {
+            display: flex;
+            gap: 15px;
+            align-items: center;
+            font-size: 0.65rem;
+            letter-spacing: 0.1em;
+        }
+
+        .status-indicator {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .status-dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: var(--phosphor);
+            box-shadow: 0 0 6px var(--phosphor);
+            animation: signal-pulse 2s ease-in-out infinite;
+        }
+
+        /* Main content area */
+        .terminal-body {
+            padding: 20px;
+        }
+
+        /* Connection stats bar */
+        .stats-bar {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+            gap: 10px;
+            margin-bottom: 20px;
+            padding: 10px;
+            background: var(--screen-highlight);
+            border: 1px solid var(--phosphor-dark);
+            border-left: 3px solid var(--phosphor);
+        }
+
+        .stat-item {
+            font-size: 0.7rem;
+        }
+
+        .stat-label {
+            color: var(--phosphor-dim);
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            font-size: 0.6rem;
+            margin-bottom: 2px;
+        }
+
+        .stat-value {
+            font-weight: 600;
+            color: var(--phosphor-bright);
+            font-size: 0.75rem;
+        }
+
+        /* Audio player section */
+        .player-section {
+            border: 1px solid var(--terminal-border);
+            padding: 20px;
+            margin-bottom: 20px;
+            position: relative;
+            background: rgba(26, 46, 26, 0.3);
+        }
+
+        .section-label {
+            position: absolute;
+            top: -10px;
+            left: 15px;
+            background: var(--screen-bg);
+            padding: 0 10px;
+            font-size: 0.65rem;
+            color: var(--phosphor-dim);
+            letter-spacing: 0.15em;
+            text-transform: uppercase;
+        }
+
+        /* Waveform visualization */
+        .waveform {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 60px;
+            gap: 3px;
+            margin: 20px 0;
+            padding: 10px;
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid var(--phosphor-dark);
+        }
+
+        .waveform-bar {
+            width: 4px;
+            background: var(--phosphor);
+            box-shadow: 0 0 5px var(--phosphor);
+            height: 20%;
+            transition: height 0.1s ease;
+        }
+
+        .waveform.active .waveform-bar {
+            animation: waveform 0.5s ease-in-out infinite;
+        }
+
+        .waveform-bar:nth-child(2n) { animation-delay: 0.1s; }
+        .waveform-bar:nth-child(3n) { animation-delay: 0.2s; }
+        .waveform-bar:nth-child(4n) { animation-delay: 0.3s; }
+
+        /* Transport controls */
+        .transport-controls {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            margin-bottom: 20px;
+        }
+
+        .btn {
+            font-family: 'JetBrains Mono', monospace;
+            background: transparent;
+            border: 1px solid var(--phosphor-dim);
+            color: var(--phosphor);
+            padding: 10px 20px;
+            font-size: 0.75rem;
+            cursor: pointer;
+            letter-spacing: 0.15em;
+            text-transform: uppercase;
+            transition: all 0.2s;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .btn::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, var(--phosphor-dim), transparent);
+            transition: left 0.3s;
+        }
+
+        .btn:hover::before {
+            left: 100%;
+        }
+
+        .btn:hover {
+            border-color: var(--phosphor-bright);
+            box-shadow:
+                0 0 10px var(--phosphor-dim),
+                inset 0 0 10px rgba(127, 255, 127, 0.1);
+            transform: translateY(-1px);
+        }
+
+        .btn:active {
+            transform: translateY(0);
+        }
+
+        .btn-primary {
+            background: rgba(127, 255, 127, 0.1);
+            border-color: var(--phosphor);
+            font-weight: 600;
+        }
+
+        .btn-primary.active {
+            background: rgba(127, 255, 127, 0.2);
+            box-shadow:
+                0 0 20px var(--phosphor-dim),
+                inset 0 0 15px rgba(127, 255, 127, 0.2);
+            animation: pulse-glow 2s ease-in-out infinite;
+        }
+
+        /* Volume control */
+        .volume-control {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        .volume-label {
+            font-size: 0.7rem;
+            color: var(--phosphor-dim);
+            min-width: 60px;
+            letter-spacing: 0.1em;
+        }
+
+        .volume-bar {
+            flex: 1;
+            height: 20px;
+            background: rgba(127, 255, 127, 0.05);
+            border: 1px solid var(--phosphor-dark);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .volume-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--phosphor-dim), var(--phosphor));
+            box-shadow: 0 0 10px var(--phosphor);
+            width: 70%;
+            position: relative;
+        }
+
+        .volume-fill::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            right: 0;
+            width: 2px;
+            height: 100%;
+            background: var(--phosphor-bright);
+            box-shadow: 0 0 10px var(--phosphor);
+        }
+
+        .volume-bar input {
             position: absolute;
             width: 100%;
             height: 100%;
             opacity: 0;
             cursor: pointer;
+            z-index: 10;
         }
 
-        /* Progress bar - ASCII style */
-        .progress {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            font-size: 0.7rem;
-            margin-top: 8px;
-        }
-
-        .progress-bar {
-            flex: 1;
-            height: 10px;
-            background: rgba(127, 255, 127, 0.12);
-            border: 1px solid var(--phosphor-dim);
+        /* Now playing section */
+        .now-playing {
+            border: 1px solid var(--terminal-border);
+            padding: 20px;
+            margin-bottom: 20px;
+            background: rgba(26, 46, 26, 0.3);
             position: relative;
         }
 
-        .progress-fill {
-            height: 100%;
-            background: var(--phosphor-bright);
-            width: 0%;
-            transition: width 1s linear;
-            box-shadow: 0 0 8px var(--phosphor);
-        }
-
-        .time {
-            font-size: 0.65rem;
-            color: var(--phosphor-dim);
-            min-width: 42px;
-        }
-
-        /* Now Playing */
-        .now-playing {
-            border: 1px solid var(--phosphor-dim);
-            padding: 15px;
+        .np-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
             margin-bottom: 15px;
-            background: var(--screen-highlight);
         }
 
         .np-label {
-            font-size: 0.65rem;
+            font-size: 0.7rem;
             color: var(--phosphor-dim);
-            margin-bottom: 8px;
             letter-spacing: 0.15em;
+            text-transform: uppercase;
+        }
+
+        .np-label::before {
+            content: '▶ ';
+            color: var(--phosphor);
+        }
+
+        .track-duration {
+            font-size: 0.7rem;
+            color: var(--phosphor-dim);
+            font-variant-numeric: tabular-nums;
         }
 
         .track-title {
-            font-size: 1.1rem;
-            font-weight: 500;
-            margin-bottom: 4px;
+            font-size: 1.2rem;
+            font-weight: 600;
+            margin-bottom: 5px;
+            color: var(--phosphor-bright);
             text-transform: uppercase;
             letter-spacing: 0.05em;
+            text-shadow: 0 0 10px var(--phosphor-dim);
+        }
+
+        .track-title::after {
+            content: '_';
+            animation: cursor-blink 1s step-end infinite;
+            margin-left: 2px;
         }
 
         .track-artist {
@@ -356,39 +528,93 @@
             color: var(--phosphor-dim);
         }
 
-        .up-next {
-            font-size: 0.7rem;
-            color: var(--phosphor-dim);
-            margin-top: 10px;
-            padding-top: 10px;
-            border-top: 1px dashed var(--phosphor-dim);
+        .progress-bar-container {
+            margin-top: 15px;
+            padding-top: 15px;
+            border-top: 1px solid var(--phosphor-dark);
         }
 
-        /* History */
-        .history {
-            border: 1px solid var(--phosphor-dim);
-            padding: 12px;
-            margin-bottom: 15px;
+        .progress-bar {
+            height: 4px;
+            background: rgba(127, 255, 127, 0.1);
+            border: 1px solid var(--phosphor-dark);
+            position: relative;
+            overflow: hidden;
         }
 
-        .history-label {
+        .progress-fill {
+            height: 100%;
+            background: var(--phosphor);
+            box-shadow:
+                0 0 10px var(--phosphor),
+                0 0 20px var(--phosphor-dim);
+            width: 0%;
+            transition: width 1s linear;
+        }
+
+        .time-display {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 5px;
             font-size: 0.65rem;
             color: var(--phosphor-dim);
-            margin-bottom: 8px;
-            letter-spacing: 0.15em;
+            font-variant-numeric: tabular-nums;
         }
 
-        .history-list {
-            list-style: none;
+        /* Queue section */
+        .queue-section {
+            border: 1px solid var(--terminal-border);
+            padding: 15px;
+            margin-bottom: 20px;
+            background: rgba(26, 46, 26, 0.2);
+            position: relative;
+        }
+
+        .queue-item {
+            padding: 8px 10px;
+            border-left: 2px solid var(--phosphor-dark);
+            margin-bottom: 8px;
+            font-size: 0.75rem;
+            display: flex;
+            justify-content: space-between;
+            transition: all 0.2s;
+        }
+
+        .queue-item:hover {
+            border-left-color: var(--phosphor);
+            background: rgba(127, 255, 127, 0.05);
+            padding-left: 15px;
+        }
+
+        .queue-item:last-child {
+            margin-bottom: 0;
+        }
+
+        .queue-track {
+            flex: 1;
+        }
+
+        .queue-time {
+            color: var(--phosphor-dim);
+            font-size: 0.65rem;
+        }
+
+        /* History section */
+        .history-section {
+            border: 1px solid var(--terminal-border);
+            padding: 15px;
+            margin-bottom: 20px;
+            background: rgba(26, 46, 26, 0.2);
+            position: relative;
         }
 
         .history-item {
+            padding: 6px 10px;
+            border-bottom: 1px dotted var(--phosphor-dark);
             font-size: 0.7rem;
-            padding: 4px 0;
-            border-bottom: 1px dotted rgba(127, 255, 127, 0.25);
             display: flex;
             justify-content: space-between;
-            gap: 10px;
+            gap: 15px;
         }
 
         .history-item:last-child {
@@ -405,159 +631,286 @@
         .history-time {
             color: var(--phosphor-dim);
             font-size: 0.65rem;
+            white-space: nowrap;
         }
 
-        /* Links */
-        .links {
+        /* Hex dump decoration */
+        .hex-decoration {
+            position: absolute;
+            right: 15px;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 0.5rem;
+            color: var(--phosphor-dark);
+            opacity: 0.3;
+            letter-spacing: 0.1em;
+            line-height: 1.2;
+            overflow: hidden;
+            height: 100px;
+            mask-image: linear-gradient(to bottom, transparent, black 20%, black 80%, transparent);
+        }
+
+        .hex-content {
+            animation: hex-scroll 20s linear infinite;
+        }
+
+        /* Stream links */
+        .stream-links {
             display: flex;
-            gap: 8px;
+            gap: 10px;
             flex-wrap: wrap;
+            margin-bottom: 20px;
         }
 
-        .link {
-            font-family: 'IBM Plex Mono', monospace;
+        .stream-link {
+            font-family: 'JetBrains Mono', monospace;
             font-size: 0.7rem;
             color: var(--phosphor);
             text-decoration: none;
             border: 1px solid var(--phosphor-dim);
-            padding: 6px 12px;
+            padding: 8px 15px;
             letter-spacing: 0.1em;
-            transition: all 0.2s;
             text-transform: uppercase;
+            transition: all 0.2s;
+            position: relative;
+            overflow: hidden;
         }
 
-        .link:hover {
-            background: rgba(127, 255, 127, 0.15);
-            border-color: var(--phosphor-bright);
-            box-shadow: 0 0 12px rgba(127, 255, 127, 0.4);
+        .stream-link::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, var(--phosphor-dim), transparent);
+            transition: left 0.3s;
         }
 
-        /* Status footer */
-        .status-bar {
-            border-top: 1px solid var(--phosphor-dim);
-            padding-top: 10px;
-            margin-top: 15px;
-            font-size: 0.65rem;
-            color: var(--phosphor-dim);
+        .stream-link:hover::before {
+            left: 100%;
+        }
+
+        .stream-link:hover {
+            border-color: var(--phosphor);
+            background: rgba(127, 255, 127, 0.1);
+            box-shadow: 0 0 15px rgba(127, 255, 127, 0.3);
+            transform: translateY(-2px);
+        }
+
+        /* Footer status */
+        .terminal-footer {
+            border-top: 1px solid var(--terminal-border);
+            padding: 12px 20px;
             display: flex;
             justify-content: space-between;
+            font-size: 0.65rem;
+            color: var(--phosphor-dim);
+            background: rgba(13, 27, 13, 0.8);
+        }
+
+        .footer-item {
+            display: flex;
+            gap: 15px;
         }
 
         /* Responsive */
-        @media (max-width: 640px) {
-            .terminal {
-                border-width: 2px;
+        @media (max-width: 768px) {
+            .terminal-wrapper {
+                margin: 10px;
             }
 
-            .screen {
-                padding: 15px;
-                font-size: 0.8rem;
+            .terminal-header {
+                flex-direction: column;
+                gap: 10px;
+                align-items: flex-start;
             }
 
-            .tape-visual {
-                gap: 20px;
+            .stats-bar {
+                grid-template-columns: repeat(2, 1fr);
             }
 
-            .tape-reel {
-                width: 50px;
-                height: 50px;
-            }
-
-            .transport {
+            .transport-controls {
                 flex-wrap: wrap;
             }
 
             .btn {
-                font-size: 0.7rem;
-                padding: 6px 12px;
+                flex: 1;
+                min-width: 100px;
+            }
+
+            .hex-decoration {
+                display: none;
             }
         }
     </style>
 </head>
 <body>
-    <div class="terminal">
-        <!-- Hardware bezel -->
-        <div class="bezel">
-            <div class="bezel-top">
-                <div class="station-badge">PIRATE BROADCAST</div>
-                <div class="power-indicator">
-                    <div class="led"></div>
-                    <span class="led-label">PWR</span>
+    <!-- Matrix rain background -->
+    <div class="matrix-bg" id="matrixBg"></div>
+
+    <div class="terminal-wrapper">
+        <div class="terminal">
+            <div class="corner-bl"></div>
+            <div class="corner-br"></div>
+
+            <!-- Header -->
+            <div class="terminal-header">
+                <div class="station-id">LAST BYTE RADIO</div>
+                <div class="system-status">
+                    <div class="status-indicator">
+                        <span class="status-dot"></span>
+                        <span>SECURE</span>
+                    </div>
+                    <div class="status-indicator">
+                        <span class="status-dot"></span>
+                        <span>ENCRYPTED</span>
+                    </div>
+                    <div class="status-indicator">
+                        <span class="status-dot"></span>
+                        <span>LIVE</span>
+                    </div>
                 </div>
             </div>
-        </div>
 
-        <!-- Main screen -->
-        <div class="screen">
-            <div class="screen-header">
-                <div class="callsign">LAST BYTE RADIO</div>
-                <div class="location">CHICAGO WASTELAND</div>
-            </div>
-
-            <!-- Tape deck interface -->
-            <div class="tape-deck">
-                <div class="deck-label">BROADCAST DECK</div>
-
-                <div class="tape-visual">
-                    <div class="tape-reel spinning" id="reelLeft"></div>
-                    <div class="tape-reel spinning" id="reelRight"></div>
-                </div>
-
-                <div class="transport">
-                    <button class="btn btn-play" id="playBtn">
-                        <span id="playIcon">▶ PLAY</span>
-                    </button>
-                </div>
-
-                <div class="meter">
-                    <div class="meter-label">VOLUME</div>
-                    <div class="meter-bar">
-                        <div class="meter-fill" id="volumeFill"></div>
-                        <input type="range" id="volumeSlider" min="0" max="100" value="70">
+            <!-- Main content -->
+            <div class="terminal-body">
+                <!-- System stats -->
+                <div class="stats-bar">
+                    <div class="stat-item">
+                        <div class="stat-label">BITRATE</div>
+                        <div class="stat-value">192 KBPS</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-label">SIGNAL</div>
+                        <div class="stat-value">98.7%</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-label">BUFFER</div>
+                        <div class="stat-value">2048 KB</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-label">LISTENERS</div>
+                        <div class="stat-value" id="listenerCount">---</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-label">UPTIME</div>
+                        <div class="stat-value" id="uptime">00:00:00</div>
                     </div>
                 </div>
 
-                <div class="progress">
-                    <span class="time" id="currentTime">0:00</span>
-                    <div class="progress-bar">
-                        <div class="progress-fill" id="progressFill"></div>
+                <!-- Player section -->
+                <div class="player-section">
+                    <div class="section-label">[ AUDIO STREAM ]</div>
+
+                    <!-- Waveform -->
+                    <div class="waveform" id="waveform">
+                        <div class="waveform-bar"></div>
+                        <div class="waveform-bar"></div>
+                        <div class="waveform-bar"></div>
+                        <div class="waveform-bar"></div>
+                        <div class="waveform-bar"></div>
+                        <div class="waveform-bar"></div>
+                        <div class="waveform-bar"></div>
+                        <div class="waveform-bar"></div>
+                        <div class="waveform-bar"></div>
+                        <div class="waveform-bar"></div>
+                        <div class="waveform-bar"></div>
+                        <div class="waveform-bar"></div>
+                        <div class="waveform-bar"></div>
+                        <div class="waveform-bar"></div>
+                        <div class="waveform-bar"></div>
+                        <div class="waveform-bar"></div>
+                        <div class="waveform-bar"></div>
+                        <div class="waveform-bar"></div>
+                        <div class="waveform-bar"></div>
+                        <div class="waveform-bar"></div>
                     </div>
-                    <span class="time" id="totalTime">0:00</span>
+
+                    <!-- Transport controls -->
+                    <div class="transport-controls">
+                        <button class="btn btn-primary" id="playBtn">
+                            <span id="playIcon">INITIALIZE</span>
+                        </button>
+                        <button class="btn" id="muteBtn">MUTE</button>
+                    </div>
+
+                    <!-- Volume control -->
+                    <div class="volume-control">
+                        <div class="volume-label">VOLUME</div>
+                        <div class="volume-bar">
+                            <div class="volume-fill" id="volumeFill"></div>
+                            <input type="range" id="volumeSlider" min="0" max="100" value="70">
+                        </div>
+                        <div class="volume-label" id="volumePercent">70%</div>
+                    </div>
+                </div>
+
+                <!-- Now playing -->
+                <div class="now-playing">
+                    <div class="section-label">[ NOW TRANSMITTING ]</div>
+                    <div class="np-header">
+                        <div class="np-label">CURRENT TRACK</div>
+                        <div class="track-duration" id="trackDuration">--:--</div>
+                    </div>
+                    <div class="track-title" id="trackTitle">INITIALIZING STREAM...</div>
+                    <div class="track-artist" id="trackArtist">Establishing encrypted connection</div>
+
+                    <div class="progress-bar-container">
+                        <div class="progress-bar">
+                            <div class="progress-fill" id="progressFill"></div>
+                        </div>
+                        <div class="time-display">
+                            <span id="currentTime">00:00</span>
+                            <span id="totalTime">00:00</span>
+                        </div>
+                    </div>
+
+                    <!-- Hex decoration -->
+                    <div class="hex-decoration">
+                        <div class="hex-content" id="hexContent"></div>
+                    </div>
+                </div>
+
+                <!-- Queue -->
+                <div class="queue-section">
+                    <div class="section-label">[ TRANSMISSION QUEUE ]</div>
+                    <div class="queue-item">
+                        <div class="queue-track">
+                            <span style="color: var(--phosphor-dim)">NEXT:</span>
+                            <span id="upNext">Establishing uplink...</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- History -->
+                <div class="history-section">
+                    <div class="section-label">[ TRANSMISSION LOG ]</div>
+                    <div id="historyList">
+                        <div class="history-item">
+                            <span class="history-track">Loading transmission history...</span>
+                            <span class="history-time">--:--</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Stream links -->
+                <div class="stream-links">
+                    <a href="https://radio.clintecker.com/radio" class="stream-link" target="_blank">DIRECT STREAM</a>
+                    <a href="https://radio.clintecker.com/radio.m3u" class="stream-link" download>M3U PLAYLIST</a>
                 </div>
             </div>
 
-            <!-- Now Playing -->
-            <div class="now-playing">
-                <div class="np-label">→ NOW PLAYING</div>
-                <div class="track-title" id="trackTitle">INITIALIZING...</div>
-                <div class="track-artist" id="trackArtist">Loading transmission...</div>
-                <div class="up-next">
-                    <span style="color: var(--phosphor-dim);">UP NEXT:</span>
-                    <span id="upNext">---</span>
+            <!-- Footer -->
+            <div class="terminal-footer">
+                <div class="footer-item">
+                    <span>CHICAGO WASTELAND SECTOR</span>
+                    <span>•</span>
+                    <span>192KBPS MP3</span>
                 </div>
-            </div>
-
-            <!-- History -->
-            <div class="history">
-                <div class="history-label">→ RECENT BROADCASTS</div>
-                <ul class="history-list" id="historyList">
-                    <li class="history-item">
-                        <span class="history-track">Loading...</span>
-                        <span class="history-time">--:--</span>
-                    </li>
-                </ul>
-            </div>
-
-            <!-- Links -->
-            <div class="links">
-                <a href="https://radio.clintecker.com/radio" class="link" target="_blank">DIRECT STREAM</a>
-                <a href="https://radio.clintecker.com/radio.m3u" class="link" download>M3U PLAYLIST</a>
-            </div>
-
-            <!-- Status -->
-            <div class="status-bar">
-                <span>TRANSMITTING ON 192KBPS</span>
-                <span id="listeners">0 LISTENERS</span>
+                <div class="footer-item">
+                    <span id="systemTime">00:00:00</span>
+                </div>
             </div>
         </div>
     </div>
@@ -570,37 +923,82 @@
         const audio = document.getElementById('audio');
         const playBtn = document.getElementById('playBtn');
         const playIcon = document.getElementById('playIcon');
+        const muteBtn = document.getElementById('muteBtn');
         const volumeSlider = document.getElementById('volumeSlider');
         const volumeFill = document.getElementById('volumeFill');
+        const volumePercent = document.getElementById('volumePercent');
+        const waveform = document.getElementById('waveform');
         const progressFill = document.getElementById('progressFill');
         const currentTime = document.getElementById('currentTime');
         const totalTime = document.getElementById('totalTime');
         const trackTitle = document.getElementById('trackTitle');
         const trackArtist = document.getElementById('trackArtist');
+        const trackDuration = document.getElementById('trackDuration');
         const upNext = document.getElementById('upNext');
         const historyList = document.getElementById('historyList');
-        const listeners = document.getElementById('listeners');
-        const reelLeft = document.getElementById('reelLeft');
-        const reelRight = document.getElementById('reelRight');
+        const listenerCount = document.getElementById('listenerCount');
+        const systemTime = document.getElementById('systemTime');
+        const uptime = document.getElementById('uptime');
 
         let isPlaying = false;
+        let isMuted = false;
+        let startTime = Date.now();
+
+        // Initialize matrix rain
+        function createMatrixRain() {
+            const matrixBg = document.getElementById('matrixBg');
+            const columns = Math.floor(window.innerWidth / 20);
+
+            for (let i = 0; i < columns; i++) {
+                const column = document.createElement('div');
+                column.className = 'matrix-column';
+                column.style.left = `${i * 20}px`;
+                column.style.animationDuration = `${10 + Math.random() * 10}s`;
+                column.style.animationDelay = `${Math.random() * 5}s`;
+
+                let text = '';
+                for (let j = 0; j < 30; j++) {
+                    text += String.fromCharCode(0x30A0 + Math.random() * 96) + '\n';
+                }
+                column.textContent = text;
+
+                matrixBg.appendChild(column);
+            }
+        }
+
+        // Initialize hex decoration
+        function createHexDecoration() {
+            const hexContent = document.getElementById('hexContent');
+            let hex = '';
+            for (let i = 0; i < 200; i++) {
+                hex += Math.floor(Math.random() * 256).toString(16).padStart(2, '0').toUpperCase() + ' ';
+                if ((i + 1) % 8 === 0) hex += '\n';
+            }
+            hexContent.textContent = hex + hex; // Duplicate for seamless scroll
+        }
 
         // Play/Pause
         playBtn.addEventListener('click', () => {
             if (isPlaying) {
                 audio.pause();
-                playIcon.textContent = '▶ PLAY';
-                playBtn.classList.remove('playing');
-                reelLeft.classList.remove('spinning');
-                reelRight.classList.remove('spinning');
+                playIcon.textContent = 'INITIALIZE';
+                playBtn.classList.remove('active');
+                waveform.classList.remove('active');
             } else {
                 audio.play();
-                playIcon.textContent = '■ STOP';
-                playBtn.classList.add('playing');
-                reelLeft.classList.add('spinning');
-                reelRight.classList.add('spinning');
+                playIcon.textContent = 'TERMINATE';
+                playBtn.classList.add('active');
+                waveform.classList.add('active');
             }
             isPlaying = !isPlaying;
+        });
+
+        // Mute toggle
+        muteBtn.addEventListener('click', () => {
+            isMuted = !isMuted;
+            audio.muted = isMuted;
+            muteBtn.textContent = isMuted ? 'UNMUTE' : 'MUTE';
+            muteBtn.style.background = isMuted ? 'rgba(255, 51, 51, 0.2)' : '';
         });
 
         // Volume control
@@ -608,6 +1006,7 @@
             const value = e.target.value;
             audio.volume = value / 100;
             volumeFill.style.width = value + '%';
+            volumePercent.textContent = value + '%';
         });
 
         // Set initial volume
@@ -615,26 +1014,25 @@
 
         // Time formatting
         function formatTime(seconds) {
-            if (!seconds || isNaN(seconds)) return '0:00';
+            if (!seconds || isNaN(seconds)) return '00:00';
             const mins = Math.floor(seconds / 60);
             const secs = Math.floor(seconds % 60);
-            return `${mins}:${secs.toString().padStart(2, '0')}`;
+            return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
         }
 
-        // Update progress (for future use with track duration)
-        audio.addEventListener('timeupdate', () => {
-            if (audio.duration) {
-                const progress = (audio.currentTime / audio.duration) * 100;
-                progressFill.style.width = progress + '%';
-                currentTime.textContent = formatTime(audio.currentTime);
-            }
-        });
+        // Update system time
+        function updateSystemTime() {
+            const now = new Date();
+            systemTime.textContent = now.toTimeString().split(' ')[0];
 
-        audio.addEventListener('loadedmetadata', () => {
-            if (audio.duration && audio.duration !== Infinity) {
-                totalTime.textContent = formatTime(audio.duration);
-            }
-        });
+            const elapsed = Math.floor((Date.now() - startTime) / 1000);
+            const hours = Math.floor(elapsed / 3600);
+            const minutes = Math.floor((elapsed % 3600) / 60);
+            const seconds = elapsed % 60;
+            uptime.textContent = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+        }
+
+        setInterval(updateSystemTime, 1000);
 
         // Fetch now playing data
         async function updateNowPlaying() {
@@ -644,18 +1042,18 @@
 
                 if (data.current) {
                     trackTitle.textContent = data.current.title || 'UNKNOWN TRANSMISSION';
-                    trackArtist.textContent = data.current.artist || 'Unknown';
+                    trackArtist.textContent = data.current.artist || 'Unknown Origin';
 
-                    // Update progress if we have duration
                     if (data.current.duration_sec) {
                         totalTime.textContent = formatTime(data.current.duration_sec);
+                        trackDuration.textContent = formatTime(data.current.duration_sec);
                     }
                 }
 
                 if (data.next) {
                     upNext.textContent = `${data.next.title} — ${data.next.artist}`;
                 } else {
-                    upNext.textContent = '---';
+                    upNext.textContent = 'Awaiting next transmission...';
                 }
 
                 // Update history
@@ -668,26 +1066,29 @@
                             hour12: false
                         });
                         return `
-                            <li class="history-item">
+                            <div class="history-item">
                                 <span class="history-track">${track.title} — ${track.artist}</span>
                                 <span class="history-time">${timeStr}</span>
-                            </li>
+                            </div>
                         `;
                     }).join('');
                 }
 
-                // Mock listener count (could be expanded)
+                // Update listener count
                 const count = Math.floor(Math.random() * 30) + 150;
-                listeners.textContent = `${count} LISTENERS`;
+                listenerCount.textContent = count.toString();
 
             } catch (error) {
                 console.error('Failed to fetch now playing:', error);
             }
         }
 
-        // Initial update and periodic refresh
+        // Initialize
+        createMatrixRain();
+        createHexDecoration();
         updateNowPlaying();
-        setInterval(updateNowPlaying, 10000); // Update every 10 seconds
+        updateSystemTime();
+        setInterval(updateNowPlaying, 10000);
     </script>
 </body>
 </html>
