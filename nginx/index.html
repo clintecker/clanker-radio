@@ -1,0 +1,693 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LAST BYTE RADIO // WASTELAND BROADCAST</title>
+    <meta name="description" content="Pirate radio from the Chicago wasteland">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Archivo+Black&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --phosphor: #7fff7f;
+            --phosphor-bright: #9fff9f;
+            --phosphor-dim: #4a9a4a;
+            --screen-bg: #0d1b0d;
+            --screen-highlight: #1a2e1a;
+            --paper: #e8e5d8;
+            --ink: #2a2a2a;
+            --red-led: #ff3333;
+            --amber: #ffaa33;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        @keyframes led-blink {
+            0%, 49%, 100% { opacity: 1; }
+            50%, 99% { opacity: 0.3; }
+        }
+
+        @keyframes tape-spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+
+        @keyframes crt-scanline {
+            0% { transform: translateY(-100%); }
+            100% { transform: translateY(100vh); }
+        }
+
+        body {
+            font-family: 'IBM Plex Mono', monospace;
+            background: var(--screen-bg);
+            color: var(--phosphor);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            position: relative;
+            overflow-x: hidden;
+        }
+
+        /* CRT scanline effect - subtle */
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 2px;
+            background: rgba(127, 255, 127, 0.15);
+            pointer-events: none;
+            z-index: 9999;
+            animation: crt-scanline 8s linear infinite;
+        }
+
+        /* Screen flicker - DISABLED (was blocking content) */
+
+        .terminal {
+            width: 100%;
+            max-width: 800px;
+            border: 3px solid var(--phosphor-dim);
+            padding: 0;
+            position: relative;
+            box-shadow:
+                0 0 1px var(--phosphor),
+                inset 0 0 30px rgba(10, 15, 10, 0.8);
+        }
+
+        /* Hardware bezel */
+        .bezel {
+            background: linear-gradient(135deg, #1a1a1a 0%, #0d0d0d 100%);
+            padding: 15px;
+            border-bottom: 2px solid #000;
+        }
+
+        .bezel-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+        .station-badge {
+            font-family: 'Archivo Black', sans-serif;
+            font-size: 0.7rem;
+            letter-spacing: 0.15em;
+            color: var(--phosphor-bright);
+            text-shadow: 0 0 12px var(--phosphor);
+            padding: 4px 8px;
+            border: 1px solid var(--phosphor);
+            background: rgba(127, 255, 127, 0.08);
+        }
+
+        .power-indicator {
+            display: flex;
+            gap: 6px;
+            align-items: center;
+        }
+
+        .led {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--red-led);
+            box-shadow: 0 0 6px var(--red-led);
+            animation: led-blink 2s infinite;
+        }
+
+        .led-label {
+            font-size: 0.6rem;
+            color: #666;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+        }
+
+        /* Main screen */
+        .screen {
+            background: var(--screen-bg);
+            padding: 20px;
+            font-size: 0.85rem;
+            line-height: 1.6;
+            position: relative;
+        }
+
+        .screen-header {
+            border-bottom: 1px solid var(--phosphor-dim);
+            padding-bottom: 10px;
+            margin-bottom: 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: baseline;
+        }
+
+        .callsign {
+            font-size: 1.3rem;
+            font-weight: 600;
+            letter-spacing: 0.05em;
+        }
+
+        .location {
+            font-size: 0.75rem;
+            color: var(--phosphor-dim);
+        }
+
+        /* Tape deck section */
+        .tape-deck {
+            border: 1px solid var(--phosphor-dim);
+            padding: 15px;
+            margin-bottom: 20px;
+            position: relative;
+            background: var(--screen-highlight);
+        }
+
+        .deck-label {
+            position: absolute;
+            top: -8px;
+            left: 10px;
+            background: var(--screen-bg);
+            padding: 0 6px;
+            font-size: 0.65rem;
+            color: var(--phosphor-dim);
+            letter-spacing: 0.1em;
+        }
+
+        .tape-visual {
+            display: flex;
+            gap: 40px;
+            justify-content: center;
+            margin: 15px 0 20px;
+        }
+
+        .tape-reel {
+            width: 60px;
+            height: 60px;
+            border: 2px solid var(--phosphor-dim);
+            border-radius: 50%;
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .tape-reel::before {
+            content: '';
+            width: 20px;
+            height: 20px;
+            background: var(--screen-bg);
+            border: 2px solid var(--phosphor-dim);
+            border-radius: 50%;
+        }
+
+        .tape-reel::after {
+            content: '';
+            position: absolute;
+            width: 100%;
+            height: 2px;
+            background: var(--phosphor-dim);
+        }
+
+        .tape-reel.spinning::after {
+            animation: tape-spin 2s linear infinite;
+        }
+
+        /* Transport controls */
+        .transport {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            margin-bottom: 15px;
+        }
+
+        .btn {
+            font-family: 'IBM Plex Mono', monospace;
+            background: transparent;
+            border: 1px solid var(--phosphor-dim);
+            color: var(--phosphor);
+            padding: 8px 16px;
+            font-size: 0.75rem;
+            cursor: pointer;
+            letter-spacing: 0.1em;
+            transition: all 0.2s;
+            text-transform: uppercase;
+        }
+
+        .btn:hover {
+            background: rgba(127, 255, 127, 0.15);
+            border-color: var(--phosphor-bright);
+            box-shadow: 0 0 12px rgba(127, 255, 127, 0.4);
+        }
+
+        .btn:active {
+            transform: translateY(1px);
+        }
+
+        .btn-play {
+            min-width: 80px;
+        }
+
+        .btn-play.playing {
+            background: rgba(127, 255, 127, 0.2);
+            box-shadow: 0 0 15px rgba(127, 255, 127, 0.5);
+            border-color: var(--phosphor-bright);
+        }
+
+        /* Volume meter */
+        .meter {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+
+        .meter-label {
+            font-size: 0.7rem;
+            color: var(--phosphor-dim);
+            width: 60px;
+        }
+
+        .meter-bar {
+            flex: 1;
+            height: 12px;
+            background: rgba(127, 255, 127, 0.12);
+            border: 1px solid var(--phosphor-dim);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .meter-fill {
+            height: 100%;
+            background: var(--phosphor-bright);
+            width: 70%;
+            transition: width 0.1s;
+            box-shadow: 0 0 15px var(--phosphor);
+        }
+
+        .meter-bar input {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            opacity: 0;
+            cursor: pointer;
+        }
+
+        /* Progress bar - ASCII style */
+        .progress {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.7rem;
+            margin-top: 8px;
+        }
+
+        .progress-bar {
+            flex: 1;
+            height: 10px;
+            background: rgba(127, 255, 127, 0.12);
+            border: 1px solid var(--phosphor-dim);
+            position: relative;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: var(--phosphor-bright);
+            width: 0%;
+            transition: width 1s linear;
+            box-shadow: 0 0 8px var(--phosphor);
+        }
+
+        .time {
+            font-size: 0.65rem;
+            color: var(--phosphor-dim);
+            min-width: 42px;
+        }
+
+        /* Now Playing */
+        .now-playing {
+            border: 1px solid var(--phosphor-dim);
+            padding: 15px;
+            margin-bottom: 15px;
+            background: var(--screen-highlight);
+        }
+
+        .np-label {
+            font-size: 0.65rem;
+            color: var(--phosphor-dim);
+            margin-bottom: 8px;
+            letter-spacing: 0.15em;
+        }
+
+        .track-title {
+            font-size: 1.1rem;
+            font-weight: 500;
+            margin-bottom: 4px;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .track-artist {
+            font-size: 0.85rem;
+            color: var(--phosphor-dim);
+        }
+
+        .up-next {
+            font-size: 0.7rem;
+            color: var(--phosphor-dim);
+            margin-top: 10px;
+            padding-top: 10px;
+            border-top: 1px dashed var(--phosphor-dim);
+        }
+
+        /* History */
+        .history {
+            border: 1px solid var(--phosphor-dim);
+            padding: 12px;
+            margin-bottom: 15px;
+        }
+
+        .history-label {
+            font-size: 0.65rem;
+            color: var(--phosphor-dim);
+            margin-bottom: 8px;
+            letter-spacing: 0.15em;
+        }
+
+        .history-list {
+            list-style: none;
+        }
+
+        .history-item {
+            font-size: 0.7rem;
+            padding: 4px 0;
+            border-bottom: 1px dotted rgba(127, 255, 127, 0.25);
+            display: flex;
+            justify-content: space-between;
+            gap: 10px;
+        }
+
+        .history-item:last-child {
+            border-bottom: none;
+        }
+
+        .history-track {
+            flex: 1;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .history-time {
+            color: var(--phosphor-dim);
+            font-size: 0.65rem;
+        }
+
+        /* Links */
+        .links {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .link {
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 0.7rem;
+            color: var(--phosphor);
+            text-decoration: none;
+            border: 1px solid var(--phosphor-dim);
+            padding: 6px 12px;
+            letter-spacing: 0.1em;
+            transition: all 0.2s;
+            text-transform: uppercase;
+        }
+
+        .link:hover {
+            background: rgba(127, 255, 127, 0.15);
+            border-color: var(--phosphor-bright);
+            box-shadow: 0 0 12px rgba(127, 255, 127, 0.4);
+        }
+
+        /* Status footer */
+        .status-bar {
+            border-top: 1px solid var(--phosphor-dim);
+            padding-top: 10px;
+            margin-top: 15px;
+            font-size: 0.65rem;
+            color: var(--phosphor-dim);
+            display: flex;
+            justify-content: space-between;
+        }
+
+        /* Responsive */
+        @media (max-width: 640px) {
+            .terminal {
+                border-width: 2px;
+            }
+
+            .screen {
+                padding: 15px;
+                font-size: 0.8rem;
+            }
+
+            .tape-visual {
+                gap: 20px;
+            }
+
+            .tape-reel {
+                width: 50px;
+                height: 50px;
+            }
+
+            .transport {
+                flex-wrap: wrap;
+            }
+
+            .btn {
+                font-size: 0.7rem;
+                padding: 6px 12px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="terminal">
+        <!-- Hardware bezel -->
+        <div class="bezel">
+            <div class="bezel-top">
+                <div class="station-badge">PIRATE BROADCAST</div>
+                <div class="power-indicator">
+                    <div class="led"></div>
+                    <span class="led-label">PWR</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main screen -->
+        <div class="screen">
+            <div class="screen-header">
+                <div class="callsign">LAST BYTE RADIO</div>
+                <div class="location">CHICAGO WASTELAND</div>
+            </div>
+
+            <!-- Tape deck interface -->
+            <div class="tape-deck">
+                <div class="deck-label">BROADCAST DECK</div>
+
+                <div class="tape-visual">
+                    <div class="tape-reel spinning" id="reelLeft"></div>
+                    <div class="tape-reel spinning" id="reelRight"></div>
+                </div>
+
+                <div class="transport">
+                    <button class="btn btn-play" id="playBtn">
+                        <span id="playIcon">▶ PLAY</span>
+                    </button>
+                </div>
+
+                <div class="meter">
+                    <div class="meter-label">VOLUME</div>
+                    <div class="meter-bar">
+                        <div class="meter-fill" id="volumeFill"></div>
+                        <input type="range" id="volumeSlider" min="0" max="100" value="70">
+                    </div>
+                </div>
+
+                <div class="progress">
+                    <span class="time" id="currentTime">0:00</span>
+                    <div class="progress-bar">
+                        <div class="progress-fill" id="progressFill"></div>
+                    </div>
+                    <span class="time" id="totalTime">0:00</span>
+                </div>
+            </div>
+
+            <!-- Now Playing -->
+            <div class="now-playing">
+                <div class="np-label">→ NOW PLAYING</div>
+                <div class="track-title" id="trackTitle">INITIALIZING...</div>
+                <div class="track-artist" id="trackArtist">Loading transmission...</div>
+                <div class="up-next">
+                    <span style="color: var(--phosphor-dim);">UP NEXT:</span>
+                    <span id="upNext">---</span>
+                </div>
+            </div>
+
+            <!-- History -->
+            <div class="history">
+                <div class="history-label">→ RECENT BROADCASTS</div>
+                <ul class="history-list" id="historyList">
+                    <li class="history-item">
+                        <span class="history-track">Loading...</span>
+                        <span class="history-time">--:--</span>
+                    </li>
+                </ul>
+            </div>
+
+            <!-- Links -->
+            <div class="links">
+                <a href="https://radio.clintecker.com/radio" class="link" target="_blank">DIRECT STREAM</a>
+                <a href="https://radio.clintecker.com/radio.m3u" class="link" download>M3U PLAYLIST</a>
+            </div>
+
+            <!-- Status -->
+            <div class="status-bar">
+                <span>TRANSMITTING ON 192KBPS</span>
+                <span id="listeners">0 LISTENERS</span>
+            </div>
+        </div>
+    </div>
+
+    <audio id="audio" preload="none">
+        <source src="https://radio.clintecker.com/radio" type="audio/mpeg">
+    </audio>
+
+    <script>
+        const audio = document.getElementById('audio');
+        const playBtn = document.getElementById('playBtn');
+        const playIcon = document.getElementById('playIcon');
+        const volumeSlider = document.getElementById('volumeSlider');
+        const volumeFill = document.getElementById('volumeFill');
+        const progressFill = document.getElementById('progressFill');
+        const currentTime = document.getElementById('currentTime');
+        const totalTime = document.getElementById('totalTime');
+        const trackTitle = document.getElementById('trackTitle');
+        const trackArtist = document.getElementById('trackArtist');
+        const upNext = document.getElementById('upNext');
+        const historyList = document.getElementById('historyList');
+        const listeners = document.getElementById('listeners');
+        const reelLeft = document.getElementById('reelLeft');
+        const reelRight = document.getElementById('reelRight');
+
+        let isPlaying = false;
+
+        // Play/Pause
+        playBtn.addEventListener('click', () => {
+            if (isPlaying) {
+                audio.pause();
+                playIcon.textContent = '▶ PLAY';
+                playBtn.classList.remove('playing');
+                reelLeft.classList.remove('spinning');
+                reelRight.classList.remove('spinning');
+            } else {
+                audio.play();
+                playIcon.textContent = '■ STOP';
+                playBtn.classList.add('playing');
+                reelLeft.classList.add('spinning');
+                reelRight.classList.add('spinning');
+            }
+            isPlaying = !isPlaying;
+        });
+
+        // Volume control
+        volumeSlider.addEventListener('input', (e) => {
+            const value = e.target.value;
+            audio.volume = value / 100;
+            volumeFill.style.width = value + '%';
+        });
+
+        // Set initial volume
+        audio.volume = 0.7;
+
+        // Time formatting
+        function formatTime(seconds) {
+            if (!seconds || isNaN(seconds)) return '0:00';
+            const mins = Math.floor(seconds / 60);
+            const secs = Math.floor(seconds % 60);
+            return `${mins}:${secs.toString().padStart(2, '0')}`;
+        }
+
+        // Update progress (for future use with track duration)
+        audio.addEventListener('timeupdate', () => {
+            if (audio.duration) {
+                const progress = (audio.currentTime / audio.duration) * 100;
+                progressFill.style.width = progress + '%';
+                currentTime.textContent = formatTime(audio.currentTime);
+            }
+        });
+
+        audio.addEventListener('loadedmetadata', () => {
+            if (audio.duration && audio.duration !== Infinity) {
+                totalTime.textContent = formatTime(audio.duration);
+            }
+        });
+
+        // Fetch now playing data
+        async function updateNowPlaying() {
+            try {
+                const response = await fetch('/api/now_playing.json');
+                const data = await response.json();
+
+                if (data.current) {
+                    trackTitle.textContent = data.current.title || 'UNKNOWN TRANSMISSION';
+                    trackArtist.textContent = data.current.artist || 'Unknown';
+
+                    // Update progress if we have duration
+                    if (data.current.duration_sec) {
+                        totalTime.textContent = formatTime(data.current.duration_sec);
+                    }
+                }
+
+                if (data.next) {
+                    upNext.textContent = `${data.next.title} — ${data.next.artist}`;
+                } else {
+                    upNext.textContent = '---';
+                }
+
+                // Update history
+                if (data.history && data.history.length > 0) {
+                    historyList.innerHTML = data.history.slice(0, 5).map(track => {
+                        const playedDate = new Date(track.played_at);
+                        const timeStr = playedDate.toLocaleTimeString('en-US', {
+                            hour: '2-digit',
+                            minute: '2-digit',
+                            hour12: false
+                        });
+                        return `
+                            <li class="history-item">
+                                <span class="history-track">${track.title} — ${track.artist}</span>
+                                <span class="history-time">${timeStr}</span>
+                            </li>
+                        `;
+                    }).join('');
+                }
+
+                // Mock listener count (could be expanded)
+                const count = Math.floor(Math.random() * 30) + 150;
+                listeners.textContent = `${count} LISTENERS`;
+
+            } catch (error) {
+                console.error('Failed to fetch now playing:', error);
+            }
+        }
+
+        // Initial update and periodic refresh
+        updateNowPlaying();
+        setInterval(updateNowPlaying, 10000); // Update every 10 seconds
+    </script>
+</body>
+</html>
