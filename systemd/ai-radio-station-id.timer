@@ -1,0 +1,18 @@
+[Unit]
+Description=AI Radio Station - Station ID Enqueue Timer
+Documentation=https://github.com/yourusername/ai-radio
+Requires=ai-radio-station-id.service
+
+[Timer]
+# Run at :15, :30, and :45 of each hour (3 times per hour)
+OnBootSec=3min
+OnCalendar=*:15,30,45:00
+
+# Persistent (catches up if system was down)
+Persistent=true
+
+# Randomize timing by up to 30 seconds to avoid exact clustering
+RandomizedDelaySec=30
+
+[Install]
+WantedBy=timers.target

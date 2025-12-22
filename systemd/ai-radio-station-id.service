@@ -1,0 +1,32 @@
+[Unit]
+Description=AI Radio Station - Station ID Enqueue Service
+Documentation=https://github.com/yourusername/ai-radio
+After=network.target ai-radio-liquidsoap.service
+Requires=ai-radio-liquidsoap.service
+
+[Service]
+Type=oneshot
+User=ai-radio
+Group=ai-radio
+WorkingDirectory=/srv/ai_radio
+
+# Execute station ID enqueue script
+ExecStart=/srv/ai_radio/.venv/bin/python /srv/ai_radio/scripts/enqueue_station_id.py
+
+# Environment
+Environment="PYTHONUNBUFFERED=1"
+EnvironmentFile=-/srv/ai_radio/.env
+
+# Resource limits
+MemoryMax=128M
+
+# Timeout
+TimeoutSec=15
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=ai-radio-station-id
+
+[Install]
+WantedBy=multi-user.target

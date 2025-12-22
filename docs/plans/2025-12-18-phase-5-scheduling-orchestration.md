@@ -692,20 +692,149 @@ Expected: Changes committed
 
 ---
 
-## Task 4: Break Scheduler Service
+## Task 4: Break Scheduler Service with Gap-Filling
 
 **Files:**
 - Create: `/srv/ai_radio/scripts/schedule_break.py`
+- Create: `/srv/ai_radio/src/ai_radio/gap_filler.py`
 
-**Step 1: Create break scheduler script**
+**Overview:** Intelligent top-of-hour break scheduling that avoids cutting into songs by filling gaps with short content (station IDs, filler tracks) when queue would run past :00.
+
+**Step 1: Create gap filler module**
+
+Create file `/srv/ai_radio/src/ai_radio/gap_filler.py`:
+
+```python
+"""
+AI Radio Station - Gap Filler
+Selects filler content (station IDs, short tracks) to fill time gaps before hourly breaks
+"""
+import logging
+import random
+import sqlite3
+from pathlib import Path
+from typing import Optional
+
+logger = logging.getLogger(__name__)
+
+STATION_IDS_DIR = Path("/srv/ai_radio/assets/bumpers")
+FILLER_DURATION_MIN = 10  # Minimum gap to fill (seconds)
+FILLER_DURATION_MAX = 180  # Maximum filler duration (3 minutes)
+
+
+def get_queue_duration(db_path: Path, queue_track_ids: list[str]) -> float:
+    """
+    Calculate total duration of tracks in queue
+
+    Args:
+        db_path: Database path
+        queue_track_ids: List of track IDs currently in queue
+
+    Returns:
+        Total duration in seconds
+    """
+    if not queue_track_ids:
+        return 0.0
+
+    try:
+        conn = sqlite3.connect(db_path)
+        cursor = conn.cursor()
+
+        placeholders = ','.join('?' * len(queue_track_ids))
+        cursor.execute(
+            f"""
+            SELECT SUM(duration_sec)
+            FROM assets
+            WHERE id IN ({placeholders})
+            """,
+            queue_track_ids
+        )
+
+        result = cursor.fetchone()[0]
+        conn.close()
+
+        return float(result) if result else 0.0
+
+    except sqlite3.Error as e:
+        logger.error(f"Failed to get queue duration: {e}")
+        return 0.0
+
+
+def select_filler_content(
+    target_duration: float,
+    filler_type: str = "station_id"
+) -> Optional[Path]:
+    """
+    Select filler content to match target duration
+
+    Args:
+        target_duration: Desired filler duration in seconds
+        filler_type: Type of filler - "station_id", "short_track", or "silence"
+
+    Returns:
+        Path to filler audio file, or None if no suitable filler found
+    """
+    if target_duration < FILLER_DURATION_MIN:
+        logger.info(f"Gap too short to fill ({target_duration}s < {FILLER_DURATION_MIN}s)")
+        return None
+
+    if target_duration > FILLER_DURATION_MAX:
+        logger.warning(f"Gap too long for filler ({target_duration}s > {FILLER_DURATION_MAX}s)")
+        return None
+
+    if filler_type == "station_id":
+        # Select random station ID from bumpers directory
+        station_ids = list(STATION_IDS_DIR.glob("station_id_*.wav"))
+
+        if not station_ids:
+            logger.warning("No station IDs available for filler")
+            return None
+
+        # TODO: Filter by duration if we have metadata
+        # For now, randomly select one
+        selected = random.choice(station_ids)
+        logger.info(f"Selected filler: {selected.name}")
+        return selected
+
+    # TODO: Implement short_track selection from database
+    # TODO: Implement silence generation with ffmpeg
+
+    return None
+
+
+def calculate_gap_to_hour(current_minute: int, queue_duration_sec: float) -> float:
+    """
+    Calculate time gap between queue end and top of hour
+
+    Args:
+        current_minute: Current minute of hour (0-59)
+        queue_duration_sec: Total duration of queued tracks
+
+    Returns:
+        Gap duration in seconds (positive = gap exists, negative = queue runs past hour)
+    """
+    # Calculate seconds to next hour
+    seconds_to_hour = (60 - current_minute) * 60
+
+    # Gap = time to hour - queue duration
+    gap = seconds_to_hour - queue_duration_sec
+
+    logger.info(
+        f"Gap calculation: {seconds_to_hour}s to hour - {queue_duration_sec}s queue = {gap}s gap"
+    )
+
+    return gap
+```
+
+**Step 2: Create enhanced break scheduler script**
 
 Create file `/srv/ai_radio/scripts/schedule_break.py`:
 
 ```python
 #!/usr/bin/env python3
 """
-AI Radio Station - Break Scheduler
-Pushes breaks to Liquidsoap at top of hour
+AI Radio Station - Break Scheduler with Gap Filling
+Intelligently schedules breaks at top of hour, filling gaps to avoid song cuts
 """
 import logging
 import sys
@@ -714,8 +843,9 @@ from datetime import datetime
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-from ai_radio.config import get_config
+from ai_radio.config import config
 from ai_radio.liquidsoap_client import LiquidsoapClient
+from ai_radio.gap_filler import calculate_gap_to_hour, select_filler_content
 
 logging.basicConfig(
     level=logging.INFO,
@@ -724,29 +854,63 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 BREAKS_DIR = Path("/srv/ai_radio/assets/breaks")
-QUEUE_NAME = "breaks"
+BREAKS_QUEUE = "breaks"
+MUSIC_QUEUE = "music"
+GAP_THRESHOLD = 180  # 3 minutes - if gap is larger, add regular track instead
 
 
 def main():
     """Main entry point"""
     now = datetime.now()
+    current_minute = now.minute
 
-    # Check if we're within 5 minutes of the hour
-    minutes = now.minute
-
-    if minutes > 5:
-        logger.info(f"Not near top of hour (minute: {minutes}), skipping")
+    # Only run within window: 55-59 minutes (prep for top of hour)
+    if current_minute < 55:
+        logger.info(f"Not near top of hour (minute: {current_minute}), skipping")
         sys.exit(0)
 
-    logger.info("Near top of hour, scheduling break...")
+    logger.info(f"Preparing for top of hour (minute: {current_minute})...")
+
+    client = LiquidsoapClient()
 
     # Check if break already queued (prevent double-scheduling)
-    client = LiquidsoapClient()
-    if client.get_queue_length(QUEUE_NAME) > 0:
+    if client.get_queue_length(BREAKS_QUEUE) > 0:
         logger.info("Break already queued, skipping")
         sys.exit(0)
 
-    # Find next.mp3 (SOW-mandated file)
+    # Get current music queue length
+    queue_length = client.get_queue_length(MUSIC_QUEUE)
+    logger.info(f"Music queue length: {queue_length} tracks")
+
+    # TODO: Get actual queue duration from track metadata
+    # For now, estimate: assume average track is 3 minutes
+    estimated_queue_duration = queue_length * 180  # seconds
+
+    # Calculate gap to hour
+    gap_seconds = calculate_gap_to_hour(current_minute, estimated_queue_duration)
+
+    if gap_seconds > GAP_THRESHOLD:
+        # Gap is large - just add regular music track (enqueue service will handle)
+        logger.info(f"Large gap ({gap_seconds}s) - letting enqueue service add regular track")
+        sys.exit(0)
+
+    elif gap_seconds > 30:
+        # Gap exists and is fillable - add station ID or short filler
+        logger.info(f"Fillable gap detected ({gap_seconds}s) - adding filler content")
+
+        filler_path = select_filler_content(target_duration=gap_seconds, filler_type="station_id")
+
+        if filler_path:
+            if client.push_track(MUSIC_QUEUE, str(filler_path)):
+                logger.info(f"Filler queued: {filler_path.name}")
+            else:
+                logger.warning("Failed to queue filler content")
+
+    else:
+        # Gap is small or negative - queue will end close to hour
+        logger.info(f"Gap acceptable ({gap_seconds}s) - proceeding with break scheduling")
+
+    # Schedule the break
     next_break = BREAKS_DIR / "next.mp3"
 
     if not next_break.exists():
@@ -762,7 +926,7 @@ def main():
             sys.exit(1)
 
     # Push to Liquidsoap break queue
-    if client.push_track(QUEUE_NAME, next_break):
+    if client.push_track(BREAKS_QUEUE, str(next_break)):
         logger.info(f"Break scheduled: {next_break}")
         sys.exit(0)
     else:

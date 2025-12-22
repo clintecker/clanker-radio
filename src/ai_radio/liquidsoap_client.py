@@ -3,6 +3,7 @@ AI Radio Station - Liquidsoap Unix Socket Client
 Communicates with Liquidsoap for queue management
 """
 import logging
+import shlex
 import socket
 import re
 from pathlib import Path
@@ -35,18 +36,17 @@ class LiquidsoapClient:
         if not self.socket_path.exists():
             raise ConnectionError(f"Liquidsoap socket not found: {self.socket_path}")
 
-        sock = None
         try:
-            sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-            sock.settimeout(timeout)
-            sock.connect(str(self.socket_path))
+            with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as sock:
+                sock.settimeout(timeout)
+                sock.connect(str(self.socket_path))
 
-            # Send command with newline
-            sock.sendall(f"{command}\n".encode())
+                # Send command with newline
+                sock.sendall(f"{command}\n".encode())
 
-            # Read response (up to 64KB)
-            response = sock.recv(65536).decode().strip()
-            return response
+                # Read response (up to 64KB)
+                response = sock.recv(65536).decode().strip()
+                return response
 
         except socket.timeout:
             logger.error(f"Liquidsoap socket timeout after {timeout}s")
@@ -55,10 +55,6 @@ class LiquidsoapClient:
         except Exception as e:
             logger.error(f"Failed to communicate with Liquidsoap: {e}")
             raise ConnectionError(f"Liquidsoap communication error: {e}")
-
-        finally:
-            if sock:
-                sock.close()
 
     def get_queue_length(self, queue_name: str) -> int:
         """
@@ -98,7 +94,9 @@ class LiquidsoapClient:
             True if successful, False otherwise
         """
         try:
-            response = self.send_command(f"{queue_name}.push {file_path}")
+            # Sanitize file path to prevent command injection
+            safe_path = shlex.quote(str(file_path))
+            response = self.send_command(f"{queue_name}.push {safe_path}")
 
             # Success if response doesn't contain "ERROR" or similar
             if "error" in response.lower():

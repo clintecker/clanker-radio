@@ -6,12 +6,15 @@ Wants=network-online.target
 
 [Service]
 Type=oneshot
-User=radio
-Group=radio
+User=ai-radio
+Group=ai-radio
 WorkingDirectory=/srv/ai_radio
 
 # Execute break generation script
-ExecStart=/usr/bin/python3 /srv/ai_radio/scripts/generate_break.py
+ExecStart=/srv/ai_radio/.venv/bin/python /srv/ai_radio/scripts/generate_break.py
+
+# Update next.mp3 symlink after generation
+ExecStartPost=/srv/ai_radio/.venv/bin/python /srv/ai_radio/scripts/update_next_break.py
 
 # Environment
 Environment="PYTHONUNBUFFERED=1"

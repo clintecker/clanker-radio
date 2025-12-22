@@ -69,6 +69,48 @@ temp/
 .DS_Store
 Thumbs.db
 
-# Project-specific
-/srv/ai_radio/assets/normalized_music/
-/srv/ai_radio/assets/source_music/
+# Project-specific - Audio Files
+# Exclude ALL audio files from git
+*.mp3
+*.wav
+*.flac
+*.m4a
+*.aac
+*.ogg
+*.opus
+
+# Assets directory (contains audio files)
+# Ignore everything in assets except .gitkeep files
+assets/**/*
+!assets/**/.gitkeep
+
+# Database files
+db/
+*.db
+*.db-shm
+*.db-wal
+
+# Secrets and configuration
+.env
+.env.local
+.env.production
+*_secrets
+*.pem
+*.key
+config.json
+credentials.json
+
+# Server-specific paths
+/srv/
+
+# Nginx admin interface (if it contains sensitive data)
+nginx/admin/
+
+# Generated files
+next.mp3
+now_playing.json
+
+# Backups
+*.backup
+*.bak
+index.html.backup

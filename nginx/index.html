@@ -3,23 +3,17 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>LAST BYTE RADIO // SECURE TRANSMISSION</title>
-    <meta name="description" content="Encrypted broadcast from Chicago wasteland">
+    <title>LAST BYTE RADIO // CHICAGO WASTELAND</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Orbitron:wght@700;900&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap" rel="stylesheet">
     <style>
         :root {
             --phosphor: #7fff7f;
-            --phosphor-bright: #9fff9f;
+            --phosphor-bright: #bfffbf;
             --phosphor-dim: #4a9a4a;
-            --phosphor-dark: #2a5a2a;
-            --screen-bg: #0a1509;
-            --screen-highlight: #1a2e1a;
-            --terminal-border: #3a7a3a;
-            --red-alert: #ff3333;
-            --amber-warning: #ffaa33;
-            --blue-data: #33aaff;
+            --screen-bg: #050a05;
+            --cyan: #00ffff;
         }
 
         * {
@@ -28,516 +22,102 @@
             box-sizing: border-box;
         }
 
-        @keyframes matrix-rain {
-            0% { transform: translateY(-100%); }
-            100% { transform: translateY(100vh); }
-        }
-
-        @keyframes scan-line {
-            0% { transform: translateY(0); }
-            100% { transform: translateY(100%); }
-        }
-
-        @keyframes glitch {
-            0%, 100% { transform: translate(0); }
-            20% { transform: translate(-2px, 2px); }
-            40% { transform: translate(-2px, -2px); }
-            60% { transform: translate(2px, 2px); }
-            80% { transform: translate(2px, -2px); }
-        }
-
-        @keyframes pulse-glow {
-            0%, 100% {
-                box-shadow: 0 0 5px var(--phosphor-dim),
-                            0 0 10px var(--phosphor-dark),
-                            inset 0 0 5px var(--phosphor-dark);
-            }
-            50% {
-                box-shadow: 0 0 10px var(--phosphor),
-                            0 0 20px var(--phosphor-dim),
-                            inset 0 0 10px var(--phosphor-dark);
-            }
-        }
-
-        @keyframes data-stream {
-            0% { transform: translateX(-100%); opacity: 0; }
-            10% { opacity: 1; }
-            90% { opacity: 1; }
-            100% { transform: translateX(100%); opacity: 0; }
-        }
-
-        @keyframes signal-pulse {
-            0%, 100% { opacity: 0.3; transform: scale(1); }
-            50% { opacity: 1; transform: scale(1.2); }
-        }
-
-        @keyframes cursor-blink {
-            0%, 49% { opacity: 1; }
-            50%, 100% { opacity: 0; }
-        }
-
-        @keyframes waveform {
-            0%, 100% { height: 20%; }
-            50% { height: 80%; }
-        }
-
-        @keyframes hex-scroll {
-            0% { transform: translateY(0); }
-            100% { transform: translateY(-50%); }
-        }
-
         body {
-            font-family: 'JetBrains Mono', monospace;
+            font-family: 'Share Tech Mono', monospace;
             background: var(--screen-bg);
             color: var(--phosphor);
-            min-height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
+            line-height: 1.6;
             padding: 20px;
-            position: relative;
-            overflow: hidden;
+            min-height: 100vh;
         }
 
-        /* Matrix rain background */
-        .matrix-bg {
-            position: fixed;
-            inset: 0;
-            pointer-events: none;
-            z-index: 1;
-            opacity: 0.03;
-            overflow: hidden;
-        }
-
-        .matrix-column {
-            position: absolute;
-            top: -100%;
-            font-size: 14px;
-            line-height: 1.2;
-            white-space: pre;
-            color: var(--phosphor);
-            animation: matrix-rain linear infinite;
-        }
-
-        /* Grid overlay */
+        /* CRT scan line effect */
         body::before {
             content: '';
             position: fixed;
-            inset: 0;
-            background:
-                linear-gradient(90deg, transparent 0%, transparent calc(100% - 1px), var(--phosphor-dark) calc(100% - 1px)),
-                linear-gradient(0deg, transparent 0%, transparent calc(100% - 1px), var(--phosphor-dark) calc(100% - 1px));
-            background-size: 40px 40px;
-            opacity: 0.05;
-            pointer-events: none;
-            z-index: 2;
-        }
-
-        /* Scan line */
-        body::after {
-            content: '';
-            position: fixed;
             top: 0;
             left: 0;
             width: 100%;
-            height: 2px;
-            background: linear-gradient(
-                to bottom,
-                transparent,
-                var(--phosphor) 50%,
-                transparent
+            height: 100%;
+            background: repeating-linear-gradient(
+                0deg,
+                rgba(0, 0, 0, 0.15),
+                rgba(0, 0, 0, 0.15) 1px,
+                transparent 1px,
+                transparent 2px
             );
-            box-shadow: 0 0 10px var(--phosphor);
             pointer-events: none;
-            z-index: 9999;
-            animation: scan-line 8s linear infinite;
-            opacity: 0.3;
+            z-index: 1000;
         }
 
-        .terminal-wrapper {
-            width: 100%;
-            max-width: 1000px;
-            position: relative;
-            z-index: 10;
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
         }
 
-        /* Terminal frame with corner brackets */
-        .terminal {
-            position: relative;
-            background: rgba(10, 21, 9, 0.95);
-            border: 2px solid var(--terminal-border);
-            box-shadow:
-                0 0 20px rgba(127, 255, 127, 0.1),
-                inset 0 0 40px rgba(0, 0, 0, 0.5);
+        /* Header */
+        header {
+            margin-bottom: 40px;
+            border-bottom: 1px solid var(--phosphor-dim);
+            padding-bottom: 15px;
         }
 
-        /* Corner brackets */
-        .terminal::before,
-        .terminal::after,
-        .terminal .corner-tl,
-        .terminal .corner-tr,
-        .terminal .corner-bl,
-        .terminal .corner-br {
-            content: '';
-            position: absolute;
-            width: 20px;
-            height: 20px;
-            border: 2px solid var(--phosphor);
+        h1 {
+            font-size: 1.2rem;
+            letter-spacing: 0.3em;
+            color: var(--phosphor-bright);
+            margin-bottom: 5px;
         }
 
-        .terminal::before {
-            top: -2px;
-            left: -2px;
-            border-right: none;
-            border-bottom: none;
-        }
-
-        .terminal::after {
-            top: -2px;
-            right: -2px;
-            border-left: none;
-            border-bottom: none;
-        }
-
-        .corner-bl {
-            position: absolute;
-            bottom: -2px;
-            left: -2px;
-            border-right: none;
-            border-top: none;
-        }
-
-        .corner-br {
-            position: absolute;
-            bottom: -2px;
-            right: -2px;
-            border-left: none;
-            border-top: none;
-        }
-
-        /* Header bar */
-        .terminal-header {
-            background: linear-gradient(135deg, #0d1b0d 0%, #1a2e1a 100%);
-            padding: 12px 20px;
-            border-bottom: 1px solid var(--terminal-border);
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            position: relative;
-            overflow: hidden;
-        }
-
-        .terminal-header::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 200px;
-            height: 2px;
-            background: linear-gradient(90deg, transparent, var(--phosphor), transparent);
-            animation: data-stream 3s ease-in-out infinite;
-        }
-
-        .station-id {
-            font-family: 'Orbitron', sans-serif;
-            font-size: 0.9rem;
-            font-weight: 900;
+        .tagline {
+            font-size: 0.7rem;
+            color: var(--phosphor-dim);
             letter-spacing: 0.2em;
-            color: var(--phosphor-bright);
-            text-shadow:
-                0 0 10px var(--phosphor),
-                0 0 20px var(--phosphor-dim);
         }
 
-        .system-status {
-            display: flex;
-            gap: 15px;
-            align-items: center;
-            font-size: 0.65rem;
-            letter-spacing: 0.1em;
-        }
-
-        .status-indicator {
-            display: flex;
-            align-items: center;
-            gap: 5px;
-        }
-
-        .status-dot {
-            width: 6px;
-            height: 6px;
-            border-radius: 50%;
-            background: var(--phosphor);
-            box-shadow: 0 0 6px var(--phosphor);
-            animation: signal-pulse 2s ease-in-out infinite;
-        }
-
-        /* Main content area */
-        .terminal-body {
-            padding: 20px;
-        }
-
-        /* Connection stats bar */
-        .stats-bar {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
-            gap: 10px;
-            margin-bottom: 20px;
-            padding: 10px;
-            background: var(--screen-highlight);
-            border: 1px solid var(--phosphor-dark);
-            border-left: 3px solid var(--phosphor);
-        }
-
-        .stat-item {
-            font-size: 0.7rem;
-        }
-
-        .stat-label {
-            color: var(--phosphor-dim);
-            text-transform: uppercase;
-            letter-spacing: 0.1em;
-            font-size: 0.6rem;
-            margin-bottom: 2px;
-        }
-
-        .stat-value {
-            font-weight: 600;
-            color: var(--phosphor-bright);
-            font-size: 0.75rem;
-        }
-
-        /* Audio player section */
-        .player-section {
-            border: 1px solid var(--terminal-border);
-            padding: 20px;
-            margin-bottom: 20px;
-            position: relative;
-            background: rgba(26, 46, 26, 0.3);
-        }
-
-        .section-label {
-            position: absolute;
-            top: -10px;
-            left: 15px;
-            background: var(--screen-bg);
-            padding: 0 10px;
-            font-size: 0.65rem;
-            color: var(--phosphor-dim);
-            letter-spacing: 0.15em;
-            text-transform: uppercase;
-        }
-
-        /* Waveform visualization */
-        .waveform {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            height: 60px;
-            gap: 3px;
-            margin: 20px 0;
-            padding: 10px;
-            background: rgba(0, 0, 0, 0.3);
-            border: 1px solid var(--phosphor-dark);
-        }
-
-        .waveform-bar {
-            width: 4px;
-            background: var(--phosphor);
-            box-shadow: 0 0 5px var(--phosphor);
-            height: 20%;
-            transition: height 0.1s ease;
-        }
-
-        .waveform.active .waveform-bar {
-            animation: waveform 0.5s ease-in-out infinite;
-        }
-
-        .waveform-bar:nth-child(2n) { animation-delay: 0.1s; }
-        .waveform-bar:nth-child(3n) { animation-delay: 0.2s; }
-        .waveform-bar:nth-child(4n) { animation-delay: 0.3s; }
-
-        /* Transport controls */
-        .transport-controls {
-            display: flex;
-            gap: 10px;
-            justify-content: center;
-            margin-bottom: 20px;
-        }
-
-        .btn {
-            font-family: 'JetBrains Mono', monospace;
-            background: transparent;
-            border: 1px solid var(--phosphor-dim);
-            color: var(--phosphor);
-            padding: 10px 20px;
-            font-size: 0.75rem;
-            cursor: pointer;
-            letter-spacing: 0.15em;
-            text-transform: uppercase;
-            transition: all 0.2s;
-            position: relative;
-            overflow: hidden;
-        }
-
-        .btn::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: -100%;
-            width: 100%;
-            height: 100%;
-            background: linear-gradient(90deg, transparent, var(--phosphor-dim), transparent);
-            transition: left 0.3s;
-        }
-
-        .btn:hover::before {
-            left: 100%;
-        }
-
-        .btn:hover {
-            border-color: var(--phosphor-bright);
-            box-shadow:
-                0 0 10px var(--phosphor-dim),
-                inset 0 0 10px rgba(127, 255, 127, 0.1);
-            transform: translateY(-1px);
-        }
-
-        .btn:active {
-            transform: translateY(0);
-        }
-
-        .btn-primary {
-            background: rgba(127, 255, 127, 0.1);
-            border-color: var(--phosphor);
-            font-weight: 600;
-        }
-
-        .btn-primary.active {
-            background: rgba(127, 255, 127, 0.2);
-            box-shadow:
-                0 0 20px var(--phosphor-dim),
-                inset 0 0 15px rgba(127, 255, 127, 0.2);
-            animation: pulse-glow 2s ease-in-out infinite;
-        }
-
-        /* Volume control */
-        .volume-control {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            margin-bottom: 15px;
-        }
-
-        .volume-label {
-            font-size: 0.7rem;
-            color: var(--phosphor-dim);
-            min-width: 60px;
-            letter-spacing: 0.1em;
-        }
-
-        .volume-bar {
-            flex: 1;
-            height: 20px;
-            background: rgba(127, 255, 127, 0.05);
-            border: 1px solid var(--phosphor-dark);
-            position: relative;
-            overflow: hidden;
-        }
-
-        .volume-fill {
-            height: 100%;
-            background: linear-gradient(90deg, var(--phosphor-dim), var(--phosphor));
-            box-shadow: 0 0 10px var(--phosphor);
-            width: 70%;
-            position: relative;
-        }
-
-        .volume-fill::after {
-            content: '';
-            position: absolute;
-            top: 0;
-            right: 0;
-            width: 2px;
-            height: 100%;
-            background: var(--phosphor-bright);
-            box-shadow: 0 0 10px var(--phosphor);
-        }
-
-        .volume-bar input {
-            position: absolute;
-            width: 100%;
-            height: 100%;
-            opacity: 0;
-            cursor: pointer;
-            z-index: 10;
-        }
-
-        /* Now playing section */
+        /* NOW PLAYING - THE STAR */
         .now-playing {
-            border: 1px solid var(--terminal-border);
-            padding: 20px;
-            margin-bottom: 20px;
-            background: rgba(26, 46, 26, 0.3);
+            margin-bottom: 50px;
             position: relative;
-        }
-
-        .np-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 15px;
         }
 
         .np-label {
-            font-size: 0.7rem;
+            font-size: 0.6rem;
+            letter-spacing: 0.25em;
             color: var(--phosphor-dim);
-            letter-spacing: 0.15em;
-            text-transform: uppercase;
+            margin-bottom: 10px;
         }
 
-        .np-label::before {
-            content: '▶ ';
-            color: var(--phosphor);
-        }
-
-        .track-duration {
-            font-size: 0.7rem;
-            color: var(--phosphor-dim);
-            font-variant-numeric: tabular-nums;
-        }
-
-        .track-title {
-            font-size: 1.2rem;
-            font-weight: 600;
-            margin-bottom: 5px;
+        .np-title {
+            font-size: 2rem;
             color: var(--phosphor-bright);
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-            text-shadow: 0 0 10px var(--phosphor-dim);
+            margin-bottom: 8px;
+            line-height: 1.2;
+            text-shadow: 0 0 10px rgba(127, 255, 127, 0.5);
         }
 
-        .track-title::after {
-            content: '_';
-            animation: cursor-blink 1s step-end infinite;
-            margin-left: 2px;
+        .np-artist {
+            font-size: 1.2rem;
+            color: var(--phosphor);
+            margin-bottom: 15px;
         }
 
-        .track-artist {
-            font-size: 0.85rem;
+        .np-meta {
+            font-size: 0.75rem;
             color: var(--phosphor-dim);
+            margin-bottom: 15px;
         }
 
-        .progress-bar-container {
-            margin-top: 15px;
-            padding-top: 15px;
-            border-top: 1px solid var(--phosphor-dark);
+        /* Progress bar */
+        .progress-container {
+            margin-top: 20px;
+            margin-bottom: 10px;
         }
 
         .progress-bar {
-            height: 4px;
-            background: rgba(127, 255, 127, 0.1);
-            border: 1px solid var(--phosphor-dark);
+            width: 100%;
+            height: 2px;
+            background: rgba(127, 255, 127, 0.15);
             position: relative;
             overflow: hidden;
         }
@@ -545,550 +125,537 @@
         .progress-fill {
             height: 100%;
             background: var(--phosphor);
-            box-shadow:
-                0 0 10px var(--phosphor),
-                0 0 20px var(--phosphor-dim);
             width: 0%;
-            transition: width 1s linear;
+            transition: width 0.5s linear;
+            box-shadow: 0 0 8px var(--phosphor);
         }
 
-        .time-display {
-            display: flex;
-            justify-content: space-between;
-            margin-top: 5px;
+        .progress-time {
             font-size: 0.65rem;
             color: var(--phosphor-dim);
+            margin-top: 5px;
             font-variant-numeric: tabular-nums;
         }
 
-        /* Queue section */
-        .queue-section {
-            border: 1px solid var(--terminal-border);
-            padding: 15px;
-            margin-bottom: 20px;
-            background: rgba(26, 46, 26, 0.2);
-            position: relative;
+        /* Stream section */
+        .stream-section {
+            margin-bottom: 50px;
         }
 
-        .queue-item {
-            padding: 8px 10px;
-            border-left: 2px solid var(--phosphor-dark);
-            margin-bottom: 8px;
-            font-size: 0.75rem;
-            display: flex;
-            justify-content: space-between;
-            transition: all 0.2s;
-        }
-
-        .queue-item:hover {
-            border-left-color: var(--phosphor);
-            background: rgba(127, 255, 127, 0.05);
-            padding-left: 15px;
-        }
-
-        .queue-item:last-child {
-            margin-bottom: 0;
-        }
-
-        .queue-track {
-            flex: 1;
-        }
-
-        .queue-time {
+        .stream-header {
+            font-size: 0.6rem;
+            letter-spacing: 0.25em;
             color: var(--phosphor-dim);
-            font-size: 0.65rem;
+            margin-bottom: 15px;
+            padding-bottom: 6px;
+            border-bottom: 1px solid rgba(127, 255, 127, 0.1);
         }
 
-        /* History section */
-        .history-section {
-            border: 1px solid var(--terminal-border);
-            padding: 15px;
-            margin-bottom: 20px;
-            background: rgba(26, 46, 26, 0.2);
-            position: relative;
-        }
-
-        .history-item {
-            padding: 6px 10px;
-            border-bottom: 1px dotted var(--phosphor-dark);
-            font-size: 0.7rem;
+        /* Player controls */
+        .player-controls {
             display: flex;
-            justify-content: space-between;
             gap: 15px;
+            align-items: center;
+            margin-bottom: 20px;
         }
 
-        .history-item:last-child {
-            border-bottom: none;
+        .play-button {
+            background: transparent;
+            border: 1px solid var(--phosphor);
+            color: var(--phosphor);
+            padding: 12px 30px;
+            font-family: 'Share Tech Mono', monospace;
+            font-size: 0.7rem;
+            letter-spacing: 0.15em;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-transform: uppercase;
         }
 
-        .history-track {
-            flex: 1;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
+        .play-button:hover {
+            background: rgba(127, 255, 127, 0.1);
+            box-shadow: 0 0 15px rgba(127, 255, 127, 0.3);
         }
 
-        .history-time {
+        .play-button.playing {
+            background: rgba(127, 255, 127, 0.15);
+            box-shadow: 0 0 10px rgba(127, 255, 127, 0.4);
+        }
+
+        .volume-control {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .volume-label {
+            font-size: 0.6rem;
             color: var(--phosphor-dim);
+            letter-spacing: 0.15em;
+        }
+
+        input[type="range"] {
+            -webkit-appearance: none;
+            width: 100px;
+            height: 2px;
+            background: rgba(127, 255, 127, 0.2);
+            outline: none;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 12px;
+            height: 12px;
+            background: var(--phosphor);
+            cursor: pointer;
+            border-radius: 50%;
+        }
+
+        input[type="range"]::-moz-range-thumb {
+            width: 12px;
+            height: 12px;
+            background: var(--phosphor);
+            cursor: pointer;
+            border-radius: 50%;
+            border: none;
+        }
+
+        .stream-stats {
+            display: flex;
+            gap: 20px;
             font-size: 0.65rem;
-            white-space: nowrap;
+            color: var(--phosphor-dim);
+            margin-bottom: 20px;
+            flex-wrap: wrap;
         }
 
-        /* Hex dump decoration */
-        .hex-decoration {
-            position: absolute;
-            right: 15px;
-            top: 50%;
-            transform: translateY(-50%);
-            font-size: 0.5rem;
-            color: var(--phosphor-dark);
-            opacity: 0.3;
-            letter-spacing: 0.1em;
-            line-height: 1.2;
-            overflow: hidden;
-            height: 100px;
-            mask-image: linear-gradient(to bottom, transparent, black 20%, black 80%, transparent);
+        .stat {
+            display: flex;
+            gap: 6px;
         }
 
-        .hex-content {
-            animation: hex-scroll 20s linear infinite;
+        .stat-label {
+            color: var(--phosphor-dim);
+        }
+
+        .stat-value {
+            color: var(--phosphor);
+            font-variant-numeric: tabular-nums;
         }
 
         /* Stream links */
         .stream-links {
             display: flex;
-            gap: 10px;
-            flex-wrap: wrap;
-            margin-bottom: 20px;
+            gap: 15px;
         }
 
         .stream-link {
-            font-family: 'JetBrains Mono', monospace;
-            font-size: 0.7rem;
-            color: var(--phosphor);
+            flex: 1;
+            padding: 12px;
+            text-align: center;
             text-decoration: none;
+            color: var(--phosphor);
             border: 1px solid var(--phosphor-dim);
-            padding: 8px 15px;
-            letter-spacing: 0.1em;
-            text-transform: uppercase;
+            font-size: 0.7rem;
+            letter-spacing: 0.15em;
             transition: all 0.2s;
-            position: relative;
-            overflow: hidden;
-        }
-
-        .stream-link::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: -100%;
-            width: 100%;
-            height: 100%;
-            background: linear-gradient(90deg, transparent, var(--phosphor-dim), transparent);
-            transition: left 0.3s;
-        }
-
-        .stream-link:hover::before {
-            left: 100%;
+            background: rgba(127, 255, 127, 0.03);
         }
 
         .stream-link:hover {
             border-color: var(--phosphor);
-            background: rgba(127, 255, 127, 0.1);
-            box-shadow: 0 0 15px rgba(127, 255, 127, 0.3);
-            transform: translateY(-2px);
+            background: rgba(127, 255, 127, 0.08);
+            box-shadow: 0 0 15px rgba(127, 255, 127, 0.2);
         }
 
-        /* Footer status */
-        .terminal-footer {
-            border-top: 1px solid var(--terminal-border);
-            padding: 12px 20px;
+        /* Next up & History */
+        .section {
+            margin-bottom: 40px;
+        }
+
+        .section-header {
+            font-size: 0.6rem;
+            letter-spacing: 0.25em;
+            color: var(--phosphor-dim);
+            margin-bottom: 12px;
+            padding-bottom: 6px;
+            border-bottom: 1px solid rgba(127, 255, 127, 0.1);
+        }
+
+        .track {
+            padding: 10px 0;
             display: flex;
             justify-content: space-between;
-            font-size: 0.65rem;
-            color: var(--phosphor-dim);
-            background: rgba(13, 27, 13, 0.8);
+            align-items: baseline;
+            gap: 15px;
+            border-bottom: 1px solid rgba(127, 255, 127, 0.05);
+            font-size: 0.8rem;
         }
 
-        .footer-item {
-            display: flex;
-            gap: 15px;
+        .track:last-child {
+            border-bottom: none;
+        }
+
+        .track-info {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .track-title {
+            color: var(--phosphor);
+            margin-bottom: 3px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .track-artist {
+            color: var(--phosphor-dim);
+            font-size: 0.7rem;
+        }
+
+        .track-time {
+            color: var(--phosphor-dim);
+            font-size: 0.65rem;
+            white-space: nowrap;
+            font-variant-numeric: tabular-nums;
+        }
+
+        /* Next track styling */
+        .next-track .track-title {
+            color: var(--cyan);
+        }
+
+        /* Status indicator */
+        .status {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 0.65rem;
+            color: var(--phosphor-dim);
+            margin-left: 10px;
+        }
+
+        .status-dot {
+            width: 6px;
+            height: 6px;
+            background: var(--phosphor);
+            border-radius: 50%;
+            animation: pulse 2s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 0.5; }
+            50% { opacity: 1; }
         }
 
         /* Responsive */
-        @media (max-width: 768px) {
-            .terminal-wrapper {
-                margin: 10px;
+        @media (max-width: 600px) {
+            .np-title {
+                font-size: 1.5rem;
             }
-
-            .terminal-header {
+            .np-artist {
+                font-size: 1rem;
+            }
+            .stream-links {
                 flex-direction: column;
-                gap: 10px;
-                align-items: flex-start;
-            }
-
-            .stats-bar {
-                grid-template-columns: repeat(2, 1fr);
-            }
-
-            .transport-controls {
-                flex-wrap: wrap;
-            }
-
-            .btn {
-                flex: 1;
-                min-width: 100px;
-            }
-
-            .hex-decoration {
-                display: none;
             }
         }
     </style>
 </head>
 <body>
-    <!-- Matrix rain background -->
-    <div class="matrix-bg" id="matrixBg"></div>
+    <div class="container">
+        <!-- Header -->
+        <header>
+            <h1>LAST BYTE RADIO</h1>
+            <div class="tagline">CHICAGO WASTELAND // ENCRYPTED BROADCAST</div>
+        </header>
 
-    <div class="terminal-wrapper">
-        <div class="terminal">
-            <div class="corner-bl"></div>
-            <div class="corner-br"></div>
+        <!-- NOW PLAYING -->
+        <section class="now-playing">
+            <div class="np-label">
+                NOW TRANSMITTING
+                <span class="status">
+                    <span class="status-dot"></span>
+                    LIVE
+                </span>
+            </div>
+            <div class="np-title" id="current-title">Loading...</div>
+            <div class="np-artist" id="current-artist"></div>
+            <div class="np-meta" id="current-meta"></div>
 
-            <!-- Header -->
-            <div class="terminal-header">
-                <div class="station-id">LAST BYTE RADIO</div>
-                <div class="system-status">
-                    <div class="status-indicator">
-                        <span class="status-dot"></span>
-                        <span>SECURE</span>
-                    </div>
-                    <div class="status-indicator">
-                        <span class="status-dot"></span>
-                        <span>ENCRYPTED</span>
-                    </div>
-                    <div class="status-indicator">
-                        <span class="status-dot"></span>
-                        <span>LIVE</span>
-                    </div>
+            <div class="progress-container">
+                <div class="progress-bar">
+                    <div class="progress-fill" id="progress-fill"></div>
+                </div>
+                <div class="progress-time">
+                    <span id="current-time">0:00</span> / <span id="total-time">0:00</span>
+                </div>
+            </div>
+        </section>
+
+        <!-- Stream Info -->
+        <section class="stream-section">
+            <div class="stream-header">STREAM CONTROLS</div>
+
+            <!-- Hidden audio element -->
+            <audio id="radio-stream" preload="none">
+                <source src="/radio" type="audio/mpeg">
+            </audio>
+
+            <!-- Custom player controls -->
+            <div class="player-controls">
+                <button id="play-button" class="play-button">TUNE IN</button>
+                <div class="volume-control">
+                    <span class="volume-label">VOL</span>
+                    <input type="range" id="volume" min="0" max="100" value="70">
                 </div>
             </div>
 
-            <!-- Main content -->
-            <div class="terminal-body">
-                <!-- System stats -->
-                <div class="stats-bar">
-                    <div class="stat-item">
-                        <div class="stat-label">BITRATE</div>
-                        <div class="stat-value">192 KBPS</div>
-                    </div>
-                    <div class="stat-item">
-                        <div class="stat-label">SIGNAL</div>
-                        <div class="stat-value">98.7%</div>
-                    </div>
-                    <div class="stat-item">
-                        <div class="stat-label">BUFFER</div>
-                        <div class="stat-value">2048 KB</div>
-                    </div>
-                    <div class="stat-item">
-                        <div class="stat-label">LISTENERS</div>
-                        <div class="stat-value" id="listenerCount">---</div>
-                    </div>
-                    <div class="stat-item">
-                        <div class="stat-label">UPTIME</div>
-                        <div class="stat-value" id="uptime">00:00:00</div>
-                    </div>
+            <div class="stream-stats">
+                <div class="stat">
+                    <span class="stat-label">LISTENERS:</span>
+                    <span class="stat-value" id="listeners">—</span>
                 </div>
-
-                <!-- Player section -->
-                <div class="player-section">
-                    <div class="section-label">[ AUDIO STREAM ]</div>
-
-                    <!-- Waveform -->
-                    <div class="waveform" id="waveform">
-                        <div class="waveform-bar"></div>
-                        <div class="waveform-bar"></div>
-                        <div class="waveform-bar"></div>
-                        <div class="waveform-bar"></div>
-                        <div class="waveform-bar"></div>
-                        <div class="waveform-bar"></div>
-                        <div class="waveform-bar"></div>
-                        <div class="waveform-bar"></div>
-                        <div class="waveform-bar"></div>
-                        <div class="waveform-bar"></div>
-                        <div class="waveform-bar"></div>
-                        <div class="waveform-bar"></div>
-                        <div class="waveform-bar"></div>
-                        <div class="waveform-bar"></div>
-                        <div class="waveform-bar"></div>
-                        <div class="waveform-bar"></div>
-                        <div class="waveform-bar"></div>
-                        <div class="waveform-bar"></div>
-                        <div class="waveform-bar"></div>
-                        <div class="waveform-bar"></div>
-                    </div>
-
-                    <!-- Transport controls -->
-                    <div class="transport-controls">
-                        <button class="btn btn-primary" id="playBtn">
-                            <span id="playIcon">INITIALIZE</span>
-                        </button>
-                        <button class="btn" id="muteBtn">MUTE</button>
-                    </div>
-
-                    <!-- Volume control -->
-                    <div class="volume-control">
-                        <div class="volume-label">VOLUME</div>
-                        <div class="volume-bar">
-                            <div class="volume-fill" id="volumeFill"></div>
-                            <input type="range" id="volumeSlider" min="0" max="100" value="70">
-                        </div>
-                        <div class="volume-label" id="volumePercent">70%</div>
-                    </div>
+                <div class="stat">
+                    <span class="stat-label">BITRATE:</span>
+                    <span class="stat-value" id="bitrate">—</span>
                 </div>
-
-                <!-- Now playing -->
-                <div class="now-playing">
-                    <div class="section-label">[ NOW TRANSMITTING ]</div>
-                    <div class="np-header">
-                        <div class="np-label">CURRENT TRACK</div>
-                        <div class="track-duration" id="trackDuration">--:--</div>
-                    </div>
-                    <div class="track-title" id="trackTitle">INITIALIZING STREAM...</div>
-                    <div class="track-artist" id="trackArtist">Establishing encrypted connection</div>
-
-                    <div class="progress-bar-container">
-                        <div class="progress-bar">
-                            <div class="progress-fill" id="progressFill"></div>
-                        </div>
-                        <div class="time-display">
-                            <span id="currentTime">00:00</span>
-                            <span id="totalTime">00:00</span>
-                        </div>
-                    </div>
-
-                    <!-- Hex decoration -->
-                    <div class="hex-decoration">
-                        <div class="hex-content" id="hexContent"></div>
-                    </div>
+                <div class="stat">
+                    <span class="stat-label">SAMPLE RATE:</span>
+                    <span class="stat-value" id="samplerate">—</span>
                 </div>
-
-                <!-- Queue -->
-                <div class="queue-section">
-                    <div class="section-label">[ TRANSMISSION QUEUE ]</div>
-                    <div class="queue-item">
-                        <div class="queue-track">
-                            <span style="color: var(--phosphor-dim)">NEXT:</span>
-                            <span id="upNext">Establishing uplink...</span>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- History -->
-                <div class="history-section">
-                    <div class="section-label">[ TRANSMISSION LOG ]</div>
-                    <div id="historyList">
-                        <div class="history-item">
-                            <span class="history-track">Loading transmission history...</span>
-                            <span class="history-time">--:--</span>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Stream links -->
-                <div class="stream-links">
-                    <a href="https://radio.clintecker.com/radio" class="stream-link" target="_blank">DIRECT STREAM</a>
-                    <a href="https://radio.clintecker.com/radio.m3u" class="stream-link" download>M3U PLAYLIST</a>
+                <div class="stat">
+                    <span class="stat-label">UPTIME:</span>
+                    <span class="stat-value" id="uptime">—</span>
                 </div>
             </div>
 
-            <!-- Footer -->
-            <div class="terminal-footer">
-                <div class="footer-item">
-                    <span>CHICAGO WASTELAND SECTOR</span>
-                    <span>•</span>
-                    <span>192KBPS MP3</span>
-                </div>
-                <div class="footer-item">
-                    <span id="systemTime">00:00:00</span>
+        </section>
+
+        <!-- Next Up -->
+        <section class="section">
+            <div class="section-header">NEXT UP</div>
+            <div class="next-track" id="next-track">
+                <div class="track">
+                    <div class="track-info">
+                        <div class="track-title">—</div>
+                        <div class="track-artist">—</div>
+                    </div>
+                    <div class="track-time">—</div>
                 </div>
             </div>
-        </div>
+        </section>
+
+        <!-- Recent Transmission Log -->
+        <section class="section">
+            <div class="section-header">RECENT TRANSMISSIONS</div>
+            <div id="history-list"></div>
+        </section>
+
+        <!-- Footer -->
+        <footer style="margin-top: 50px; padding-top: 20px; border-top: 1px solid rgba(127, 255, 127, 0.1); text-align: center;">
+            <a href="/stream.m3u" download style="color: var(--phosphor-dim); text-decoration: none; font-size: 0.65rem; letter-spacing: 0.15em;">DOWNLOAD M3U PLAYLIST</a>
+        </footer>
     </div>
 
-    <audio id="audio" preload="none">
-        <source src="https://radio.clintecker.com/radio" type="audio/mpeg">
-    </audio>
-
     <script>
-        const audio = document.getElementById('audio');
-        const playBtn = document.getElementById('playBtn');
-        const playIcon = document.getElementById('playIcon');
-        const muteBtn = document.getElementById('muteBtn');
-        const volumeSlider = document.getElementById('volumeSlider');
-        const volumeFill = document.getElementById('volumeFill');
-        const volumePercent = document.getElementById('volumePercent');
-        const waveform = document.getElementById('waveform');
-        const progressFill = document.getElementById('progressFill');
-        const currentTime = document.getElementById('currentTime');
-        const totalTime = document.getElementById('totalTime');
-        const trackTitle = document.getElementById('trackTitle');
-        const trackArtist = document.getElementById('trackArtist');
-        const trackDuration = document.getElementById('trackDuration');
-        const upNext = document.getElementById('upNext');
-        const historyList = document.getElementById('historyList');
-        const listenerCount = document.getElementById('listenerCount');
-        const systemTime = document.getElementById('systemTime');
-        const uptime = document.getElementById('uptime');
+        const API_URL = '/now_playing.json';
+        const UPDATE_INTERVAL = 5000;
 
-        let isPlaying = false;
-        let isMuted = false;
-        let startTime = Date.now();
+        let currentTrack = null;
+        let trackStartTime = null;
 
-        // Initialize matrix rain
-        function createMatrixRain() {
-            const matrixBg = document.getElementById('matrixBg');
-            const columns = Math.floor(window.innerWidth / 20);
-
-            for (let i = 0; i < columns; i++) {
-                const column = document.createElement('div');
-                column.className = 'matrix-column';
-                column.style.left = `${i * 20}px`;
-                column.style.animationDuration = `${10 + Math.random() * 10}s`;
-                column.style.animationDelay = `${Math.random() * 5}s`;
-
-                let text = '';
-                for (let j = 0; j < 30; j++) {
-                    text += String.fromCharCode(0x30A0 + Math.random() * 96) + '\n';
-                }
-                column.textContent = text;
-
-                matrixBg.appendChild(column);
-            }
-        }
-
-        // Initialize hex decoration
-        function createHexDecoration() {
-            const hexContent = document.getElementById('hexContent');
-            let hex = '';
-            for (let i = 0; i < 200; i++) {
-                hex += Math.floor(Math.random() * 256).toString(16).padStart(2, '0').toUpperCase() + ' ';
-                if ((i + 1) % 8 === 0) hex += '\n';
-            }
-            hexContent.textContent = hex + hex; // Duplicate for seamless scroll
-        }
-
-        // Play/Pause
-        playBtn.addEventListener('click', () => {
-            if (isPlaying) {
-                audio.pause();
-                playIcon.textContent = 'INITIALIZE';
-                playBtn.classList.remove('active');
-                waveform.classList.remove('active');
-            } else {
-                audio.play();
-                playIcon.textContent = 'TERMINATE';
-                playBtn.classList.add('active');
-                waveform.classList.add('active');
-            }
-            isPlaying = !isPlaying;
-        });
-
-        // Mute toggle
-        muteBtn.addEventListener('click', () => {
-            isMuted = !isMuted;
-            audio.muted = isMuted;
-            muteBtn.textContent = isMuted ? 'UNMUTE' : 'MUTE';
-            muteBtn.style.background = isMuted ? 'rgba(255, 51, 51, 0.2)' : '';
-        });
-
-        // Volume control
-        volumeSlider.addEventListener('input', (e) => {
-            const value = e.target.value;
-            audio.volume = value / 100;
-            volumeFill.style.width = value + '%';
-            volumePercent.textContent = value + '%';
-        });
-
-        // Set initial volume
-        audio.volume = 0.7;
-
-        // Time formatting
         function formatTime(seconds) {
-            if (!seconds || isNaN(seconds)) return '00:00';
+            if (!seconds || isNaN(seconds)) return '0:00';
             const mins = Math.floor(seconds / 60);
             const secs = Math.floor(seconds % 60);
-            return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+            return `${mins}:${secs.toString().padStart(2, '0')}`;
         }
 
-        // Update system time
-        function updateSystemTime() {
+        function calculateProgress() {
+            if (!currentTrack || !trackStartTime) return;
+
             const now = new Date();
-            systemTime.textContent = now.toTimeString().split(' ')[0];
+            const elapsed = (now - trackStartTime) / 1000; // seconds
+            const duration = currentTrack.duration_sec || 0;
 
-            const elapsed = Math.floor((Date.now() - startTime) / 1000);
-            const hours = Math.floor(elapsed / 3600);
-            const minutes = Math.floor((elapsed % 3600) / 60);
-            const seconds = elapsed % 60;
-            uptime.textContent = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
-        }
-
-        setInterval(updateSystemTime, 1000);
-
-        // Fetch now playing data
-        async function updateNowPlaying() {
-            try {
-                const response = await fetch('/api/now_playing.json');
-                const data = await response.json();
-
-                if (data.current) {
-                    trackTitle.textContent = data.current.title || 'UNKNOWN TRANSMISSION';
-                    trackArtist.textContent = data.current.artist || 'Unknown Origin';
-
-                    if (data.current.duration_sec) {
-                        totalTime.textContent = formatTime(data.current.duration_sec);
-                        trackDuration.textContent = formatTime(data.current.duration_sec);
-                    }
-                }
-
-                if (data.next) {
-                    upNext.textContent = `${data.next.title} — ${data.next.artist}`;
-                } else {
-                    upNext.textContent = 'Awaiting next transmission...';
-                }
-
-                // Update history
-                if (data.history && data.history.length > 0) {
-                    historyList.innerHTML = data.history.slice(0, 5).map(track => {
-                        const playedDate = new Date(track.played_at);
-                        const timeStr = playedDate.toLocaleTimeString('en-US', {
-                            hour: '2-digit',
-                            minute: '2-digit',
-                            hour12: false
-                        });
-                        return `
-                            <div class="history-item">
-                                <span class="history-track">${track.title} — ${track.artist}</span>
-                                <span class="history-time">${timeStr}</span>
-                            </div>
-                        `;
-                    }).join('');
-                }
-
-                // Update listener count
-                const count = Math.floor(Math.random() * 30) + 150;
-                listenerCount.textContent = count.toString();
-
-            } catch (error) {
-                console.error('Failed to fetch now playing:', error);
+            if (duration > 0 && elapsed <= duration) {
+                const percent = (elapsed / duration) * 100;
+                document.getElementById('progress-fill').style.width = `${percent}%`;
+                document.getElementById('current-time').textContent = formatTime(elapsed);
             }
         }
 
-        // Initialize
-        createMatrixRain();
-        createHexDecoration();
-        updateNowPlaying();
-        updateSystemTime();
-        setInterval(updateNowPlaying, 10000);
+        function formatUptime(streamStart) {
+            if (!streamStart) return '—';
+            const start = new Date(streamStart);
+            const now = new Date();
+            const diffMs = now - start;
+            const hours = Math.floor(diffMs / (1000 * 60 * 60));
+            const minutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+            return `${hours}h ${minutes}m`;
+        }
+
+        function updateDisplay(data) {
+            const current = data.current;
+            const next = data.next;
+            const history = data.history || [];
+            const stream = data.stream || {};
+
+            if (!current) {
+                document.getElementById('current-title').textContent = 'NO SIGNAL';
+                document.getElementById('current-artist').textContent = '';
+                document.getElementById('current-meta').textContent = '';
+                document.querySelector('.progress-container').style.display = 'none';
+                return;
+            }
+
+            // Show progress bar if we have a track
+            document.querySelector('.progress-container').style.display = 'block';
+
+            // Update stream stats
+            document.getElementById('listeners').textContent = stream.listeners || '—';
+            document.getElementById('bitrate').textContent = stream.bitrate ? `${stream.bitrate}kbps` : '—';
+            document.getElementById('samplerate').textContent = stream.samplerate ? `${stream.samplerate}Hz` : '—';
+            document.getElementById('uptime').textContent = formatUptime(stream.stream_start);
+
+            // Update now playing
+            document.getElementById('current-title').textContent = current.title || 'Unknown Track';
+            document.getElementById('current-artist').textContent = current.artist || 'Unknown Artist';
+
+            // Build meta line
+            let meta = [];
+            if (current.album && current.album !== 'Unknown Album') {
+                meta.push(current.album);
+            }
+            if (current.source) {
+                meta.push(`[${current.source.toUpperCase()}]`);
+            }
+            document.getElementById('current-meta').textContent = meta.join(' · ');
+
+            // Update duration
+            document.getElementById('total-time').textContent = formatTime(current.duration_sec);
+
+            // Calculate start time from played_at timestamp
+            if (current.played_at) {
+                const newStartTime = new Date(current.played_at);
+                // Only update if this is a different track
+                if (!currentTrack || currentTrack.asset_id !== current.asset_id) {
+                    trackStartTime = newStartTime;
+                    currentTrack = current;
+                }
+            }
+
+            // Update next track
+            const nextContainer = document.getElementById('next-track');
+            if (next) {
+                nextContainer.innerHTML = `
+                    <div class="track">
+                        <div class="track-info">
+                            <div class="track-title">${next.title || 'Unknown'}</div>
+                            <div class="track-artist">${next.artist || 'Unknown Artist'}</div>
+                        </div>
+                        <div class="track-time">${formatTime(next.duration_sec)}</div>
+                    </div>
+                `;
+            } else {
+                nextContainer.innerHTML = `
+                    <div class="track">
+                        <div class="track-info">
+                            <div class="track-title">—</div>
+                        </div>
+                    </div>
+                `;
+            }
+
+            // Update history
+            const historyList = document.getElementById('history-list');
+            if (history.length > 0) {
+                historyList.innerHTML = history.slice(0, 6).map(track => {
+                    const playedAt = track.played_at ? new Date(track.played_at) : null;
+                    const timeAgo = playedAt ? formatTimeAgo(playedAt) : '';
+
+                    return `
+                        <div class="track">
+                            <div class="track-info">
+                                <div class="track-title">${track.title || 'Unknown'}</div>
+                                <div class="track-artist">${track.artist || 'Unknown Artist'}</div>
+                            </div>
+                            <div class="track-time">${timeAgo}</div>
+                        </div>
+                    `;
+                }).join('');
+            } else {
+                historyList.innerHTML = '<div class="track"><div class="track-info"><div class="track-title">No history available</div></div></div>';
+            }
+        }
+
+        function formatTimeAgo(date) {
+            const seconds = Math.floor((new Date() - date) / 1000);
+            if (seconds < 60) return 'just now';
+            const minutes = Math.floor(seconds / 60);
+            if (minutes < 60) return `${minutes}m ago`;
+            const hours = Math.floor(minutes / 60);
+            return `${hours}h ago`;
+        }
+
+        async function fetchData() {
+            try {
+                const response = await fetch(API_URL + '?' + new Date().getTime());
+                if (!response.ok) throw new Error('Failed to fetch');
+                const data = await response.json();
+                updateDisplay(data);
+            } catch (error) {
+                console.error('Failed to fetch now playing data:', error);
+            }
+        }
+
+        // Player controls
+        const audio = document.getElementById('radio-stream');
+        const playButton = document.getElementById('play-button');
+        const volumeSlider = document.getElementById('volume');
+
+        // Start muted and auto-play (stream is always broadcasting)
+        audio.muted = true;
+        audio.volume = 0.7;
+
+        // Auto-start the stream (muted)
+        audio.play().catch(err => {
+            console.log('Auto-play blocked, waiting for user interaction');
+        });
+
+        playButton.addEventListener('click', () => {
+            if (audio.muted) {
+                // Unmute (tune in)
+                audio.muted = false;
+                audio.play(); // Ensure it's playing
+                playButton.textContent = 'MUTE';
+                playButton.classList.add('playing');
+            } else {
+                // Mute (tune out)
+                audio.muted = true;
+                playButton.textContent = 'TUNE IN';
+                playButton.classList.remove('playing');
+            }
+        });
+
+        volumeSlider.addEventListener('input', (e) => {
+            audio.volume = e.target.value / 100;
+            // If user adjusts volume, unmute automatically
+            if (audio.muted && e.target.value > 0) {
+                audio.muted = false;
+                playButton.textContent = 'MUTE';
+                playButton.classList.add('playing');
+            }
+        });
+
+        // Update progress bar continuously
+        setInterval(calculateProgress, 500);
+
+        // Fetch data periodically
+        fetchData();
+        setInterval(fetchData, UPDATE_INTERVAL);
     </script>
 </body>
 </html>

@@ -1,0 +1,17 @@
+[Unit]
+Description=AI Radio Station - Break Generation Timer
+Requires=ai-radio-break-gen.service
+
+[Timer]
+# Run hourly at :50 (10 minutes before the top of the hour)
+OnBootSec=2min
+OnCalendar=*:50:00
+
+# Persistent (catches up if system was down)
+Persistent=true
+
+# Randomize timing by up to 2 minutes to avoid precise patterns
+RandomizedDelaySec=120
+
+[Install]
+WantedBy=timers.target

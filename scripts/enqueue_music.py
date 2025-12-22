@@ -22,9 +22,9 @@ logger = logging.getLogger(__name__)
 
 # Configuration
 QUEUE_NAME = "music"
-MIN_QUEUE_DEPTH = 10  # Minimum tracks in queue
-TARGET_QUEUE_DEPTH = 20  # Fill to this level
-RECENT_HISTORY_SIZE = 50  # Track last N played to avoid repetition
+MIN_QUEUE_DEPTH = 2  # Minimum tracks in queue
+TARGET_QUEUE_DEPTH = 5  # Fill to this level
+RECENT_HISTORY_SIZE = 20  # Track last N played to avoid repetition (reduced from 50 for small library)
 
 
 def get_recently_played_ids(db_path: Path, count: int = RECENT_HISTORY_SIZE) -> list[str]:
@@ -42,22 +42,21 @@ def get_recently_played_ids(db_path: Path, count: int = RECENT_HISTORY_SIZE) -> 
         List of track IDs
     """
     try:
-        conn = sqlite3.connect(db_path)
-        cursor = conn.cursor()
+        with sqlite3.connect(db_path) as conn:
+            cursor = conn.cursor()
 
-        # Fetch last N asset_ids from play_history (SOW Section 6)
-        cursor.execute(
-            """
-            SELECT asset_id
-            FROM play_history
-            ORDER BY played_at DESC
-            LIMIT ?
-            """,
-            (count,)
-        )
+            # Fetch last N asset_ids from play_history (SOW Section 6)
+            cursor.execute(
+                """
+                SELECT asset_id
+                FROM play_history
+                ORDER BY played_at DESC
+                LIMIT ?
+                """,
+                (count,)
+            )
 
-        ids = [row[0] for row in cursor.fetchall()]
-        conn.close()
+            ids = [row[0] for row in cursor.fetchall()]
 
         logger.info(f"Loaded {len(ids)} recently played IDs for anti-repetition")
         return ids
@@ -97,32 +96,13 @@ def main():
         # Get recently played IDs (for anti-repetition)
         recently_played = get_recently_played_ids(config.db_path)
 
-        # Build energy flow pattern
-        energy_flow = build_energy_flow(tracks_needed, pattern="wave")
-
-        # Open database connection once for all selections
-        conn = sqlite3.connect(config.db_path)
-
-        # Select tracks with energy awareness
-        # Use set for efficient exclusion (O(1) lookups instead of O(n))
-        all_tracks = []
-        exclusion_ids = set(recently_played)
-
-        for energy_pref in energy_flow:
-            tracks = select_next_tracks(
-                db_path=config.db_path,
-                count=1,
-                recently_played_ids=list(exclusion_ids),
-                energy_preference=energy_pref,
-                conn=conn
-            )
-
-            if tracks:
-                track = tracks[0]
-                all_tracks.append(track)
-                exclusion_ids.add(track['id'])
-
-        conn.close()
+        # Select tracks randomly without energy filtering
+        all_tracks = select_next_tracks(
+            db_path=config.db_path,
+            count=tracks_needed,
+            recently_played_ids=recently_played,
+            energy_preference=None  # No energy filtering
+        )
 
         if not all_tracks:
             logger.error("No tracks available to enqueue")

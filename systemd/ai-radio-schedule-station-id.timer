@@ -1,0 +1,12 @@
+[Unit]
+Description=AI Radio Station - Station ID Scheduler Timer
+Requires=ai-radio-schedule-station-id.service
+
+[Timer]
+# Run every minute to check if station IDs should be scheduled
+OnCalendar=*:*:00
+AccuracySec=10s
+Persistent=false
+
+[Install]
+WantedBy=timers.target

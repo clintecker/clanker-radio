@@ -1,0 +1,39 @@
+[Unit]
+Description=AI Radio Now Playing Export
+Documentation=https://github.com/clintecker/clanker-radio
+After=network.target ai-radio-liquidsoap.service icecast2.service
+BindsTo=ai-radio-liquidsoap.service icecast2.service
+
+[Service]
+Type=oneshot
+User=ai-radio
+Group=ai-radio
+WorkingDirectory=/srv/ai_radio
+
+# Export current stream status to JSON
+ExecStart=/srv/ai_radio/.venv/bin/python /srv/ai_radio/scripts/export_now_playing.py
+
+# Environment
+Environment="PYTHONUNBUFFERED=1"
+EnvironmentFile=-/srv/ai_radio/.env
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=export-nowplaying
+
+# Security
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/srv/ai_radio/public
+
+# Resource limits and priority
+MemoryMax=256M
+TimeoutSec=30
+Nice=15
+IOSchedulingClass=idle
+
+[Install]
+WantedBy=multi-user.target

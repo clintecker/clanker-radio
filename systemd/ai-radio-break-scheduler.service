@@ -1,12 +1,12 @@
 [Unit]
 Description=AI Radio Station - Break Scheduler
 After=network.target ai-radio-liquidsoap.service
-Requires=ai-radio-liquidsoap.service
+BindsTo=ai-radio-liquidsoap.service
 
 [Service]
 Type=oneshot
-User=radio
-Group=radio
+User=ai-radio
+Group=ai-radio
 WorkingDirectory=/srv/ai_radio
 
 # Set PYTHONPATH so Python can find ai_radio package

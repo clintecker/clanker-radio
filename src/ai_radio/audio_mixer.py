@@ -41,6 +41,10 @@ class AudioMixer:
     def __init__(self):
         """Initialize audio mixer with config settings."""
         self.bed_volume_db = config.bed_volume_db
+        self.bed_preroll_seconds = config.bed_preroll_seconds
+        self.bed_fadein_seconds = config.bed_fadein_seconds
+        self.bed_postroll_seconds = config.bed_postroll_seconds
+        self.bed_fadeout_seconds = config.bed_fadeout_seconds
         self.target_lufs = -18.0  # EBU R128 standard
         self.true_peak_limit = -1.0  # True peak ceiling
 
@@ -123,20 +127,35 @@ class AudioMixer:
             bed_volume_db = self.bed_volume_db
 
         try:
-            # Build ffmpeg filter complex for mixing with ducking
+            # Calculate timing for ride in/out
+            total_duration = self.bed_preroll_seconds + voice_duration + self.bed_postroll_seconds
+            fadeout_start = total_duration - self.bed_fadeout_seconds
+            preroll_ms = int(self.bed_preroll_seconds * 1000)  # adelay uses milliseconds
+
+            # Build ffmpeg filter complex for mixing with ducking and ride in/out
             # [0:a] = voice (main input)
             # [1:a] = bed (sidechain input)
             #
             # Process:
-            # 1. Trim bed to voice duration
-            # 2. Apply volume to bed
-            # 3. Apply sidechain compression (ducking) using voice as trigger
-            # 4. Mix voice and ducked bed
-            # 5. Normalize to EBU R128 standard
+            # 1. Delay voice by preroll_seconds (so bed can start first)
+            # 2. Split delayed voice for reuse (sidechain trigger + final mix)
+            # 3. Trim bed to total duration, apply volume
+            # 4. Apply fade-in to bed at start (ride in)
+            # 5. Apply fade-out to bed at end (ride out)
+            # 6. Apply sidechain compression (ducking) using delayed voice as trigger
+            # 7. Mix delayed voice and ducked bed
+            # 8. Normalize to EBU R128 standard
+            # Convert total_duration to milliseconds for apad
+            total_duration_ms = int(total_duration * 1000)
+
             filter_complex = (
-                f"[1:a]atrim=duration={voice_duration},volume={bed_volume_db}dB[bed];"
-                f"[bed][0:a]sidechaincompress=threshold=0.02:ratio=3:attack=5:release=200[ducked];"
-                f"[0:a][ducked]amix=inputs=2:duration=first[mixed];"
+                f"[0:a]adelay={preroll_ms}|{preroll_ms},apad=whole_dur={total_duration_ms}ms[delayed];"
+                f"[delayed]asplit=2[voice_for_sidechain][voice_for_mix];"
+                f"[1:a]atrim=duration={total_duration},volume={bed_volume_db}dB,"
+                f"afade=t=in:st=0:d={self.bed_fadein_seconds},"
+                f"afade=t=out:st={fadeout_start}:d={self.bed_fadeout_seconds}[bed];"
+                f"[bed][voice_for_sidechain]sidechaincompress=threshold=0.02:ratio=3:attack=5:release=200[ducked];"
+                f"[ducked][voice_for_mix]amix=inputs=2:duration=shortest[mixed];"
                 f"[mixed]loudnorm=I={self.target_lufs}:TP={self.true_peak_limit}:LRA=11[normalized]"
             )
 
@@ -173,7 +192,7 @@ class AudioMixer:
 
             return MixedAudio(
                 file_path=output_path,
-                duration=voice_duration,
+                duration=total_duration,
                 timestamp=datetime.now(),
                 voice_file=voice_path,
                 bed_file=bed_path,

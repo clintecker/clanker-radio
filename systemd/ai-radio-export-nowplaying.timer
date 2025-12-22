@@ -1,0 +1,11 @@
+[Unit]
+Description=AI Radio Now Playing Export Timer
+Documentation=https://github.com/clintecker/clanker-radio
+
+[Timer]
+# Run every 10 seconds for more responsive now playing updates
+OnBootSec=5s
+OnUnitActiveSec=10s
+
+[Install]
+WantedBy=timers.target

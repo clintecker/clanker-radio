@@ -1,0 +1,39 @@
+[Unit]
+Description=AI Radio Station - Liquidsoap Streaming Engine
+Documentation=https://www.liquidsoap.info/
+After=network.target icecast2.service
+Requires=icecast2.service
+StartLimitIntervalSec=60
+StartLimitBurst=5
+
+[Service]
+Type=simple
+User=ai-radio
+Group=ai-radio
+WorkingDirectory=/srv/ai_radio
+ExecStart=/srv/ai_radio/bin/liquidsoap-wrapper.sh
+Restart=always
+RestartSec=10
+
+# Security hardening
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/srv/ai_radio/logs /srv/ai_radio/db /run/liquidsoap
+
+# Resource limits and HIGH priority for real-time audio
+LimitNOFILE=4096
+TasksMax=256
+Nice=-10
+CPUSchedulingPolicy=other
+IOSchedulingClass=realtime
+IOSchedulingPriority=0
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=ai-radio-liquidsoap
+
+[Install]
+WantedBy=multi-user.target

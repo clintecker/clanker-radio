@@ -41,21 +41,22 @@ def main():
         logger.info("Break already queued, skipping")
         sys.exit(0)
 
-    # Find next.mp3 (SOW-mandated file)
+    # Find most recent break file dynamically
     breaks_dir = config.breaks_path
-    next_break = breaks_dir / "next.mp3"
 
-    if not next_break.exists():
-        logger.warning(f"No break available: {next_break}")
+    # Get all break files sorted by modification time (newest first)
+    breaks = sorted(
+        breaks_dir.glob("break_*.mp3"),
+        key=lambda p: p.stat().st_mtime,
+        reverse=True
+    )
 
-        # Try last_good.mp3 fallback (SOW Section 9)
-        last_good = breaks_dir / "last_good.mp3"
-        if last_good.exists():
-            logger.info("Using last_good.mp3 fallback")
-            next_break = last_good
-        else:
-            logger.error("No breaks available (neither next.mp3 nor last_good.mp3)")
-            sys.exit(1)
+    if not breaks:
+        logger.error("No breaks available in breaks directory")
+        sys.exit(1)
+
+    next_break = breaks[0]
+    logger.info(f"Found most recent break: {next_break.name}")
 
     # Final existence check to minimize TOCTOU race window
     # (file could still be deleted after this check, but push_track will handle gracefully)
