@@ -23,7 +23,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
 # Check if first arg is a profile (not a component name)
-VALID_COMPONENTS="frontend scripts systemd code config all health"
+VALID_COMPONENTS="frontend scripts systemd code config bin all health"
 PROFILE=""
 COMPONENT=""
 
@@ -143,6 +143,34 @@ deploy_scripts() {
     log_success "Scripts deployed (${#script_files[@]} files)"
 }
 
+deploy_bin() {
+    log_info "Deploying bin scripts..."
+
+    # Check if there are any bin scripts
+    if ! ls bin/* >/dev/null 2>&1; then
+        log_warn "No bin scripts found to deploy"
+        return 0
+    fi
+
+    # Copy all scripts and track filenames
+    local bin_files=()
+    for script in bin/*; do
+        [ -f "$script" ] || continue
+        local basename=$(basename "$script")
+        scp "$script" "${SERVER}:~/${basename}" || { log_error "Failed to copy ${basename}"; exit 1; }
+        bin_files+=("${basename}")
+    done
+
+    # Move and set permissions for each file
+    for bin_file in "${bin_files[@]}"; do
+        ssh "${SERVER}" "sudo mv ~/${bin_file} ${BASE_REMOTE}/bin/${bin_file} && \
+                         sudo chown ${USER}:${USER} ${BASE_REMOTE}/bin/${bin_file} && \
+                         sudo chmod 755 ${BASE_REMOTE}/bin/${bin_file}" || { log_error "Failed to install ${bin_file}"; exit 1; }
+    done
+
+    log_success "Bin scripts deployed (${#bin_files[@]} files)"
+}
+
 deploy_code() {
     log_info "Deploying Python package..."
 
@@ -223,6 +251,9 @@ case "$COMPONENT" in
         ;;
     code)
         deploy_code
+        ;;
+    bin)
+        deploy_bin
         ;;
     config)
         deploy_config

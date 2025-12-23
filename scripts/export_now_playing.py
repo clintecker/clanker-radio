@@ -285,22 +285,69 @@ def get_recent_plays(limit: int = 5) -> list[dict]:
 
 
 def get_icecast_status() -> dict | None:
-    """Get Icecast stream status including what's currently playing.
+    """Get Icecast stream status including hidden mounts via admin endpoint.
 
     Returns:
-        Dict with Icecast status, or None if unavailable
+        Dict with 'source' key containing list of mount dicts, or None if unavailable
     """
     try:
-        if requests:
-            response = requests.get(f'{config.icecast_url}/status-json.xsl', timeout=3)
-            data = response.json()
-        else:
-            # Fallback to urllib if requests not available
-            import urllib.request
-            with urllib.request.urlopen(f'{config.icecast_url}/status-json.xsl', timeout=3) as response:
-                data = json.loads(response.read().decode())
+        import xml.etree.ElementTree as ET
 
-        return data.get('icestats', {})
+        # Use admin stats endpoint to see hidden mounts
+        # Admin credentials from config
+        admin_url = f'{config.icecast_url}/admin/stats'
+
+        if requests:
+            response = requests.get(admin_url,
+                                   auth=('admin', config.icecast_admin_password),
+                                   timeout=3)
+            xml_data = response.text
+        else:
+            # Fallback to urllib with basic auth
+            import urllib.request
+            import base64
+            auth_str = base64.b64encode(f'admin:{config.icecast_admin_password}'.encode()).decode()
+            req = urllib.request.Request(admin_url)
+            req.add_header('Authorization', f'Basic {auth_str}')
+            with urllib.request.urlopen(req, timeout=3) as response:
+                xml_data = response.read().decode()
+
+        # Parse XML response
+        root = ET.fromstring(xml_data)
+
+        # Extract source mounts
+        sources = []
+        for source_elem in root.findall('source'):
+            mount = source_elem.get('mount')
+            source_dict = {'listenurl': f'{config.icecast_url}{mount}'}
+
+            # Extract relevant fields
+            audio_info = None
+            for child in source_elem:
+                if child.tag in ['listeners', 'listener_peak', 'bitrate', 'samplerate', 'channels']:
+                    try:
+                        source_dict[child.tag] = int(child.text) if child.text else 0
+                    except (ValueError, TypeError):
+                        source_dict[child.tag] = 0
+                elif child.tag == 'stream_start_iso8601':
+                    source_dict['stream_start_iso8601'] = child.text
+                elif child.tag == 'audio_info':
+                    audio_info = child.text
+
+            # Parse bitrate from audio_info if not directly available
+            if 'bitrate' not in source_dict or source_dict['bitrate'] == 0:
+                if audio_info:
+                    # Parse "channels=2;samplerate=48000;bitrate=192"
+                    for part in audio_info.split(';'):
+                        if part.startswith('bitrate='):
+                            try:
+                                source_dict['bitrate'] = int(part.split('=')[1])
+                            except (ValueError, IndexError):
+                                pass
+
+            sources.append(source_dict)
+
+        return {'source': sources}
 
     except Exception as e:
         logger.warning(f"Failed to get Icecast status: {e}")
@@ -368,18 +415,91 @@ def get_current_playing() -> tuple[dict | None, dict | None]:
         icecast_data = get_icecast_status()
         stream_info = None
 
+        fallback_mode = False
         if icecast_data:
-            source_data = icecast_data.get('source', {})
+            source_raw = icecast_data.get('source', {})
+
+            # Handle both single source (dict) and multiple sources (list)
+            # Try to find main /radio mount first, fallback to /radio-fallback if main is down
+            if isinstance(source_raw, list):
+                # Multiple sources - find /radio mount (but NOT /radio-fallback)
+                main_source = next(
+                    (s for s in source_raw
+                     if '/radio' in s.get('listenurl', '') and '/radio-fallback' not in s.get('listenurl', '')),
+                    None
+                )
+
+                fallback_source = next(
+                    (s for s in source_raw if '/radio-fallback' in s.get('listenurl', '')),
+                    None
+                )
+
+                # Check if we should use fallback:
+                # 1. No main source found, OR
+                # 2. Main source exists but has no listeners AND fallback has listeners
+                if not main_source or (fallback_source and
+                                      main_source.get('listeners', 0) == 0 and
+                                      fallback_source.get('listeners', 0) > 0):
+                    source_data = fallback_source if fallback_source else {}
+                    fallback_mode = True
+                else:
+                    source_data = main_source
+            else:
+                # Single source - check if it's the fallback mount
+                source_data = source_raw
+                if '/radio-fallback' in source_data.get('listenurl', ''):
+                    fallback_mode = True
+
             stream_info = {
                 "listeners": source_data.get('listeners', 0),
                 "listener_peak": source_data.get('listener_peak', 0),
                 "bitrate": source_data.get('bitrate', 0),
                 "samplerate": source_data.get('samplerate', 0),
-                "stream_start": source_data.get('stream_start_iso8601', None)
+                "stream_start": source_data.get('stream_start_iso8601', None),
+                "fallback_mode": fallback_mode
             }
 
         # Get current track from Liquidsoap (real-time source of truth)
         ls_metadata = get_liquidsoap_metadata()
+
+        # If in fallback mode and no main Liquidsoap metadata, show fallback status
+        if fallback_mode and not ls_metadata:
+            current = {
+                "asset_id": None,
+                "title": "Technical Difficulties",
+                "artist": config.station_name,
+                "album": None,
+                "duration_sec": None,
+                "played_at": datetime.now(timezone.utc).isoformat(),
+                "source": "fallback"
+            }
+            return current, stream_info
+
+        # Check if we're in startup mode (connected but no music queued yet)
+        # This happens right after Liquidsoap starts before music is enqueued
+        if not fallback_mode and not ls_metadata and stream_info:
+            # Check if stream just started (within last 2 minutes)
+            stream_start = stream_info.get('stream_start')
+            if stream_start:
+                try:
+                    from dateutil import parser
+                    start_time = parser.parse(stream_start)
+                    now = datetime.now(timezone.utc)
+                    seconds_since_start = (now - start_time).total_seconds()
+
+                    if seconds_since_start < 120:  # Within 2 minutes of startup
+                        current = {
+                            "asset_id": None,
+                            "title": "Station Starting Up",
+                            "artist": config.station_name,
+                            "album": None,
+                            "duration_sec": None,
+                            "played_at": datetime.now(timezone.utc).isoformat(),
+                            "source": "startup"
+                        }
+                        return current, stream_info
+                except Exception:
+                    pass
 
         if not ls_metadata:
             # Fallback: use most recent play_history entry
@@ -475,12 +595,19 @@ def get_current_playing() -> tuple[dict | None, dict | None]:
         conn.close()
 
         if row:
+            duration_sec = row[4]
+            # If duration is null (breaks/bumpers not in assets table), get from file
+            if duration_sec is None and source_type in ("break", "bumper") and filename:
+                logger.info(f"Getting duration for {source_type} from file: {filename}")
+                duration_sec = get_duration_from_file(filename)
+                logger.info(f"Duration result: {duration_sec}")
+
             current = {
                 "asset_id": row[0],
                 "title": row[1],
                 "artist": row[2],
                 "album": row[3],
-                "duration_sec": row[4],
+                "duration_sec": duration_sec,
                 "played_at": row[5],
                 "source": row[6]
             }
@@ -496,12 +623,17 @@ def get_current_playing() -> tuple[dict | None, dict | None]:
                 title = ls_metadata.get("title") or "Unknown"
                 artist = "Clint Ecker"
 
+            # Get duration from file for breaks/bumpers
+            duration_sec = None
+            if source_type in ("break", "bumper") and filename:
+                duration_sec = get_duration_from_file(filename)
+
             current = {
                 "asset_id": None,
                 "title": title,
                 "artist": artist,
                 "album": ls_metadata.get("album"),
-                "duration_sec": None,
+                "duration_sec": duration_sec,
                 "played_at": datetime.now(timezone.utc).isoformat(),
                 "source": source_type
             }

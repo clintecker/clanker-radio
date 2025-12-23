@@ -4,6 +4,7 @@ Uses pydantic-settings for environment-based configuration with sensible default
 All paths and secrets can be overridden via environment variables.
 """
 
+import os
 from pathlib import Path
 from typing import Optional
 
@@ -300,6 +301,30 @@ class RadioConfig(BaseSettings):
     @property
     def icecast_url(self) -> str:
         return "http://localhost:8000"
+
+    @property
+    def icecast_admin_password(self) -> str:
+        """Icecast admin password from environment or Icecast XML config."""
+        # Try environment variable first
+        password = os.getenv("ICECAST_ADMIN_PASSWORD")
+        if password:
+            return password
+
+        # Read from Icecast XML config
+        try:
+            import xml.etree.ElementTree as ET
+            icecast_config = Path("/etc/icecast2/icecast.xml")
+            if icecast_config.exists():
+                tree = ET.parse(icecast_config)
+                root = tree.getroot()
+                admin_pass_elem = root.find('.//authentication/admin-password')
+                if admin_pass_elem is not None and admin_pass_elem.text:
+                    return admin_pass_elem.text
+        except Exception:
+            pass
+
+        # Fallback default (for development)
+        return ""
 
 
 # Global config instance
