@@ -85,16 +85,14 @@ end
 # Attach callback to raw queue BEFORE crossfade (async to prevent audio thread blocking)
 music_queue_raw.on_track(synchronous=false, record_play_callback)
 
-# Crossfade temporarily disabled to test break interruption fix
-# TODO: Re-enable with proper break boundary detection
-# music_queue = crossfade(
-#     duration=4.0,
-#     fade_in=2.0,
-#     fade_out=2.0,
-#     music_queue_raw
-# )
-music_queue = music_queue_raw
-log("Music queue initialized with play tracking (crossfade disabled for testing) (Level 3)")
+# Apply crossfade to music queue for smooth transitions
+music_queue = crossfade(
+    duration=4.0,
+    fade_in=2.0,
+    fade_out=2.0,
+    music_queue_raw
+)
+log("Music queue initialized with play tracking and 4s crossfade (Level 3)")
 
 # ============================================================================
 # BREAK QUEUE SETUP
