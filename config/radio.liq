@@ -279,9 +279,10 @@ end)
 log("Play tracking enabled for breaks, bumpers, and beds")
 
 # =============================================================================
-# Icecast Output
+# Icecast Output - Multiple Bitrates
 # =============================================================================
 
+# High quality stream (192kbps) - Main mount
 output.icecast(
   %mp3(bitrate=192, samplerate=48000, stereo=true),
   host=icecast_host,
@@ -289,6 +290,34 @@ output.icecast(
   password=icecast_password(),
   mount="/radio",
   name=station_name,
+  description=station_description,
+  genre=station_genre,
+  url=station_url,
+  radio
+)
+
+# Medium quality stream (128kbps) - Balanced quality/bandwidth
+output.icecast(
+  %mp3(bitrate=128, samplerate=44100, stereo=true),
+  host=icecast_host,
+  port=icecast_port,
+  password=icecast_password(),
+  mount="/radio-128",
+  name="#{station_name} (128kbps)",
+  description=station_description,
+  genre=station_genre,
+  url=station_url,
+  radio
+)
+
+# Low bandwidth stream (96kbps) - Mobile/slow connections
+output.icecast(
+  %mp3(bitrate=96, samplerate=44100, stereo=true),
+  host=icecast_host,
+  port=icecast_port,
+  password=icecast_password(),
+  mount="/radio-96",
+  name="#{station_name} (96kbps)",
   description=station_description,
   genre=station_genre,
   url=station_url,
