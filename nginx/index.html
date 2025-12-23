@@ -220,6 +220,39 @@
             border: none;
         }
 
+        .quality-control {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .quality-label {
+            font-size: 0.6rem;
+            color: var(--phosphor-dim);
+            letter-spacing: 0.15em;
+        }
+
+        .quality-selector {
+            background: rgba(127, 255, 127, 0.1);
+            border: 1px solid rgba(127, 255, 127, 0.3);
+            color: var(--phosphor);
+            font-family: 'Share Tech Mono', monospace;
+            font-size: 0.65rem;
+            padding: 5px 8px;
+            cursor: pointer;
+            outline: none;
+        }
+
+        .quality-selector:hover {
+            background: rgba(127, 255, 127, 0.15);
+            border-color: var(--phosphor);
+        }
+
+        .quality-selector option {
+            background: var(--screen-bg);
+            color: var(--phosphor);
+        }
+
         .stream-stats {
             display: flex;
             gap: 20px;
@@ -400,7 +433,7 @@
 
             <!-- Hidden audio element -->
             <audio id="radio-stream" preload="none">
-                <source src="/radio" type="audio/mpeg">
+                <source src="/radio-128" type="audio/mpeg">
             </audio>
 
             <!-- Custom player controls -->
@@ -409,6 +442,14 @@
                 <div class="volume-control">
                     <span class="volume-label">VOL</span>
                     <input type="range" id="volume" min="0" max="100" value="70">
+                </div>
+                <div class="quality-control">
+                    <span class="quality-label">QUALITY</span>
+                    <select id="quality-selector" class="quality-selector">
+                        <option value="/radio-96">96 kbps (Low)</option>
+                        <option value="/radio-128" selected>128 kbps (Default)</option>
+                        <option value="/radio">192 kbps (High)</option>
+                    </select>
                 </div>
             </div>
 
@@ -615,6 +656,7 @@
         const audio = document.getElementById('radio-stream');
         const playButton = document.getElementById('play-button');
         const volumeSlider = document.getElementById('volume');
+        const qualitySelector = document.getElementById('quality-selector');
 
         // Start muted and auto-play (stream is always broadcasting)
         audio.muted = true;
@@ -647,6 +689,26 @@
                 audio.muted = false;
                 playButton.textContent = 'MUTE';
                 playButton.classList.add('playing');
+            }
+        });
+
+        // Handle quality changes
+        qualitySelector.addEventListener('change', function() {
+            const wasPlaying = !audio.paused;
+            const wasMuted = audio.muted;
+
+            // Update audio source
+            audio.src = this.value;
+
+            // Resume playback if it was playing
+            if (wasPlaying) {
+                audio.load();
+                audio.play().catch(err => {
+                    console.error('Failed to switch quality:', err);
+                });
+
+                // Restore mute state
+                audio.muted = wasMuted;
             }
         });
 
