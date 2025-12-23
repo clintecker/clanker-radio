@@ -233,14 +233,10 @@ sudo apt install -y \
 ### Install Liquidsoap via OPAM
 
 ```bash
-# Add external repository for latest Liquidsoap
-opam repository add liquidsoap https://github.com/savonet/liquidsoap.git
-
-# Install Liquidsoap with required modules
+# Install Liquidsoap with required modules from default OPAM repository
 opam install -y liquidsoap
 
 # This will take 10-20 minutes to compile
-# Go get coffee ☕
 ```
 
 **Why compile from source?** The system package (`apt install liquidsoap`) is often outdated. OPAM gives you the latest stable version with all the features you need.
@@ -294,7 +290,7 @@ tree -L 2 /srv/ai_radio
 - `state/` - Runtime state files
 - `tmp/` - Temporary files
 
-**Why /srv/ai_radio?** The `/srv` directory is the standard location for site-specific data served by the system. It keeps your radio station isolated from system files.
+**Why `/srv/ai_radio`?** The `/srv` directory is the standard location for site-specific data served by the system. It keeps your radio station isolated from system files.
 
 ---
 
@@ -563,7 +559,7 @@ Common issues:
 
 ### Permission denied errors
 
-**Problem:** Can't write to /srv/ai_radio directories
+**Problem:** Can't write to `/srv/ai_radio` directories
 
 **Solution:** Fix ownership:
 ```bash

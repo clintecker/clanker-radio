@@ -67,7 +67,7 @@ An autonomous internet radio station that generates and broadcasts AI-created co
 
 ## Station Personality Examples
 
-Everything is configured via `.env` file. No code changes needed.
+Configure everything via the `.env` file. No code changes needed.
 
 **Default (Tropical Island):**
 - 🌴 WKRP Coconut Island, DJ Coco
@@ -92,7 +92,7 @@ Everything is configured via `.env` file. No code changes needed.
 
 ## Architecture
 
-```
+```text
 ┌─────────────────────────────────────────────────────────────────┐
 │                      AI RADIO STATION                           │
 └─────────────────────────────────────────────────────────────────┘
@@ -135,7 +135,7 @@ See [VM Setup Guide](docs/VM_SETUP.md) for complete system requirements and inst
 
 ## Installation
 
-Complete installation instructions are in the core guides. Follow them in order:
+See complete installation instructions in the core guides. Follow them in order:
 
 1. **[VM Setup](docs/VM_SETUP.md)** - Install system packages and prepare Ubuntu server
 2. **[Configuration](docs/CONFIGURATION.md)** - Create `.env` file and customize your station
@@ -212,7 +212,7 @@ For service management, manual queue control, log monitoring, and maintenance ta
 
 ## Directory Structure
 
-```
+```text
 /srv/ai_radio/
 ├── assets/
 │   ├── music/           # Music library (ingested, content-addressable)

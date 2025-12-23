@@ -31,16 +31,21 @@ This guide covers:
 
 ### 1. Clone Repository
 
+**If `/srv/ai_radio` is empty:**
 ```bash
-# Go to base directory
 cd /srv/ai_radio
-
-# Clone the repository
 git clone https://github.com/clintecker/clanker-radio.git .
+```
 
-# Or if directory already exists:
+**If `/srv/ai_radio` has existing files:**
+```bash
+# Clone to temporary location
 git clone https://github.com/clintecker/clanker-radio.git /tmp/clanker-radio
-cp -r /tmp/clanker-radio/* /srv/ai_radio/
+
+# Copy contents (preserves existing .env if present)
+cp -rn /tmp/clanker-radio/* /srv/ai_radio/
+
+# Clean up
 rm -rf /tmp/clanker-radio
 ```
 
