@@ -69,14 +69,15 @@ class LiquidsoapClient:
         try:
             response = self.send_command(f"{queue_name}.queue")
 
-            # Parse response - format is typically a list of items
-            # Count non-empty lines (filter out Liquidsoap protocol END marker)
-            lines = [
-                line.strip()
-                for line in response.split('\n')
-                if line.strip() and line.strip() != "END"
-            ]
-            return len(lines)
+            # Parse response - Liquidsoap returns space-separated request IDs on one line
+            # Format: "123 124 125\nEND\n" or just "END\n" if empty
+            # Extract first line and split by spaces
+            lines = response.split('\n')
+            if lines and lines[0].strip() and lines[0].strip() != "END":
+                # Count space-separated items on first line
+                items = lines[0].strip().split()
+                return len(items)
+            return 0
 
         except ConnectionError as e:
             logger.error(f"Failed to get queue length: {e}")
