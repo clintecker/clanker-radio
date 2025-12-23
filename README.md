@@ -18,135 +18,77 @@ An autonomous internet radio station that generates and broadcasts AI-created co
 - **Safety Fallbacks**: Multiple fallback layers ensure the station never goes silent
 - **Web Interface**: Cyber-terminal themed player with real-time now playing info
 
-## Quick Start - Configuration
+## Getting Started
 
-Everything in this project is configured through environment variables. Nothing is hardcoded.
+### Quick Start (3 Steps)
 
-**Default Theme:** Tropical island radio (DJ Coco on WKRP Coconut Island 🌴🥥)
-**Your Theme:** Configure anything - cyberpunk dystopia, jazz lounge, college radio, pirate broadcast...
+1. **[VM Setup](docs/VM_SETUP.md)** - Set up your Ubuntu server (30-45 min)
+2. **[Configuration](docs/CONFIGURATION.md)** - Configure your station's personality (45-60 min)
+3. **[Deployment](docs/DEPLOYMENT.md)** - Deploy and start streaming (20-30 min)
 
-### Step 1: Create Your Configuration
+**Total time:** ~2 hours from SSH access to streaming station
 
-Copy `.env.example` to `.env` and configure your station:
+### What You Need
 
-```bash
-cp .env.example .env
-```
+**Minimum requirements:**
+- Ubuntu 24.04 server with SSH + sudo access
+- 2GB RAM, 10GB disk space
+- API keys: [Anthropic Claude](https://console.anthropic.com/) + [Google Gemini](https://ai.google.dev/)
+- Your coordinates (for weather)
+- Music files (20+ tracks minimum)
 
-### Step 2: Essential Configuration
+### Default vs Custom
 
-Edit `.env` and set these **required** values:
+**Out of the box:** Tropical island radio (DJ Coco on WKRP Coconut Island 🌴)
 
-```bash
-# Station Identity
-RADIO_STATION_NAME="Your Station Name"
-RADIO_STATION_LOCATION="Your City"
-RADIO_STATION_TZ="Your/Timezone"  # e.g., America/New_York, Europe/London
+**Customize everything:** Station name, personality, world-building, news feeds, voice, energy level, humor style - 100+ configuration options.
 
-# Location (for weather)
-RADIO_STATION_LAT=40.7128
-RADIO_STATION_LON=-74.0060
+**Example custom station:** [LAST BYTE RADIO](https://radio.clintecker.com) - Cyberpunk dystopia broadcasting from post-collapse Chicago
 
-# API Keys
-RADIO_LLM_API_KEY=sk-ant-api03-...  # Anthropic Claude
-RADIO_GEMINI_API_KEY=AIza...        # Google Gemini TTS
+---
 
-# Weather Grid (find at weather.gov)
-RADIO_NWS_OFFICE=OKX       # Your NWS office code
-RADIO_NWS_GRID_X=33        # Your grid X coordinate
-RADIO_NWS_GRID_Y=37        # Your grid Y coordinate
-```
+## Documentation
 
-### Step 3: Customize Your Station Personality
+### Core Guides
 
-**Everything is configurable!** Check `.env.example` for 100+ settings including:
+- **[VM Setup Guide](docs/VM_SETUP.md)** - Ubuntu server setup from scratch
+- **[Configuration Guide](docs/CONFIGURATION.md)** - Complete reference for all 100+ environment variables
+- **[Deployment Guide](docs/DEPLOYMENT.md)** - Deploy code and start streaming
+- **[Administration Guide](docs/ADMINISTRATION.md)** - Day-to-day operations and maintenance *(coming soon)*
+- **[Scripts Reference](docs/SCRIPTS.md)** - What each script does *(coming soon)*
+- **[Troubleshooting Guide](docs/TROUBLESHOOTING.md)** - Comprehensive issue diagnosis *(coming soon)*
 
-- Station personality and energy level
-- World-building and content framing
-- News RSS feeds (add your local sources)
-- Hallucinated news topics (cyberpunk flavor or your own themes)
-- Announcer voice characteristics
-- Audio timing and mixing parameters
+### Additional Documentation
 
-### Step 4: Liquidsoap Configuration
+- **[Adding Music](docs/ADDING_MUSIC.md)** - Music library management
+- **[Now Playing API](docs/NOW_PLAYING_API.md)** - Metadata API documentation
 
-Edit `config/radio.liq` **or** set environment variables:
+---
 
-```bash
-# Option 1: Edit config/radio.liq directly
-station_name = "Your Station Name"
-station_url = "https://your-domain.com"
+## Station Personality Examples
 
-# Option 2: Use environment variables
-export LIQUIDSOAP_STATION_NAME="Your Station Name"
-export LIQUIDSOAP_STATION_URL="https://your-domain.com"
-export LIQUIDSOAP_STATION_DESCRIPTION="Your station description"
-```
+Everything is configured via `.env` file. No code changes needed.
 
-### Step 5: Web Configuration
-
-Update `nginx/radio.conf`:
-```nginx
-server_name your-domain.com;
-```
-
-Update `nginx/stream.m3u`:
-```
-#EXTINF:-1,Your Station Name - Your Description
-https://your-domain.com/radio
-```
-
-### Step 6: Generate Content
-
-**By default, the station only generates top-of-the-hour news/weather breaks.** You need to provide:
-
-#### Music (Required for 24/7 operation)
-- Add MP3 files to `/srv/ai_radio/assets/music/`
-- Run: `./scripts/batch_ingest.sh /path/to/your/music`
-- See [ADDING_MUSIC.md](docs/ADDING_MUSIC.md) for details
-
-**Don't have music yet?** Use [Suno AI](https://suno.com) to generate:
-- Genre-appropriate tracks for your station
-- Background beds (instrumental music for news breaks)
-- Station ID jingles
-
-#### Background Beds (Optional but recommended)
-- Add instrumental tracks to `/srv/ai_radio/assets/beds/`
-- Used as background music during news/weather breaks
-- Also serves as fallback when queues are empty
-
-#### Station IDs / Bumpers (Optional)
-- Add to `/srv/ai_radio/assets/bumpers/`
-- Name files: `station_id_*.mp3` or `station_id_*.wav`
-- Plays automatically at :15, :30, :45 past each hour
-
-#### Startup Jingle (Optional)
-- Place 18-second intro: `/srv/ai_radio/assets/startup.mp3`
-- Plays once when Liquidsoap starts
-
-### Station Personality Examples
-
-**Default (Tiki Island):**
-- Station: WKRP Coconut Island, DJ Coco
-- Vibe: laid-back, friendly, warm, island time
-- News: NPR feed with tropical island framing
+**Default (Tropical Island):**
+- 🌴 WKRP Coconut Island, DJ Coco
+- Vibe: Laid-back, friendly, warm, island time
+- News: NPR feed with tropical framing
 - Energy: 5/10 (chill vibes)
 
-**Example: "LAST BYTE RADIO"** (Check `.env.lastbyte` if you have access)
-- Station: LAST BYTE RADIO, Chicago
-- Vibe: witty, darkly humorous, slightly unhinged, cyberpunk survivor
-- World: Post-capitalist dystopian cyber future
-- News: Chicago local + tech feeds with dystopian framing
+**Example: LAST BYTE RADIO** (`.env.lastbyte`)
+- 🤖 Broadcasting from post-capitalist Chicago wasteland
+- Vibe: Witty, darkly humorous, slightly unhinged, defiant
+- News: Local + tech feeds with cyberpunk dystopian framing
 - Hallucinated: Corp collapses, power grid failures, underground mesh networks
 - Energy: 8/10 (high energy, fast-paced)
 
-**Other ideas:**
-- Jazz lounge: smooth, sophisticated, late-night vibes
-- College radio: chaotic, enthusiastic, discovering new music
-- Pirate station: rebellious, anti-establishment, underground
-- News talk: serious, journalistic, minimal music
+**Other Ideas:**
+- Jazz lounge: Smooth, sophisticated, late-night vibes
+- College radio: Chaotic, enthusiastic, DIY energy
+- Pirate station: Rebellious, anti-establishment, underground
+- News talk: Serious, journalistic, minimal music
 
-**All configurable via .env!**
+**Configure yours:** See [Configuration Guide](docs/CONFIGURATION.md)
 
 ## Architecture
 
@@ -183,305 +125,37 @@ https://your-domain.com/radio
 
 ## Requirements
 
-### System Dependencies
+See [VM Setup Guide](docs/VM_SETUP.md) for complete system requirements and installation instructions.
 
-- **Python 3.11+** - Core programming language
-- **Liquidsoap 2.0+** - Audio streaming engine
-- **Icecast2** - Streaming server
-- **SQLite 3** - Database
-- **FFmpeg** - Audio processing and normalization
-- **Nginx** (optional) - Reverse proxy for web interface
-- **Systemd** - Service management
-- **uv** - Python package manager (recommended)
-- **Go 1.23+** (optional) - For the TUI database browser
-
-### Python Dependencies
-
-Automatically installed via `uv sync`:
-- `anthropic` - Claude AI for script generation
-- `openai` (optional) - OpenAI TTS fallback or Gemini alternative
-- `feedparser` - RSS news feed parsing
-- `mutagen` - Audio file metadata
-- `ffmpeg-normalize` - Audio normalization
-- `pydantic` & `pydantic-settings` - Configuration management
-- `httpx` - HTTP client for API calls
-- `fasteners` - File locking for concurrency safety
-
-See `pyproject.toml` for complete dependency list.
+**Quick summary:**
+- Ubuntu 24.04 LTS server
+- 2GB RAM, 10GB disk space
+- Python 3.12+, Liquidsoap 2.0+, Icecast2, FFmpeg
+- API keys: Anthropic Claude + Google Gemini
 
 ## Installation
 
-### 1. System Setup
+Complete installation instructions are in the core guides. Follow them in order:
 
-```bash
-# Install system dependencies (Ubuntu/Debian)
-sudo apt update
-sudo apt install -y python3.11 liquidsoap icecast2 sqlite3 ffmpeg nginx
+1. **[VM Setup](docs/VM_SETUP.md)** - Install system packages and prepare Ubuntu server
+2. **[Configuration](docs/CONFIGURATION.md)** - Create `.env` file and customize your station
+3. **[Deployment](docs/DEPLOYMENT.md)** - Deploy code, prepare assets, install services
 
-# Create radio user and directory
-sudo useradd -r -s /bin/bash -d /srv/ai_radio ai-radio
-sudo mkdir -p /srv/ai_radio
-sudo chown ai-radio:ai-radio /srv/ai_radio
-```
-
-### 2. Clone Repository
-
-```bash
-cd /srv/ai_radio
-sudo -u ai-radio git clone https://github.com/YOUR_USERNAME/ai-radio-station.git .
-```
-
-### 3. Python Environment Setup
-
-```bash
-# Install uv (if not already installed)
-curl -LsSf https://astral.sh/uv/install.sh | sh
-
-# Create virtual environment and install dependencies
-sudo -u ai-radio uv venv
-sudo -u ai-radio uv sync
-```
-
-### 4. Configure Environment Variables
-
-Create `/srv/ai_radio/.env`:
-
-```bash
-# ============================================================================
-# BASE CONFIGURATION
-# ============================================================================
-RADIO_BASE_PATH=/srv/ai_radio
-RADIO_STATION_TZ=UTC
-
-# ============================================================================
-# STATION IDENTITY
-# ============================================================================
-RADIO_STATION_NAME="Your Station Name"
-RADIO_STATION_LOCATION="Your City"
-
-# ============================================================================
-# LOCATION FOR WEATHER (REQUIRED)
-# ============================================================================
-# Find coordinates at https://www.latlong.net/
-RADIO_STATION_LAT=0.0
-RADIO_STATION_LON=0.0
-
-# ============================================================================
-# API KEYS (REQUIRED FOR PRODUCTION)
-# ============================================================================
-
-# Anthropic Claude - For news/weather script generation
-# Get key at: https://console.anthropic.com/
-RADIO_LLM_API_KEY=sk-ant-api03-your-key-here
-
-# Claude model selection
-RADIO_LLM_MODEL=claude-3-5-sonnet-latest
-
-# ============================================================================
-# TEXT-TO-SPEECH CONFIGURATION
-# ============================================================================
-
-# TTS Provider: "gemini" (recommended) or "openai"
-RADIO_TTS_PROVIDER=gemini
-
-# Option 1: Google Gemini TTS (RECOMMENDED - more natural voices)
-# Get key at: https://aistudio.google.com/apikey
-RADIO_GEMINI_API_KEY=your-gemini-api-key-here
-RADIO_GEMINI_TTS_MODEL=gemini-2.5-pro-preview-tts
-# Voice options: Kore, Puck, Charon, Aoede, Fenrir
-RADIO_GEMINI_TTS_VOICE=Kore
-
-# Option 2: OpenAI TTS (fallback)
-# Get key at: https://platform.openai.com/api-keys
-# RADIO_TTS_API_KEY=sk-your-openai-key-here
-# RADIO_TTS_VOICE=alloy  # Options: alloy, echo, fable, onyx, nova, shimmer
-
-# ============================================================================
-# NATIONAL WEATHER SERVICE CONFIGURATION
-# ============================================================================
-# Find your grid at: https://www.weather.gov/ → enter location → click map → check URL
-RADIO_NWS_OFFICE=YOUR_OFFICE  # Chicago office
-RADIO_NWS_GRID_X=0
-RADIO_NWS_GRID_Y=0
-
-# ============================================================================
-# NEWS RSS FEEDS (Optional - customize your news sources)
-# ============================================================================
-# Default feeds are configured in config.py
-# Override with JSON if needed:
-# RADIO_NEWS_RSS_FEEDS='{"local": ["https://your-local-news.com/feed"], "tech": [...]}'
-
-# ============================================================================
-# CONTENT GENERATION SETTINGS (Optional)
-# ============================================================================
-RADIO_WEATHER_SCRIPT_TEMPERATURE=0.8  # 0.0=deterministic, 1.0=creative
-RADIO_NEWS_SCRIPT_TEMPERATURE=0.6
-
-# Hallucinated news (cyberpunk flavor)
-RADIO_HALLUCINATE_NEWS=true
-RADIO_HALLUCINATION_CHANCE=1.0  # 0.0-1.0 probability
-
-# ============================================================================
-# AUDIO SETTINGS (Optional - defaults are good)
-# ============================================================================
-RADIO_BED_VOLUME_DB=-18.0
-RADIO_BED_PREROLL_SECONDS=3.0
-RADIO_BED_FADEIN_SECONDS=2.0
-RADIO_BED_POSTROLL_SECONDS=5.4
-RADIO_BED_FADEOUT_SECONDS=3.0
-
-# ============================================================================
-# ANNOUNCER PERSONALITY (Optional - advanced customization)
-# ============================================================================
-RADIO_ENERGY_LEVEL=8  # 1-10, cap at 8-9 for radio
-RADIO_VIBE_KEYWORDS="witty, darkly humorous, fast, slightly unhinged, defiant, cyberpunk survivor"
-RADIO_MAX_RIFFS_PER_BREAK=1
-RADIO_UNHINGED_PERCENTAGE=20
-```
-
-See [CONFIGURATION.md](CONFIGURATION.md) for complete configuration documentation.
-
-**Finding Your NWS Grid Coordinates:**
-1. Go to https://www.weather.gov/
-2. Enter your location
-3. Click on your location on the map
-4. The URL will contain your grid coordinates (e.g., `/gridpoint/LOT/76,73`)
-
-### 5. Configure Icecast
-
-Edit `/etc/icecast2/icecast.xml`:
-
-```xml
-<source-password>YOUR_SECURE_PASSWORD</source-password>
-<hostname>radio.yourdomain.com</hostname>
-```
-
-Store the password in `/srv/ai_radio/.icecast_secrets`:
-
-```bash
-echo "YOUR_SECURE_PASSWORD" | sudo -u ai-radio tee /srv/ai_radio/.icecast_secrets
-sudo chmod 600 /srv/ai_radio/.icecast_secrets
-```
-
-Enable and start Icecast:
-
-```bash
-sudo systemctl enable --now icecast2
-```
-
-### 6. Create Directory Structure
-
-```bash
-sudo -u ai-radio mkdir -p /srv/ai_radio/{assets/{music,beds,breaks,safety,bumpers},db,logs,tmp,state,public}
-sudo -u ai-radio mkdir -p /srv/ai_radio/assets/breaks/archive
-```
-
-### 7. Initialize Database
-
-```bash
-# Run migrations in order
-cd /srv/ai_radio
-for migration in db/migrations/*.sql; do
-    sudo -u ai-radio sqlite3 /srv/ai_radio/db/radio.sqlite3 < "$migration"
-    echo "Applied: $migration"
-done
-```
-
-### 8. Add Content
-
-#### Music
-
-See [ADDING_MUSIC.md](docs/ADDING_MUSIC.md) for detailed instructions.
-
-```bash
-# Quick start: batch ingest music
-sudo -u ai-radio ./scripts/batch_ingest.sh /path/to/your/music/folder
-```
-
-#### Station IDs (Bumpers)
-
-Place station ID files in `/srv/ai_radio/assets/bumpers/` with naming pattern `station_id_*.mp3` or `station_id_*.wav`. These play at :15, :30, and :45 past each hour.
-
-#### Background Beds
-
-Place instrumental music beds in `/srv/ai_radio/assets/beds/`. These provide background music for news breaks and fill gaps between content.
-
-#### Safety Content
-
-Place fallback audio in `/srv/ai_radio/assets/safety/evergreen.m3u` (playlist format). This plays if all other content sources fail.
-
-#### Startup Jingle
-
-Place an 18-second startup jingle at `/srv/ai_radio/assets/startup.mp3`. This plays once when Liquidsoap starts, giving time for the music queue to fill.
-
-### 9. Install Systemd Services
-
-```bash
-# Copy service and timer files
-sudo cp systemd/*.service systemd/*.timer /etc/systemd/system/
-
-# Reload systemd
-sudo systemctl daemon-reload
-
-# Enable and start services
-sudo systemctl enable --now ai-radio-liquidsoap
-sudo systemctl enable --now ai-radio-enqueue.timer
-sudo systemctl enable --now ai-radio-schedule-station-id.timer
-sudo systemctl enable --now ai-radio-break-scheduler.timer
-sudo systemctl enable --now ai-radio-export-nowplaying.timer
-```
-
-### 10. Configure Liquidsoap Socket Permissions
-
-```bash
-# Create liquidsoap socket directory
-sudo mkdir -p /run/liquidsoap
-sudo chown ai-radio:ai-radio /run/liquidsoap
-sudo chmod 770 /run/liquidsoap
-
-# Add your user to ai-radio group (for management scripts)
-sudo usermod -a -G ai-radio $USER
-```
-
-### 11. Configure Nginx (Optional Web Interface)
-
-```bash
-# Copy nginx configurations
-sudo cp nginx/radio.conf /etc/nginx/sites-available/
-sudo cp nginx/now_playing.conf /etc/nginx/sites-available/
-sudo ln -s /etc/nginx/sites-available/radio.conf /etc/nginx/sites-enabled/
-sudo ln -s /etc/nginx/sites-available/now_playing.conf /etc/nginx/sites-enabled/
-
-# Copy frontend files
-sudo -u ai-radio cp -r nginx/admin/ /srv/ai_radio/public/
-sudo -u ai-radio cp nginx/index.html /srv/ai_radio/public/
-
-# Test and reload
-sudo nginx -t
-sudo systemctl reload nginx
-```
+**First time?** Start with [VM Setup](docs/VM_SETUP.md).
 
 ## Configuration
 
-### API Keys Required
+All station configuration is done via `.env` file - no code changes needed!
 
-| Service | Environment Variable | Purpose | Where to Get | Notes |
-|---------|---------------------|---------|--------------|-------|
-| Anthropic Claude | `RADIO_LLM_API_KEY` | Script generation for news/weather | https://console.anthropic.com/ | **Required** |
-| Google Gemini | `RADIO_GEMINI_API_KEY` | TTS voice synthesis | https://aistudio.google.com/apikey | Recommended for better voices |
-| OpenAI | `RADIO_TTS_API_KEY` | TTS fallback | https://platform.openai.com/ | Optional alternative |
+**Configure 100+ settings including:**
+- Station identity (name, location, personality)
+- API keys (Claude for scripts, Gemini/OpenAI for voice)
+- World-building (cyberpunk dystopia? Tropical island? Jazz lounge?)
+- Announcer personality (energy level, vibe, humor style)
+- News sources (RSS feeds + hallucinated content)
+- Audio timing (crossfades, bed volumes, break scheduling)
 
-### Customization
-
-See [CONFIGURATION.md](CONFIGURATION.md) for comprehensive customization documentation including:
-
-- Station personality and voice characteristics (energy, vibe, humor style)
-- News feed sources (local, national, politics, tech)
-- Weather presentation style
-- Audio processing parameters (crossfade, normalization, bed timing)
-- Scheduling intervals (music rotation, breaks, station IDs)
-- Hallucinated news settings (cyberpunk world-building)
-- Announcer personality controls (chaos budget, humor guardrails)
+See [Configuration Guide](docs/CONFIGURATION.md) for complete reference.
 
 ### Station Scheduling
 
@@ -496,93 +170,45 @@ Modify timing in the corresponding `systemd/*.timer` files.
 
 ## Usage
 
-### Start the Station
+### Quick Commands
 
 ```bash
-# Start all services
-sudo systemctl start ai-radio-liquidsoap
-sudo systemctl start ai-radio-enqueue.timer
-sudo systemctl start ai-radio-schedule-station-id.timer
-sudo systemctl start ai-radio-break-scheduler.timer
-sudo systemctl start ai-radio-export-nowplaying.timer
-```
-
-### Monitor Status
-
-```bash
-# Check service status
+# Check stream status
 sudo systemctl status ai-radio-liquidsoap
-sudo systemctl status ai-radio-enqueue.timer
-sudo systemctl list-timers ai-radio-*
 
-# View logs
+# View real-time logs
 sudo journalctl -u ai-radio-liquidsoap -f
-sudo journalctl -u ai-radio-break-scheduler -f
 
-# Check Liquidsoap logs
-sudo tail -f /srv/ai_radio/logs/liquidsoap.log
-```
-
-### Stream URL
-
-Access your stream at:
-```
-http://your-server:8000/radio
-```
-
-M3U playlist:
-```
-http://your-server/stream.m3u
-```
-
-### Browse Database (TUI)
-
-A beautiful terminal UI for browsing your music library and play history:
-
-```bash
-# Install Go TUI dependencies
-go mod download
-
-# Sync database from production to local machine
-./scripts/sync_db.sh
-
-# Launch TUI
-go run ./cmd/radiotui
-# Or use make
-make tui
-```
-
-**TUI Controls:**
-- `1` - Track list view (sortable by artist, title, album, duration, energy, plays, last played)
-- `2` - Track detail view (full metadata including LUFS, dBTP, energy)
-- `3` - Station stats (total tracks, plays, uptime)
-- `4` - Play history (time, source, track)
-- `Tab` - Cycle sort columns
-- `Shift+Tab` - Reverse sort direction
-- `↑/↓` - Navigate lists
-- `Enter` - View details (in track list)
-- `Esc` - Go back
-- `q` - Quit
-
-### Manual Queue Management
-
-```bash
-# Queue music tracks (automatic via timer, but can run manually)
-sudo -u ai-radio .venv/bin/python scripts/enqueue_music.py
-
-# Queue a station ID immediately (bypasses schedule)
-sudo -u ai-radio .venv/bin/python scripts/enqueue_station_id.py
-
-# Generate and queue a break now (bypasses top-of-hour schedule)
-sudo -u ai-radio .venv/bin/python scripts/schedule_break.py
-
-# Check queue contents via Liquidsoap
+# Check what's queued
 echo "music.queue" | nc -U /run/liquidsoap/radio.sock
-echo "breaks.queue" | nc -U /run/liquidsoap/radio.sock
 
 # Skip current track
 echo "music.skip" | nc -U /run/liquidsoap/radio.sock
 ```
+
+### Stream URLs
+
+- **Stream:** `http://your-server:8000/radio`
+- **M3U Playlist:** `http://your-server/stream.m3u`
+- **Web Player:** `http://your-server/` (if nginx configured)
+
+### Browse Database (TUI)
+
+Beautiful terminal UI for browsing your music library and play history:
+
+```bash
+# Sync database from production
+./scripts/sync_db.sh
+
+# Launch TUI
+go run ./cmd/radiotui
+```
+
+**TUI Controls:** `1-4` switch views • `Tab` cycle sort • `↑/↓` navigate • `Enter` details • `q` quit
+
+### Day-to-Day Operations
+
+For service management, manual queue control, log monitoring, and maintenance tasks, see [Administration Guide](docs/ADMINISTRATION.md) *(coming soon)*.
 
 ## Directory Structure
 
@@ -645,147 +271,12 @@ echo "music.skip" | nc -U /run/liquidsoap/radio.sock
 
 ## Troubleshooting
 
-### No Audio Playing
+**Quick checks:**
+- Stream not working? Check `sudo systemctl status ai-radio-liquidsoap`
+- No music playing? Verify music is ingested: `ls /srv/ai_radio/assets/music/`
+- Breaks not playing? Check API keys in `.env`
 
-1. Check Liquidsoap status:
-   ```bash
-   sudo systemctl status ai-radio-liquidsoap
-   sudo journalctl -u ai-radio-liquidsoap -n 50
-   ```
-
-2. Verify music is ingested:
-   ```bash
-   ls -lh /srv/ai_radio/assets/music/
-   sqlite3 /srv/ai_radio/db/radio.sqlite3 "SELECT COUNT(*) FROM assets WHERE kind='music';"
-   ```
-
-3. Check enqueue service:
-   ```bash
-   sudo systemctl status ai-radio-enqueue.timer
-   sudo systemctl start ai-radio-enqueue.service
-   ```
-
-4. Check Liquidsoap queue:
-   ```bash
-   echo "music.queue" | nc -U /run/liquidsoap/radio.sock
-   ```
-
-### Station IDs Interrupting Music Mid-Track
-
-**This has been fixed** by removing the buffer from `break_queue`. If you still experience interruptions:
-
-1. Verify config shows no buffer:
-   ```bash
-   grep "break_queue = " /srv/ai_radio/config/radio.liq
-   # Should show: break_queue = request.queue(id="breaks")
-   # NOT: break_queue = buffer(request.queue(id="breaks"))
-   ```
-
-2. Restart Liquidsoap:
-   ```bash
-   sudo systemctl restart ai-radio-liquidsoap
-   ```
-
-3. Check `track_sensitive=true` is set:
-   ```bash
-   grep "track_sensitive" /srv/ai_radio/config/radio.liq
-   ```
-
-The `track_sensitive=true` parameter ensures breaks wait for the current track to finish before playing.
-
-### Breaks Not Playing or Scheduling
-
-1. Check break scheduler:
-   ```bash
-   sudo systemctl status ai-radio-break-scheduler.timer
-   sudo journalctl -u ai-radio-break-scheduler -n 20
-   ```
-
-2. Verify breaks are generated:
-   ```bash
-   ls -lh /srv/ai_radio/assets/breaks/
-   ```
-
-3. Check API keys:
-   ```bash
-   grep RADIO_LLM_API_KEY /srv/ai_radio/.env
-   grep RADIO_GEMINI_API_KEY /srv/ai_radio/.env
-   ```
-
-4. Manually trigger a break:
-   ```bash
-   sudo -u ai-radio .venv/bin/python scripts/schedule_break.py
-   ```
-
-5. Check breaks queue:
-   ```bash
-   echo "breaks.queue" | nc -U /run/liquidsoap/radio.sock
-   ```
-
-### API Rate Limits or Errors
-
-1. Check for rate limit errors:
-   ```bash
-   sudo journalctl -u ai-radio-break-scheduler | grep -i "rate\|error\|failed"
-   ```
-
-2. Verify API keys are valid:
-   - Claude: https://console.anthropic.com/
-   - Gemini: https://aistudio.google.com/
-
-3. Reduce break generation frequency (edit timer OnCalendar):
-   ```bash
-   sudo systemctl edit ai-radio-break-scheduler.timer
-   ```
-
-### Database Locked Errors
-
-SQLite locks when multiple processes access simultaneously:
-
-1. Check for competing processes:
-   ```bash
-   sudo lsof /srv/ai_radio/db/radio.sqlite3
-   ```
-
-2. Verify scripts close connections properly
-
-3. Increase timeout in Python scripts:
-   ```python
-   conn = sqlite3.connect(config.db_path, timeout=10.0)
-   ```
-
-### Permission Issues
-
-```bash
-# Fix ownership
-sudo chown -R ai-radio:ai-radio /srv/ai_radio
-
-# Fix socket permissions
-sudo chown ai-radio:ai-radio /run/liquidsoap/radio.sock
-sudo chmod 660 /run/liquidsoap/radio.sock
-
-# Verify your user is in ai-radio group
-groups | grep ai-radio
-```
-
-### Frontend Not Updating
-
-1. Check export timer:
-   ```bash
-   sudo systemctl status ai-radio-export-nowplaying.timer
-   sudo systemctl list-timers ai-radio-export-nowplaying.timer
-   ```
-
-2. Verify JSON file exists and updates:
-   ```bash
-   ls -lh /srv/ai_radio/public/now_playing.json
-   watch -n 1 'cat /srv/ai_radio/public/now_playing.json'
-   ```
-
-3. Check nginx serving:
-   ```bash
-   curl http://localhost/now_playing.json
-   ```
+For comprehensive troubleshooting including service diagnostics, queue management, API issues, and permission problems, see [Troubleshooting Guide](docs/TROUBLESHOOTING.md) *(coming soon)*.
 
 ## Development
 
