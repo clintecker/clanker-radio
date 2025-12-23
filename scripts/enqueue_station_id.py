@@ -105,10 +105,8 @@ def push_to_queue(file_path: Path) -> bool:
             sock.settimeout(5.0)
             sock.connect(SOCKET_PATH)
 
-            # Push to music queue
-            # Note: Station ID will play after current queue (10-20 tracks)
-            # Future enhancement: Use Liquidsoap scheduling for precise timing
-            command = f"music.push {file_path}"
+            # Push to breaks queue (plays at next track boundary)
+            command = f"breaks.push {file_path}"
             response = query_socket(sock, command)
 
             if not response:
