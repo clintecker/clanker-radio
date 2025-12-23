@@ -9,7 +9,7 @@ Complete reference for all scripts in the AI Radio Station project. Scripts are 
 | Script | Purpose | Runs Via |
 |--------|---------|----------|
 | `enqueue_music.py` | Fill music queue | systemd timer (every 2 min) |
-| `schedule_break.py` | Queue top-of-hour break | systemd timer (:59 each hour) |
+| `schedule_break.py` | Queue top-of-hour break | systemd timer (every 5 min, runs at :00) |
 | `schedule_station_id.py` | Queue station ID | systemd timer (:14, :29, :44) |
 | `record_play.py` | Log play history | Liquidsoap callback |
 | `export_now_playing.py` | Update web interface | systemd timer (every 10 sec) |
@@ -57,7 +57,7 @@ cd /srv/ai_radio
 
 **Purpose:** Pushes top-of-hour breaks (news + weather) to the breaks queue.
 
-**Runs:** Automatically via `ai-radio-break-scheduler.timer` (every hour at :59)
+**Runs:** Automatically via `ai-radio-break-scheduler.timer` (every 5 min, queues at top of hour)
 
 **What it does:**
 - Checks if we're within 5 minutes of the hour
@@ -599,7 +599,7 @@ Scripts are orchestrated via systemd services and timers. Here's how they connec
 | Timer | Triggers | Schedule |
 |-------|----------|----------|
 | `ai-radio-enqueue.timer` | `ai-radio-enqueue.service` | Every 2 minutes |
-| `ai-radio-break-scheduler.timer` | `ai-radio-break-scheduler.service` | Hourly at :59 |
+| `ai-radio-break-scheduler.timer` | `ai-radio-break-scheduler.service` | Every 5 min (runs at :00) |
 | `ai-radio-schedule-station-id.timer` | `ai-radio-schedule-station-id.service` | :14, :29, :44 |
 | `ai-radio-export-nowplaying.timer` | `ai-radio-export-nowplaying.service` | Every 10 seconds |
 
@@ -696,7 +696,7 @@ systemctl list-timers ai-radio-*
 
 **Option 1: Automatic (top of hour)**
 
-Just wait - breaks generate and schedule automatically at :59 each hour.
+Breaks generate and schedule automatically at the top of each hour.
 
 **Option 2: Manual (immediate)**
 

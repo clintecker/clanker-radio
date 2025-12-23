@@ -11,8 +11,8 @@ Day-to-day operations and maintenance for your AI Radio Station.
 | Check service status | `sudo systemctl status ai-radio-liquidsoap` |
 | Restart streaming | `sudo systemctl restart ai-radio-liquidsoap` |
 | View live logs | `sudo journalctl -u ai-radio-liquidsoap -f` |
-| Check queue depth | `echo "music.queue" \| nc -U /run/liquidsoap/radio.sock` |
-| Skip current track | `echo "music.skip" \| nc -U /run/liquidsoap/radio.sock` |
+| Check queue depth | `echo "music.queue" | nc -U /run/liquidsoap/radio.sock` |
+| Skip current track | `echo "music.skip" | nc -U /run/liquidsoap/radio.sock` |
 | Trigger break now | `.venv/bin/python scripts/schedule_break.py` |
 | Health check | `.venv/bin/python scripts/health_check.py` |
 
