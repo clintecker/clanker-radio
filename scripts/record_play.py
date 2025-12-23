@@ -66,6 +66,7 @@ def main():
     # Look up asset by path to get its ID (sha256 hash)
     import sqlite3
     import subprocess
+    from datetime import datetime, timezone
     try:
         conn = sqlite3.connect(config.db_path)
         cursor = conn.cursor()
@@ -82,11 +83,15 @@ def main():
             duration_sec = None
 
             # Record play directly to play_history (not in assets table)
-            # hour_bucket is played_at truncated to the hour for indexing
+            # Use Python datetime for consistent ISO format with timezone (matches music tracks)
+            now = datetime.now(timezone.utc)
+            played_at = now.isoformat()
+            hour_bucket = now.replace(minute=0, second=0, microsecond=0).isoformat()
+
             cursor.execute(
                 """INSERT INTO play_history (asset_id, played_at, source, hour_bucket)
-                   VALUES (?, datetime('now'), ?, strftime('%Y-%m-%dT%H:00:00Z', datetime('now')))""",
-                (asset_id, source)
+                   VALUES (?, ?, ?, ?)""",
+                (asset_id, played_at, source, hour_bucket)
             )
             conn.commit()
             conn.close()
