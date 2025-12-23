@@ -322,6 +322,7 @@ def get_icecast_status() -> dict | None:
             source_dict = {'listenurl': f'{config.icecast_url}{mount}'}
 
             # Extract relevant fields
+            audio_info = None
             for child in source_elem:
                 if child.tag in ['listeners', 'listener_peak', 'bitrate', 'samplerate', 'channels']:
                     try:
@@ -330,6 +331,19 @@ def get_icecast_status() -> dict | None:
                         source_dict[child.tag] = 0
                 elif child.tag == 'stream_start_iso8601':
                     source_dict['stream_start_iso8601'] = child.text
+                elif child.tag == 'audio_info':
+                    audio_info = child.text
+
+            # Parse bitrate from audio_info if not directly available
+            if 'bitrate' not in source_dict or source_dict['bitrate'] == 0:
+                if audio_info:
+                    # Parse "channels=2;samplerate=48000;bitrate=192"
+                    for part in audio_info.split(';'):
+                        if part.startswith('bitrate='):
+                            try:
+                                source_dict['bitrate'] = int(part.split('=')[1])
+                            except (ValueError, IndexError):
+                                pass
 
             sources.append(source_dict)
 
