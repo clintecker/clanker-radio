@@ -54,9 +54,9 @@ An autonomous internet radio station that generates and broadcasts AI-created co
 - **[VM Setup Guide](docs/VM_SETUP.md)** - Ubuntu server setup from scratch
 - **[Configuration Guide](docs/CONFIGURATION.md)** - Complete reference for all 100+ environment variables
 - **[Deployment Guide](docs/DEPLOYMENT.md)** - Deploy code and start streaming
-- **[Administration Guide](docs/ADMINISTRATION.md)** - Day-to-day operations and maintenance *(coming soon)*
-- **[Scripts Reference](docs/SCRIPTS.md)** - What each script does *(coming soon)*
-- **[Troubleshooting Guide](docs/TROUBLESHOOTING.md)** - Comprehensive issue diagnosis *(coming soon)*
+- **[Administration Guide](docs/ADMINISTRATION.md)** - Day-to-day operations and maintenance
+- **[Scripts Reference](docs/SCRIPTS.md)** - What each script does
+- **[Troubleshooting Guide](docs/TROUBLESHOOTING.md)** - Comprehensive issue diagnosis
 
 ### Additional Documentation
 
@@ -208,7 +208,7 @@ go run ./cmd/radiotui
 
 ### Day-to-Day Operations
 
-For service management, manual queue control, log monitoring, and maintenance tasks, see [Administration Guide](docs/ADMINISTRATION.md) *(coming soon)*.
+For service management, manual queue control, log monitoring, and maintenance tasks, see [Administration Guide](docs/ADMINISTRATION.md).
 
 ## Directory Structure
 
@@ -276,7 +276,7 @@ For service management, manual queue control, log monitoring, and maintenance ta
 - No music playing? Verify music is ingested: `ls /srv/ai_radio/assets/music/`
 - Breaks not playing? Check API keys in `.env`
 
-For comprehensive troubleshooting including service diagnostics, queue management, API issues, and permission problems, see [Troubleshooting Guide](docs/TROUBLESHOOTING.md) *(coming soon)*.
+For comprehensive troubleshooting including service diagnostics, queue management, API issues, and permission problems, see [Troubleshooting Guide](docs/TROUBLESHOOTING.md).
 
 ## Development
 
