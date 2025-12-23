@@ -82,17 +82,12 @@ def record_play_callback(m) =
     end
 end
 
-# Attach callback to raw queue BEFORE crossfade (async to prevent audio thread blocking)
+# Attach callback to raw queue (async to prevent audio thread blocking)
 music_queue_raw.on_track(synchronous=false, record_play_callback)
+log("Music queue initialized with play tracking (Level 3)")
 
-# Apply crossfade to music queue for smooth transitions
-music_queue = crossfade(
-    duration=4.0,
-    fade_in=2.0,
-    fade_out=2.0,
-    music_queue_raw
-)
-log("Music queue initialized with play tracking and 4s crossfade (Level 3)")
+# NOTE: Crossfade is NOT applied here - it's handled by smart_transition function
+# This allows breaks to cut cleanly without mid-crossfade interruption
 
 # ============================================================================
 # BREAK QUEUE SETUP
@@ -141,6 +136,38 @@ startup_jingle = single(
 log("Startup jingle configured (18 seconds, looped voice)")
 
 # ============================================================================
+# SMART TRANSITION FUNCTION - Break-aware crossfading
+# ============================================================================
+
+# Custom transition function that inspects metadata to decide fade vs cut
+# Called by cross() operator at every track boundary
+# Receives: a (ending track), b (starting track) with .metadata and .source
+
+def smart_transition(a, b) =
+  # Get filename from incoming track metadata
+  next_file = b.metadata["filename"] ?? ""
+
+  # Check if next track is a break or station ID
+  is_break = string.contains(substring="/breaks/", next_file) or
+             string.contains(substring="/bumpers/", next_file)
+
+  if is_break then
+    # Hard cut for breaks - no overlap
+    log("Smart transition: Hard cut to break/bumper")
+    sequence([a.source, b.source])
+  else
+    # Smooth crossfade for music (4 seconds total: 2s fade-out + 2s fade-in)
+    log("Smart transition: Crossfading to music")
+    add([
+      sequence([fade.out(duration=2.0, a.source)]),
+      sequence([fade.in(duration=2.0, b.source)])
+    ])
+  end
+end
+
+log("Smart transition function defined (break-aware crossfading)")
+
+# ============================================================================
 # MAIN SWITCHING LOGIC - Breaks interrupt at track boundaries
 # ============================================================================
 
@@ -148,7 +175,7 @@ log("Startup jingle configured (18 seconds, looped voice)")
 # switch checks conditions top-to-bottom and plays the first match
 # track_sensitive on switch means "wait for track boundary before switching"
 
-station_content = switch(
+station_content_raw = switch(
     id="main_switch",
     track_sensitive=true,  # Waits for current track to finish before switching
     [
@@ -159,10 +186,18 @@ station_content = switch(
         # Level 2: Breaks & station IDs (interrupt music when present)
         ({source.is_ready(break_queue)}, break_queue),
 
-        # Level 3: Music (default content)
-        ({source.is_ready(music_queue)}, music_queue)
+        # Level 3: Music (default content) - using raw queue
+        ({source.is_ready(music_queue_raw)}, music_queue_raw)
     ]
 )
+
+log("Switch configured: overrides and breaks interrupt music at track boundaries")
+
+# Apply smart transition using cross() operator
+# Duration should accommodate the longest transition (4 seconds)
+station_content = cross(duration=4.0, smart_transition, station_content_raw)
+
+log("Smart transitions applied: music crossfades smoothly, breaks cut cleanly")
 
 # Safety fallback in case everything above fails
 station_content = fallback(
@@ -175,7 +210,7 @@ station_content = fallback(
     ]
 )
 
-log("Interrupt-based switching configured: overrides and breaks interrupt music at track boundaries")
+log("Safety fallback configured (beds → safety playlist → emergency tone)")
 
 # ============================================================================
 # SEQUENCE - Play startup jingle ONCE, then switch to station content forever
