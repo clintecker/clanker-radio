@@ -1,6 +1,6 @@
 [Unit]
 Description=AI Radio Break Generation Timer
-Documentation=https://github.com/clintecker/clanker-radio
+Documentation=https://github.com/your-username/ai-radio-station
 Requires=generate-break.service
 
 [Timer]

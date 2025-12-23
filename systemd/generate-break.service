@@ -1,6 +1,6 @@
 [Unit]
 Description=AI Radio Break Generation
-Documentation=https://github.com/clintecker/clanker-radio
+Documentation=https://github.com/your-username/ai-radio-station
 After=network-online.target
 Wants=network-online.target
 

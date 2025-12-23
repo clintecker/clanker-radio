@@ -16,7 +16,7 @@ class RadioConfig(BaseSettings):
 
     Environment variables:
         RADIO_BASE_PATH: Base directory (default: /srv/ai_radio)
-        RADIO_STATION_TZ: IANA timezone (default: America/Chicago)
+        RADIO_STATION_TZ: IANA timezone (default: Pacific/Honolulu)
         RADIO_STATION_LAT: Station latitude for weather
         RADIO_STATION_LON: Station longitude for weather
         RADIO_LLM_API_KEY: LLM provider API key
@@ -25,18 +25,19 @@ class RadioConfig(BaseSettings):
 
     model_config = SettingsConfigDict(
         env_prefix="RADIO_",
-        env_file="/srv/ai_radio/.env",
+        env_file=".env",
         env_file_encoding="utf-8",
         case_sensitive=False,
+        extra="ignore",  # Allow LIQUIDSOAP_* and other non-RADIO_* variables in .env
     )
 
     # Base paths
     base_path: Path = Field(default=Path("/srv/ai_radio"))
 
     # Station configuration
-    station_name: str = Field(default="LAST BYTE RADIO", description="Station name for on-air identification")
-    station_location: str = Field(default="Chicago", description="Station location for brand identity")
-    station_tz: str = Field(default="America/Chicago")
+    station_name: str = Field(default="WKRP Coconut Island", description="Station name for on-air identification")
+    station_location: str = Field(default="Coconut Island", description="Station location for brand identity")
+    station_tz: str = Field(default="Pacific/Honolulu")
     station_lat: Optional[float] = Field(default=None)
     station_lon: Optional[float] = Field(default=None)
 
@@ -76,59 +77,25 @@ class RadioConfig(BaseSettings):
     )
 
     # Phase 4: Content Generation Settings
-    nws_office: str = Field(default="LOT", description="NWS office code (Chicago)")
-    nws_grid_x: int = Field(default=76, description="NWS grid X coordinate")
-    nws_grid_y: int = Field(default=73, description="NWS grid Y coordinate")
+    nws_office: Optional[str] = Field(default=None, description="NWS office code")
+    nws_grid_x: Optional[int] = Field(default=None, description="NWS grid X coordinate")
+    nws_grid_y: Optional[int] = Field(default=None, description="NWS grid Y coordinate")
 
     news_rss_feeds: dict[str, list[str]] = Field(
         default={
-            "local": [
-                "https://blockclubchicago.org/feed/",
-            ],
-            "national": [
+            "news": [
                 "https://feeds.npr.org/1001/rss.xml",
-                "https://feeds.bbci.co.uk/news/world/us_and_canada/rss.xml",
-                "https://www.theguardian.com/us-news/rss",
-                "https://www.propublica.org/feeds/propublica/main",  # Investigative journalism
-            ],
-            "politics": [
-                "https://jacobin.com/feed",
-                "https://labornotes.org/feed",  # Labor movement news
-                "https://truthout.org/latest/feed",  # Progressive news & justice
-            ],
-            "tech": [
-                "https://feeds.arstechnica.com/arstechnica/index",
-                "https://www.theverge.com/rss/index.xml",
-                "https://news.ycombinator.com/rss",
-                "https://www.404media.co/rss",  # Critical tech journalism
-                "https://www.eff.org/rss/updates.xml",  # Digital rights & privacy
             ],
         },
         description="Categorized RSS feed URLs for news headlines"
     )
 
     # Hallucinated news settings
-    hallucinate_news: bool = Field(default=True, description="Generate fake news article to mix with real news")
-    hallucination_chance: float = Field(default=1.0, ge=0.0, le=1.0, description="Probability of hallucinating news (0.0-1.0)")
+    hallucinate_news: bool = Field(default=False, description="Generate fake news article to mix with real news")
+    hallucination_chance: float = Field(default=0.0, ge=0.0, le=1.0, description="Probability of hallucinating news (0.0-1.0)")
     hallucination_kernels: list[str] = Field(
-        default=[
-            "Megacorp merger announcement affects Chicago infrastructure",
-            "Power grid failure in South Loop district",
-            "Underground mesh network activity detected",
-            "New corporate surveillance tech rollout",
-            "Street-level currency disruption",
-            "CTA automation system malfunction",
-            "Corporate security forces deployed",
-            "Unauthorized drone swarm over downtown",
-            "Water treatment facility cyber incident",
-            "Black market medical supply shortage",
-            "Rogue AI incident at data center",
-            "Corporate enclave lockdown",
-            "Resistance graffiti campaign",
-            "Biometric ID checkpoint expansion",
-            "Underground rave broken up by corp security",
-        ],
-        description="Seed topics for hallucinated news stories"
+        default=[],
+        description="Seed topics for hallucinated news stories (configure via RADIO_HALLUCINATION_KERNELS env var as JSON array)"
     )
 
     tts_voice: str = Field(default="alloy", description="OpenAI TTS voice")
@@ -142,28 +109,28 @@ class RadioConfig(BaseSettings):
 
     break_freshness_minutes: int = Field(default=50, description="Break freshness threshold")
 
-    # World-building: Post-capitalist dystopian cyber future
+    # World-building: Configure your station's personality and setting
     world_setting: str = Field(
-        default="post-capitalist dystopian cyber future",
+        default="laid-back tropical island paradise",
         description="The world/universe setting for the station"
     )
     world_tone: str = Field(
-        default="bleak but resilient, dark humor, we're all in this together, broadcasting from the ruins",
-        description="Emotional tone of the dystopian setting"
+        default="relaxed, friendly, warm, good vibes only, island time",
+        description="Emotional tone and vibe of your station"
     )
     world_framing: str = Field(
-        default="Current events, weather, and daily life are filtered through a cyberpunk dystopian lens. The collapse already happened. This is what's left. We're still here, still broadcasting, finding dark humor in the bleakness. Chicago is a neon-lit wasteland but it's OUR neon-lit wasteland.",
-        description="How to frame all content through the dystopian scenario"
+        default="Broadcasting from our little slice of paradise. The news and weather filtered through the lens of island living - warm sun, cool breezes, and the sound of waves. We keep it real but keep it chill.",
+        description="How to frame all content through your station's personality"
     )
 
     # Announcer personality and style (expert-validated configuration)
     # Based on consensus from radio copywriting, comedy writing, and critical listening experts
 
     # Core persona (operational controls, not just adjectives)
-    announcer_name: str = Field(default="LAST BYTE RADIO Host", description="Persona name")
-    energy_level: int = Field(default=8, ge=1, le=10, description="Energy level 1-10, cap at 8-9, never 10")
+    announcer_name: str = Field(default="DJ Coco", description="Persona name")
+    energy_level: int = Field(default=5, ge=1, le=10, description="Energy level 1-10, cap at 8-9, never 10")
     vibe_keywords: str = Field(
-        default="witty, darkly humorous, fast, slightly unhinged, defiant, cyberpunk survivor",
+        default="laid-back, friendly, warm, easygoing, tropical",
         description="3-5 keywords max defining vibe"
     )
 
@@ -188,7 +155,7 @@ class RadioConfig(BaseSettings):
 
     # Unhinged triggers (makes chaos feel reactive, not random)
     unhinged_triggers: str = Field(
-        default="extreme weather events, API outages, corporate collapse news, bizarre tech news, power grid failures, another megacorp buyout, ridiculous GitHub commits from before the fall",
+        default="hurricanes, tsunami warnings, volcanic activity, coconut shortages, extreme surf conditions, tourist invasions",
         description="Specific triggers that justify 'unhinged' reactions"
     )
 
@@ -210,18 +177,18 @@ class RadioConfig(BaseSettings):
         description="Flexible weather guidelines"
     )
     weather_translation_rules: str = Field(
-        default="Translate weather through the dystopian lens but keep it conversational. When relevant, mention specific impacts (servers overheating, satellites going wonky, cyberdecks freezing, batteries draining, fog on displays). But don't force it - sometimes just saying the conditions is enough. Vary structure: lead with temp, or conditions, or impact, or forecast. Mix it up.",
-        description="How to translate technical weather into dystopian relatable copy"
+        default="Keep it breezy and conversational. When relevant, mention specific impacts (beach conditions, outdoor plans, boat weather, tourist activities). But don't force it - sometimes just saying the conditions is enough. Vary structure: lead with temp, or conditions, or impact, or forecast. Mix it up.",
+        description="How to translate technical weather into relatable copy"
     )
 
     # News style (credibility guardrails)
     news_tone: str = Field(
-        default="Normal: darkly ironic, brisk, weary but alert. Serious mode: grim realism, minimal jokes, no snark. Trigger serious mode for: deaths, disasters, violence, accidents. Frame news through post-collapse lens - governments barely functioning, corps run everything, we're just trying to survive and code.",
-        description="News tone with automatic serious mode in dystopian setting"
+        default="Normal: laid-back, friendly, conversational. Serious mode: respectful, minimal jokes, no snark. Trigger serious mode for: deaths, disasters, violence, accidents. Keep it real and relatable.",
+        description="News tone with automatic serious mode"
     )
     news_format: str = Field(
-        default="Cover the provided headlines (typically 3-4 stories). Frame through post-capitalist collapse: megacorps, failing infrastructure, resistance, small victories. Vary how you treat each story - some get one sentence, some get two, some get a wry observation. Mix it up naturally. Skip stories if redundant or low-value. Ethical boundaries: no joking about victims, no punching down, no conspiracy framing, no unsourced hot takes.",
-        description="News format and ethical guardrails in dystopian context"
+        default="Cover the provided headlines (typically 3-4 stories). Keep it natural and conversational. Vary how you treat each story - some get one sentence, some get two, some get a casual observation. Mix it up naturally. Skip stories if redundant or low-value. Ethical boundaries: no joking about victims, no punching down, no conspiracy framing, no unsourced hot takes.",
+        description="News format and ethical guardrails"
     )
 
     # Vocal/accent characteristics
@@ -240,7 +207,7 @@ class RadioConfig(BaseSettings):
         description="Radio best practices for structure"
     )
     listener_relationship: str = Field(
-        default="Talking to fellow survivors, not a crowd. 'You + me, we made it through another night' not 'performing at you'. We're in this together in the wasteland.",
+        default="Talking to neighbors and friends, not a crowd. 'We're all here living the island life together' not 'performing at you'. Casual, warm, like chatting at the beach.",
         description="How to relate to listeners"
     )
 
@@ -287,8 +254,16 @@ class RadioConfig(BaseSettings):
         return self.breaks_path / "archive"
 
     @property
+    def bumpers_path(self) -> Path:
+        return self.assets_path / "bumpers"
+
+    @property
     def safety_path(self) -> Path:
         return self.assets_path / "safety"
+
+    @property
+    def startup_path(self) -> Path:
+        return self.assets_path / "startup.mp3"
 
     @property
     def drops_path(self) -> Path:
@@ -297,6 +272,10 @@ class RadioConfig(BaseSettings):
     @property
     def tmp_path(self) -> Path:
         return self.base_path / "tmp"
+
+    @property
+    def public_path(self) -> Path:
+        return self.base_path / "public"
 
     @property
     def state_path(self) -> Path:
@@ -317,6 +296,10 @@ class RadioConfig(BaseSettings):
     @property
     def liquidsoap_sock_path(self) -> Path:
         return Path("/run/liquidsoap/radio.sock")
+
+    @property
+    def icecast_url(self) -> str:
+        return "http://localhost:8000"
 
 
 # Global config instance

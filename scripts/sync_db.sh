@@ -3,13 +3,32 @@
 #
 # Usage: ./scripts/sync_db.sh [ssh_key_path]
 # Example: ./scripts/sync_db.sh ~/.ssh/id_ed25519
+#
+# Configuration:
+#   Set these environment variables or edit this script:
+#   - RADIO_SERVER: Server hostname or IP
+#   - RADIO_SERVER_USER: SSH username
+#   - RADIO_REMOTE_DB: Remote database path
+#   - RADIO_LOCAL_DB: Local database path
 
 set -e
 
-SERVER="10.10.0.86"
-SERVER_USER="ubuntu"
-REMOTE_DB="/srv/ai_radio/db/radio.sqlite3"
-LOCAL_DB="./db/radio.sqlite3"
+SERVER="${RADIO_SERVER:-your-server.com}"
+SERVER_USER="${RADIO_SERVER_USER:-your-user}"
+REMOTE_DB="${RADIO_REMOTE_DB:-/srv/ai_radio/db/radio.sqlite3}"
+LOCAL_DB="${RADIO_LOCAL_DB:-./db/radio.sqlite3}"
+
+# Check if SERVER is still default
+if [ "$SERVER" = "your-server.com" ]; then
+    echo "ERROR: Please configure database sync settings!"
+    echo ""
+    echo "Set environment variables:"
+    echo "  export RADIO_SERVER='your-server.com'"
+    echo "  export RADIO_SERVER_USER='your-user'"
+    echo ""
+    echo "Or edit scripts/sync_db.sh directly"
+    exit 1
+fi
 
 # SSH options to prevent "too many authentication failures"
 SSH_OPTS="-o IdentitiesOnly=yes -o NumberOfPasswordPrompts=0"

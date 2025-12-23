@@ -1,6 +1,6 @@
 [Unit]
 Description=AI Radio Now Playing Export Timer
-Documentation=https://github.com/clintecker/clanker-radio
+Documentation=https://github.com/your-username/ai-radio-station
 
 [Timer]
 # Run every 10 seconds for more responsive now playing updates

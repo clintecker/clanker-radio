@@ -22,8 +22,8 @@ logger = logging.getLogger(__name__)
 
 # Configuration
 QUEUE_NAME = "music"
-MIN_QUEUE_DEPTH = 2  # Minimum tracks in queue
-TARGET_QUEUE_DEPTH = 5  # Fill to this level
+MIN_QUEUE_DEPTH = 3  # Minimum tracks in queue
+TARGET_QUEUE_DEPTH = 8  # Fill to this level
 RECENT_HISTORY_SIZE = 20  # Track last N played to avoid repetition (reduced from 50 for small library)
 
 

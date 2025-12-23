@@ -8,14 +8,21 @@ Verifies all components are running correctly:
 - Icecast streaming
 - Now playing metadata export
 - Database connectivity
+
+Usage:
+    sudo -u ai-radio python3 health_check.py     # Run most checks
+    sudo python3 health_check.py                  # Run all checks including systemd dependencies
 """
 import json
 import logging
 import os
+import random
+import shutil
 import socket
 import sqlite3
 import subprocess
 import sys
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -36,8 +43,9 @@ YELLOW = '\033[1;33m'
 BLUE = '\033[0;34m'
 NC = '\033[0m'  # No Color
 
-SOCKET_PATH = "/run/liquidsoap/radio.sock"
-NOW_PLAYING_PATH = Path("/srv/ai_radio/public/now_playing.json")
+# Use configuration paths
+SOCKET_PATH = str(config.liquidsoap_sock_path)
+NOW_PLAYING_PATH = config.public_path / "now_playing.json"
 
 def print_header(text):
     """Print section header."""
@@ -153,19 +161,21 @@ def check_queue_depths():
     # Check music queue
     queue_response = query_liquidsoap("music.queue")
     if queue_response:
-        tracks = [line for line in queue_response.split('\n') if line.strip()]
-        music_depth = len(tracks)
-        music_ok = music_depth >= 2  # MIN_QUEUE_DEPTH
-        print_status(music_ok, f"Music queue: {music_depth} tracks (min: 2)")
+        # Queue IDs are returned as space-separated on a single line
+        track_ids = [id for id in queue_response.split() if id.strip()]
+        music_depth = len(track_ids)
+        music_ok = music_depth >= 3  # MIN_QUEUE_DEPTH
+        print_status(music_ok, f"Music queue: {music_depth} tracks (min: 3)")
     else:
         print_status(False, "Music queue: unable to query")
         music_ok = False
 
     # Check breaks queue
     breaks_response = query_liquidsoap("breaks.queue")
-    if breaks_response is not None:
-        tracks = [line for line in breaks_response.split('\n') if line.strip()]
-        breaks_depth = len(tracks)
+    if breaks_response:  # Fixed: query_liquidsoap returns "" on failure, not None
+        # Queue IDs are returned as space-separated on a single line
+        track_ids = [id for id in breaks_response.split() if id.strip()]
+        breaks_depth = len(track_ids)
         print_status(True, f"Breaks queue: {breaks_depth} tracks")
     else:
         print_status(False, "Breaks queue: unable to query")
@@ -176,7 +186,7 @@ def check_track_sensitive_config():
     """Verify track_sensitive=true is configured."""
     print_header("4. TRACK BOUNDARY PROTECTION")
 
-    config_path = Path("/srv/ai_radio/config/radio.liq")
+    config_path = config.base_path / "config" / "radio.liq"
 
     if not config_path.exists():
         print_status(False, "Config file not found")
@@ -203,13 +213,23 @@ def check_icecast():
 
     try:
         import requests
-        response = requests.get('http://localhost:8000/status-json.xsl', timeout=3)
+        response = requests.get(f'{config.icecast_url}/status-json.xsl', timeout=3)
         data = response.json()
 
         icestats = data.get('icestats', {})
-        source = icestats.get('source', {})
+        source_data = icestats.get('source')
 
-        if source:
+        # Handle both single mount (dict) and multiple mounts (list)
+        if not source_data:
+            print_status(False, "No active source")
+            return False
+
+        # Normalize to list for consistent handling
+        sources = source_data if isinstance(source_data, list) else [source_data]
+
+        # Look for our radio mount (first available source)
+        if sources:
+            source = sources[0]  # Use first mount
             listeners = source.get('listeners', 0)
             bitrate = source.get('bitrate', 0)
 
@@ -235,9 +255,9 @@ def check_now_playing():
         return False
 
     try:
-        # Check file age
+        # Check file age (use time.time() for consistency, no timezone issues)
         mtime = NOW_PLAYING_PATH.stat().st_mtime
-        age_seconds = datetime.now().timestamp() - mtime
+        age_seconds = time.time() - mtime
 
         is_fresh = age_seconds < 30  # Should update every 10 seconds
         print_status(is_fresh, f"File age: {age_seconds:.1f} seconds (should be < 30s)")
@@ -280,10 +300,20 @@ def check_database():
         cursor.execute("SELECT COUNT(*) FROM assets WHERE kind = 'music'")
         total_tracks = cursor.fetchone()[0]
 
-        # Check valid file paths
+        # Check valid file paths (sample for performance)
         cursor.execute("SELECT path FROM assets WHERE kind = 'music'")
-        paths = [row[0] for row in cursor.fetchall()]
-        valid_count = sum(1 for p in paths if Path(p).exists())
+        all_paths = [row[0] for row in cursor.fetchall()]
+
+        # Sample up to 100 random paths to avoid expensive I/O
+        sample_size = min(100, len(all_paths))
+        paths_to_check = random.sample(all_paths, sample_size) if sample_size > 0 else []
+        valid_count = sum(1 for p in paths_to_check if Path(p).exists())
+
+        # Extrapolate to total (for display purposes)
+        if sample_size > 0 and sample_size < len(all_paths):
+            estimated_valid = int((valid_count / sample_size) * len(all_paths))
+        else:
+            estimated_valid = valid_count
 
         # Check recent plays
         cursor.execute("""
@@ -294,8 +324,12 @@ def check_database():
 
         conn.close()
 
-        tracks_ok = total_tracks > 0 and valid_count == total_tracks
-        print_status(tracks_ok, f"Music tracks: {valid_count}/{total_tracks} with valid paths")
+        # Check passes if all sampled tracks are valid
+        tracks_ok = total_tracks > 0 and valid_count == sample_size
+        if sample_size < len(all_paths):
+            print_status(tracks_ok, f"Music tracks: ~{estimated_valid}/{total_tracks} estimated valid (sampled {sample_size})")
+        else:
+            print_status(tracks_ok, f"Music tracks: {valid_count}/{total_tracks} with valid paths")
         print(f"  Plays in last 24h: {recent_plays}")
 
         return tracks_ok
@@ -304,9 +338,42 @@ def check_database():
         print_status(False, f"Database error: {e}")
         return False
 
+def check_disk_space():
+    """Check available disk space on /srv/ai_radio partition."""
+    print_header("8. DISK SPACE")
+
+    try:
+        # Get disk usage for the ai_radio directory
+        usage = shutil.disk_usage(config.base_path)
+
+        total_gb = usage.total / (1024 ** 3)
+        used_gb = usage.used / (1024 ** 3)
+        free_gb = usage.free / (1024 ** 3)
+        percent_used = (usage.used / usage.total) * 100
+
+        # Warn if > 80% used, fail if > 90% used
+        is_critical = percent_used > 90
+        is_warning = percent_used > 80
+
+        if is_critical:
+            print_status(False, f"Disk space critical: {percent_used:.1f}% used ({free_gb:.1f} GB free)")
+        elif is_warning:
+            print_status(True, f"Disk space warning: {percent_used:.1f}% used ({free_gb:.1f} GB free)")
+            print(f"  {YELLOW}⚠{NC} Consider freeing up space")
+        else:
+            print_status(True, f"Disk space: {percent_used:.1f}% used ({free_gb:.1f} GB free)")
+
+        print(f"  Total: {total_gb:.1f} GB, Used: {used_gb:.1f} GB")
+
+        return not is_critical
+
+    except Exception as e:
+        print_status(False, f"Failed to check disk space: {e}")
+        return False
+
 def check_track_selection():
     """Test track selection logic."""
-    print_header("8. TRACK SELECTION")
+    print_header("9. TRACK SELECTION")
 
     try:
         conn = sqlite3.connect(config.db_path)
@@ -351,7 +418,7 @@ def check_track_selection():
 
 def check_recent_errors():
     """Check for recent errors in Liquidsoap logs."""
-    print_header("9. RECENT ERRORS")
+    print_header("10. RECENT ERRORS")
 
     try:
         result = subprocess.run(
@@ -386,7 +453,7 @@ def check_recent_errors():
 
 def check_service_dependencies():
     """Verify systemd service dependencies are correct."""
-    print_header("10. SERVICE DEPENDENCIES")
+    print_header("11. SERVICE DEPENDENCIES")
 
     services = {
         "ai-radio-enqueue.service": "BindsTo=ai-radio-liquidsoap.service",
@@ -405,6 +472,15 @@ def check_service_dependencies():
                 text=True,
                 timeout=5
             )
+
+            # Check for permission errors
+            if result.returncode != 0:
+                if "Permission denied" in result.stderr:
+                    print_status(False, f"{service}: Permission denied (run as root/sudo)")
+                else:
+                    print_status(False, f"{service}: systemctl error: {result.stderr.strip()}")
+                all_ok = False
+                continue
 
             has_correct_dep = expected_dep in result.stdout
             has_wrong_dep = "Requires=ai-radio-liquidsoap.service" in result.stdout
@@ -439,6 +515,7 @@ def main():
         "Icecast Streaming": check_icecast,
         "Now Playing Metadata": check_now_playing,
         "Database": check_database,
+        "Disk Space": check_disk_space,
         "Track Selection": check_track_selection,
         "Recent Errors": check_recent_errors,
         "Service Dependencies": check_service_dependencies

@@ -14,6 +14,7 @@ import sys
 from pathlib import Path
 
 from ai_radio.audio import extract_metadata, normalize_audio
+from ai_radio.config import config
 from ai_radio.db_assets import insert_asset, get_asset_by_path
 
 
@@ -157,14 +158,14 @@ def main():
     parser.add_argument(
         "--db",
         type=Path,
-        default=Path("/srv/ai_radio/db/radio.sqlite3"),
-        help="Path to database (default: /srv/ai_radio/db/radio.sqlite3)",
+        default=config.db_path,
+        help=f"Path to database (default: {config.db_path})",
     )
     parser.add_argument(
         "--music-dir",
         type=Path,
-        default=Path("/srv/ai_radio/assets/music"),
-        help="Output directory for normalized files (default: /srv/ai_radio/assets/music)",
+        default=config.music_path,
+        help=f"Output directory for normalized files (default: {config.music_path})",
     )
     parser.add_argument(
         "--target-lufs",

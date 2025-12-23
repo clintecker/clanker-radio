@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate startup jingle voice-over for LAST BYTE RADIO.
+"""Generate startup jingle voice-over for the radio station.
 
 Creates a short system-style announcement for stream startup.
 User will overlay this on music bed.
@@ -19,11 +19,11 @@ def main():
     """Generate startup voice sample."""
 
     # Startup message (system voice, not DJ voice)
-    startup_text = """LAST BYTE RADIO IS BOOTING UP
+    startup_text = f"""{config.station_name.upper()} IS BOOTING UP
 AWAITING SYSOP COMMANDS..."""
 
-    # Output path
-    output_dir = Path("/srv/ai_radio/assets")
+    # Output path (use config)
+    output_dir = config.assets_path
     output_file = output_dir / "startup_voice.mp3"
 
     # Use local path for testing
@@ -93,7 +93,7 @@ Pacing: Moderate speed with clear pauses between lines.
         print(f"  Location: {output_file}")
         print(f"\nNext steps:")
         print(f"  1. Overlay this on your music bed")
-        print(f"  2. Export as /srv/ai_radio/assets/startup.mp3 (8-10 seconds total)")
+        print(f"  2. Export as {config.startup_path} (8-10 seconds total)")
         print(f"  3. We'll update radio.liq to use sequence() operator")
         return 0
     else:

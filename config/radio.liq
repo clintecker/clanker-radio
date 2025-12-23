@@ -12,18 +12,27 @@ log("Unix socket enabled: /run/liquidsoap/radio.sock")
 # AI Radio Station - Liquidsoap Configuration
 
 # =============================================================================
+# Path Configuration (from environment)
+# =============================================================================
+
+base_path = environment.get("LIQUIDSOAP_BASE_PATH", default="/srv/ai_radio")
+python_bin = "#{base_path}/.venv/bin/python"
+assets_path = "#{base_path}/assets"
+scripts_path = "#{base_path}/scripts"
+
+# =============================================================================
 # Logging Configuration
 # =============================================================================
 
 log.level.set(3)
 log.file.set(true)
-log.file.path.set("/srv/ai_radio/logs/liquidsoap.log")
+log.file.path.set("#{base_path}/logs/liquidsoap.log")
 
 # =============================================================================
-# Icecast Configuration  
+# Icecast Configuration
 # =============================================================================
 
-icecast_password_file = "/srv/ai_radio/.icecast_secrets"
+icecast_password_file = "#{base_path}/.icecast_secrets"
 def icecast_password() =
   list.hd(default="", file.lines(icecast_password_file))
 end
@@ -34,11 +43,15 @@ icecast_port = 8000
 # =============================================================================
 # Station Metadata
 # =============================================================================
+# Override these values with environment variables or edit directly:
+# - LIQUIDSOAP_STATION_NAME
+# - LIQUIDSOAP_STATION_DESCRIPTION
+# - LIQUIDSOAP_STATION_URL
 
-station_name = "LAST BYTE RADIO"
-station_description = "Broadcasting from the neon-lit wasteland of Chicago"
-station_genre = "Various"
-station_url = "https://radio.clintecker.com"
+station_name = environment.get("LIQUIDSOAP_STATION_NAME", default="WKRP Coconut Island")
+station_description = environment.get("LIQUIDSOAP_STATION_DESCRIPTION", default="Broadcasting from paradise - island vibes and good times")
+station_genre = "Tropical / Variety"
+station_url = environment.get("LIQUIDSOAP_STATION_URL", default="http://your-station-url.com")
 
 # ============================================================================
 # QUEUE SOURCES
@@ -61,7 +74,7 @@ def record_play_callback(m) =
     log("CALLBACK FIRED: #{filename}")
     if filename != "" then
         source_type = "music"
-        cmd = "/srv/ai_radio/.venv/bin/python /srv/ai_radio/scripts/record_play.py #{string.quote(filename)} #{source_type}"
+        cmd = "#{python_bin} #{scripts_path}/record_play.py #{string.quote(filename)} #{source_type}"
         log("Executing: #{cmd}")
         # Use system() for fire-and-forget instead of process.run()
         ignore(system(cmd))
@@ -72,14 +85,16 @@ end
 # Attach callback to raw queue BEFORE crossfade (async to prevent audio thread blocking)
 music_queue_raw.on_track(synchronous=false, record_play_callback)
 
-# Apply crossfade with proper overlap to prevent gaps/volume dips
-music_queue = crossfade(
-    duration=4.0,           # 4 second window for safe overlap
-    fade_in=2.0,            # 2 second fade in
-    fade_out=2.0,           # 2 second fade out (ensures 2s overlap)
-    music_queue_raw
-)
-log("Music queue initialized with play tracking and 2s crossfade (Level 3)")
+# Crossfade temporarily disabled to test break interruption fix
+# TODO: Re-enable with proper break boundary detection
+# music_queue = crossfade(
+#     duration=4.0,
+#     fade_in=2.0,
+#     fade_out=2.0,
+#     music_queue_raw
+# )
+music_queue = music_queue_raw
+log("Music queue initialized with play tracking (crossfade disabled for testing) (Level 3)")
 
 # ============================================================================
 # BREAK QUEUE SETUP
@@ -99,7 +114,7 @@ beds = playlist(
     id="beds",
     mode="random",
     reload=3600,
-    "/srv/ai_radio/assets/beds"
+    "#{assets_path}/beds"
 )
 log("Bed playlist configured (level 4 fallback)")
 
@@ -108,12 +123,12 @@ log("Bed playlist configured (level 4 fallback)")
 # SAFETY SOURCES
 # ============================================================================
 
-emergency_tone = single("/srv/ai_radio/assets/safety/safety_tone.wav")
+emergency_tone = single("#{assets_path}/safety/safety_tone.wav")
 
 safety_playlist = playlist(
   mode="randomize",
   reload=3600,
-  "/srv/ai_radio/assets/safety/evergreen.m3u"
+  "#{assets_path}/safety/evergreen.m3u"
 )
 
 # ============================================================================
@@ -123,7 +138,7 @@ safety_playlist = playlist(
 
 startup_jingle = single(
     id="startup",
-    "/srv/ai_radio/assets/startup.mp3"
+    "#{assets_path}/startup.mp3"
 )
 log("Startup jingle configured (18 seconds, looped voice)")
 
@@ -211,13 +226,13 @@ radio.on_track(synchronous=false, fun(m) -> begin
         # Track different content types based on path
         if string.contains(substring="/breaks/", filename) then
             log("BREAK CALLBACK: #{filename}")
-            cmd = "/srv/ai_radio/.venv/bin/python /srv/ai_radio/scripts/record_play.py #{string.quote(filename)} break"
+            cmd = "#{python_bin} #{scripts_path}/record_play.py #{string.quote(filename)} break"
             log("Executing: #{cmd}")
             ignore(system(cmd))
             log("Break callback completed")
         elsif string.contains(substring="/bumpers/", filename) then
             log("BUMPER CALLBACK: #{filename}")
-            cmd = "/srv/ai_radio/.venv/bin/python /srv/ai_radio/scripts/record_play.py #{string.quote(filename)} bumper"
+            cmd = "#{python_bin} #{scripts_path}/record_play.py #{string.quote(filename)} bumper"
             log("Executing: #{cmd}")
             ignore(system(cmd))
             log("Bumper callback completed")

@@ -21,6 +21,10 @@ import time
 from datetime import datetime, timezone
 from pathlib import Path
 
+# Add parent directory to path for ai_radio imports
+sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
+from ai_radio.config import config
+
 try:
     import requests
 except ImportError:
@@ -28,20 +32,15 @@ except ImportError:
     import urllib.request
     requests = None
 
-# Add src to path for imports
-sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
-
-from ai_radio.config import config
-
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 )
 logger = logging.getLogger(__name__)
 
-SOCKET_PATH = "/run/liquidsoap/radio.sock"
-OUTPUT_PATH = Path("/srv/ai_radio/public/now_playing.json")
-# Use correct database path from config
+# Use configuration paths
+SOCKET_PATH = str(config.liquidsoap_sock_path)
+OUTPUT_PATH = config.public_path / "now_playing.json"
 DB_PATH = config.db_path
 
 
@@ -231,7 +230,7 @@ def get_recent_plays(limit: int = 5) -> list[dict]:
         cursor = conn.cursor()
 
         cursor.execute(
-            """
+            f"""
             SELECT
                 ph.asset_id,
                 COALESCE(a.title,
@@ -241,7 +240,7 @@ def get_recent_plays(limit: int = 5) -> list[dict]:
                         ELSE 'Unknown'
                     END
                 ) as title,
-                COALESCE(a.artist, 'LAST BYTE RADIO') as artist,
+                COALESCE(a.artist, '{config.station_name}') as artist,
                 a.album,
                 a.duration_sec,
                 a.path,
@@ -293,12 +292,12 @@ def get_icecast_status() -> dict | None:
     """
     try:
         if requests:
-            response = requests.get('http://localhost:8000/status-json.xsl', timeout=3)
+            response = requests.get(f'{config.icecast_url}/status-json.xsl', timeout=3)
             data = response.json()
         else:
             # Fallback to urllib if requests not available
             import urllib.request
-            with urllib.request.urlopen('http://localhost:8000/status-json.xsl', timeout=3) as response:
+            with urllib.request.urlopen(f'{config.icecast_url}/status-json.xsl', timeout=3) as response:
                 data = json.loads(response.read().decode())
 
         return data.get('icestats', {})

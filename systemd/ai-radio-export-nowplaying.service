@@ -1,6 +1,6 @@
 [Unit]
 Description=AI Radio Now Playing Export
-Documentation=https://github.com/clintecker/clanker-radio
+Documentation=https://github.com/your-username/ai-radio-station
 After=network.target ai-radio-liquidsoap.service icecast2.service
 BindsTo=ai-radio-liquidsoap.service icecast2.service
 

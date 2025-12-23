@@ -149,7 +149,7 @@ def main():
     # Summary
     if existing_count < 10:
         print("\n⚠️  CRITICAL: Very few valid music tracks!")
-        print("   → Add more music to /srv/ai_radio/assets/music/")
+        print(f"   → Add more music to {config.music_path}/")
     elif with_exclusions < 20:
         print("\n⚠️  WARNING: Not enough tracks after excluding recent plays")
         print("   → Need more music variety, or reduce RECENT_HISTORY_SIZE")

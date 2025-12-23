@@ -11,6 +11,13 @@ export OCAML_TOPLEVEL_PATH='/srv/ai_radio/.opam/5.2.0/lib/toplevel'
 export PATH="/srv/ai_radio/.opam/5.2.0/bin:$PATH"
 export MANPATH=":/srv/ai_radio/.opam/5.2.0/man"
 
+# Load station configuration
+if [[ -f "/srv/ai_radio/.env" ]]; then
+    set -a  # automatically export all variables
+    source "/srv/ai_radio/.env"
+    set +a
+fi
+
 LIQUIDSOAP_BIN="/srv/ai_radio/.opam/5.2.0/bin/liquidsoap"
 RADIO_CONFIG="/srv/ai_radio/config/radio.liq"
 SOCKET_PATH="/run/liquidsoap/radio.sock"

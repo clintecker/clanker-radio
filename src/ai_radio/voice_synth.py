@@ -151,37 +151,27 @@ class GeminiVoiceSynthesizer:
         try:
             logger.info(f"Synthesizing speech with Gemini voice '{self.voice}'")
 
-            # Build Director's Notes prompt for dystopian DJ performance
+            # Build Director's Notes prompt from configuration
             director_prompt = f"""# AUDIO PROFILE: {config.announcer_name}
-## "The Dystopian DJ"
 
-## THE SCENE: Late-Night Chicago Studio
-A cramped studio in what used to be an office building. Flickering LED strips cast harsh shadows. The red "ON AIR" light is duct-taped to the wall. Outside, the neon glow of corporate towers cuts through the smog. Inside, it's just you, a mic, and the static hum of failing infrastructure. Broadcasting to whoever's still listening.
+## STATION: {config.station_name}, {config.station_location}
+
+### WORLD SETTING
+{config.world_setting}
 
 ### DIRECTOR'S NOTES
 
 Style:
-* Tired but defiant. You've been doing this shift for years. The world fell apart, and you kept showing up.
-* Dry humor. Wry observations. Occasionally frustrated by the absurdity of it all.
-* NOT melodramatic. NOT performing dystopia. Just... living in it. Normalizing the chaos.
-* Conversational warmth underneath the weariness. You're talking to fellow survivors, not a crowd.
+{config.world_tone}
 
-Pacing:
-* Medium-fast with purposeful pauses for emphasis
-* Crisp consonants, clear enunciation
-* Occasional micro-pauses before punchlines or important info
-* Speed up slightly when excited about something, slow down when delivering bad news
+Core personality (Energy {config.energy_level}/10):
+{config.vibe_keywords}
 
-Accent:
-* Internet-native, coastal US or Canadian
-* Mid-20s to mid-30s streamer/podcaster sound
-* Subtle tech slang fluency without forcing it
-* NOT cartoonish, NOT over-the-top
+Delivery style:
+{config.delivery_style}
 
-Breathing:
-* Natural breath sounds between thoughts
-* Slight vocal fry on tired moments (not constant)
-* Exhale-sighs when delivering particularly bleak news
+Accent/vocal characteristics:
+{config.accent_style}
 
 ### TRANSCRIPT
 {script_text}"""

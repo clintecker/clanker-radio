@@ -1,13 +1,20 @@
 # Adding New Music to AI Radio
 
-## Quick Start
+## Quick Start (Local Development)
+
+```bash
+# Use the batch ingest script
+./scripts/batch_ingest.sh /path/to/your/music/folder
+```
+
+## Quick Start (Remote Server)
 
 ```bash
 # 1. Copy new music to staging directory
-scp /path/to/new/music/*.mp3 ubuntu@10.10.0.86:/srv/ai_radio/staging/
+scp /path/to/new/music/*.mp3 user@your-server:/srv/ai_radio/staging/
 
-# 2. SSH to VM and run ingest
-ssh ubuntu@10.10.0.86
+# 2. SSH to server and run ingest
+ssh user@your-server
 sudo -u ai-radio /srv/ai_radio/scripts/liquidsoap-wrapper.sh /srv/ai_radio/.venv/bin/python /srv/ai_radio/scripts/ingest.py /srv/ai_radio/staging
 
 # 3. Check results
@@ -36,13 +43,13 @@ The ingest script will:
 
 ```bash
 # Create staging directory if it doesn't exist
-ssh ubuntu@10.10.0.86 "sudo -u ai-radio mkdir -p /srv/ai_radio/staging"
+ssh user@your-server "sudo -u ai-radio mkdir -p /srv/ai_radio/staging"
 
 # Upload music files
-scp ~/Music/new_tracks/*.mp3 ubuntu@10.10.0.86:/srv/ai_radio/staging/
+scp ~/Music/new_tracks/*.mp3 user@your-server:/srv/ai_radio/staging/
 
 # Or use rsync for larger collections
-rsync -avz --progress ~/Music/collection/ ubuntu@10.10.0.86:/srv/ai_radio/staging/
+rsync -avz --progress ~/Music/collection/ user@your-server:/srv/ai_radio/staging/
 ```
 
 ### Step 3: Run Ingest Script
@@ -50,7 +57,7 @@ rsync -avz --progress ~/Music/collection/ ubuntu@10.10.0.86:/srv/ai_radio/stagin
 The ingest script processes files and adds them to the database:
 
 ```bash
-ssh ubuntu@10.10.0.86
+ssh user@your-server
 
 # Run ingest (processes all files in staging)
 sudo -u ai-radio /srv/ai_radio/scripts/liquidsoap-wrapper.sh \
@@ -131,10 +138,10 @@ If source files are already normalized, they'll be copied with minimal processin
 ### Import entire music library
 ```bash
 # Sync entire collection
-rsync -avz --progress ~/Music/Library/ ubuntu@10.10.0.86:/srv/ai_radio/staging/
+rsync -avz --progress ~/Music/Library/ user@your-server:/srv/ai_radio/staging/
 
 # Ingest all at once
-ssh ubuntu@10.10.0.86 "sudo -u ai-radio /srv/ai_radio/scripts/liquidsoap-wrapper.sh \
+ssh user@your-server "sudo -u ai-radio /srv/ai_radio/scripts/liquidsoap-wrapper.sh \
   /srv/ai_radio/.venv/bin/python \
   /srv/ai_radio/scripts/ingest.py \
   /srv/ai_radio/staging"
@@ -179,5 +186,5 @@ After successful ingestion:
 
 ```bash
 # Remove staged files
-ssh ubuntu@10.10.0.86 "sudo rm -rf /srv/ai_radio/staging/*"
+ssh user@your-server "sudo rm -rf /srv/ai_radio/staging/*"
 ```

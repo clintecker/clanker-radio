@@ -96,6 +96,10 @@ db/
 .env
 .env.local
 .env.production
+.env.lastbyte
+.deploy_config
+.deploy_config.lastbyte
+*.lastbyte
 *_secrets
 *.pem
 *.key
@@ -111,6 +115,9 @@ nginx/admin/
 # Generated files
 next.mp3
 now_playing.json
+
+# Build artifacts
+bin/
 
 # Backups
 *.backup

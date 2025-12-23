@@ -10,7 +10,9 @@ from pathlib import Path
 # Add src to path
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-# Voice options to test (based on dystopian DJ vibe)
+from ai_radio.config import config
+
+# Voice options to test (various voice characteristics for DJ comparison)
 VOICES_TO_TEST = [
     ("Kore", "Firm - Authoritative, solid"),
     ("Enceladus", "Breathy - Tired, weary sound"),
@@ -44,4 +46,4 @@ for voice_name, description in VOICES_TO_TEST:
     else:
         print(f"  ✗ Failed to generate with {voice_name}\n")
 
-print("Done! Check /srv/ai_radio/assets/breaks/ for test_*.mp3 files")
+print(f"Done! Check {config.breaks_path}/ for test_*.mp3 files")

@@ -34,8 +34,9 @@ logging.basicConfig(
 
 logger = logging.getLogger(__name__)
 
-SOCKET_PATH = "/run/liquidsoap/radio.sock"
-BUMPERS_DIR = Path("/srv/ai_radio/assets/bumpers")
+# Use configuration paths
+SOCKET_PATH = str(config.liquidsoap_sock_path)
+BUMPERS_DIR = config.bumpers_path
 
 
 def query_socket(sock: socket.socket, command: str) -> str:

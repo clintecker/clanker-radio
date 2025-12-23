@@ -68,7 +68,7 @@ class NWSWeatherClient:
     """
 
     BASE_URL = "https://api.weather.gov"
-    USER_AGENT = "AIRadioStation/1.0 (https://radio.clintecker.com)"
+    USER_AGENT = "AIRadioStation/1.0 (+https://github.com/your-username/ai-radio-station)"
 
     def __init__(self):
         """Initialize NWS client with station configuration."""

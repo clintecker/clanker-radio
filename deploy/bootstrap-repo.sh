@@ -21,7 +21,7 @@ set -euo pipefail
 # Configuration
 # ============================================================================
 
-REPO_URL="git@github.com:clintecker/clanker-radio.git"
+REPO_URL="git@github.com:your-username/ai-radio-station.git"
 REPO_DIR="/srv/ai_radio"
 BRANCH="${1:-main}"
 

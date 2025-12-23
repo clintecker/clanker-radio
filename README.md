@@ -1,8 +1,10 @@
-# LAST BYTE RADIO - AI-Powered Cyberpunk Radio Station
+# AI Radio Station - Autonomous Broadcasting Platform
 
-An autonomous internet radio station that generates and broadcasts AI-created content with real music. Set in a post-capitalist dystopian cyber future, broadcasting from the neon-lit wasteland of Chicago.
+An autonomous internet radio station that generates and broadcasts AI-created content with real music. Highly customizable with personality, world-building, and content generation settings.
 
-> **Broadcasting from the ruins. Still here. Still transmitting. 📻**
+**Out of the box:** A laid-back tropical island radio station (WKRP Coconut Island 🌴). **With configuration:** Cyberpunk dystopia, jazz cafe, college radio, pirate station - whatever you want!
+
+> **Your autonomous radio station. Configure it your way. 📻**
 
 ## Features
 
@@ -16,11 +18,141 @@ An autonomous internet radio station that generates and broadcasts AI-created co
 - **Safety Fallbacks**: Multiple fallback layers ensure the station never goes silent
 - **Web Interface**: Cyber-terminal themed player with real-time now playing info
 
+## Quick Start - Configuration
+
+Everything in this project is configured through environment variables. Nothing is hardcoded.
+
+**Default Theme:** Tropical island radio (DJ Coco on WKRP Coconut Island 🌴🥥)
+**Your Theme:** Configure anything - cyberpunk dystopia, jazz lounge, college radio, pirate broadcast...
+
+### Step 1: Create Your Configuration
+
+Copy `.env.example` to `.env` and configure your station:
+
+```bash
+cp .env.example .env
+```
+
+### Step 2: Essential Configuration
+
+Edit `.env` and set these **required** values:
+
+```bash
+# Station Identity
+RADIO_STATION_NAME="Your Station Name"
+RADIO_STATION_LOCATION="Your City"
+RADIO_STATION_TZ="Your/Timezone"  # e.g., America/New_York, Europe/London
+
+# Location (for weather)
+RADIO_STATION_LAT=40.7128
+RADIO_STATION_LON=-74.0060
+
+# API Keys
+RADIO_LLM_API_KEY=sk-ant-api03-...  # Anthropic Claude
+RADIO_GEMINI_API_KEY=AIza...        # Google Gemini TTS
+
+# Weather Grid (find at weather.gov)
+RADIO_NWS_OFFICE=OKX       # Your NWS office code
+RADIO_NWS_GRID_X=33        # Your grid X coordinate
+RADIO_NWS_GRID_Y=37        # Your grid Y coordinate
+```
+
+### Step 3: Customize Your Station Personality
+
+**Everything is configurable!** Check `.env.example` for 100+ settings including:
+
+- Station personality and energy level
+- World-building and content framing
+- News RSS feeds (add your local sources)
+- Hallucinated news topics (cyberpunk flavor or your own themes)
+- Announcer voice characteristics
+- Audio timing and mixing parameters
+
+### Step 4: Liquidsoap Configuration
+
+Edit `config/radio.liq` **or** set environment variables:
+
+```bash
+# Option 1: Edit config/radio.liq directly
+station_name = "Your Station Name"
+station_url = "https://your-domain.com"
+
+# Option 2: Use environment variables
+export LIQUIDSOAP_STATION_NAME="Your Station Name"
+export LIQUIDSOAP_STATION_URL="https://your-domain.com"
+export LIQUIDSOAP_STATION_DESCRIPTION="Your station description"
+```
+
+### Step 5: Web Configuration
+
+Update `nginx/radio.conf`:
+```nginx
+server_name your-domain.com;
+```
+
+Update `nginx/stream.m3u`:
+```
+#EXTINF:-1,Your Station Name - Your Description
+https://your-domain.com/radio
+```
+
+### Step 6: Generate Content
+
+**By default, the station only generates top-of-the-hour news/weather breaks.** You need to provide:
+
+#### Music (Required for 24/7 operation)
+- Add MP3 files to `/srv/ai_radio/assets/music/`
+- Run: `./scripts/batch_ingest.sh /path/to/your/music`
+- See [ADDING_MUSIC.md](docs/ADDING_MUSIC.md) for details
+
+**Don't have music yet?** Use [Suno AI](https://suno.com) to generate:
+- Genre-appropriate tracks for your station
+- Background beds (instrumental music for news breaks)
+- Station ID jingles
+
+#### Background Beds (Optional but recommended)
+- Add instrumental tracks to `/srv/ai_radio/assets/beds/`
+- Used as background music during news/weather breaks
+- Also serves as fallback when queues are empty
+
+#### Station IDs / Bumpers (Optional)
+- Add to `/srv/ai_radio/assets/bumpers/`
+- Name files: `station_id_*.mp3` or `station_id_*.wav`
+- Plays automatically at :15, :30, :45 past each hour
+
+#### Startup Jingle (Optional)
+- Place 18-second intro: `/srv/ai_radio/assets/startup.mp3`
+- Plays once when Liquidsoap starts
+
+### Station Personality Examples
+
+**Default (Tiki Island):**
+- Station: WKRP Coconut Island, DJ Coco
+- Vibe: laid-back, friendly, warm, island time
+- News: NPR feed with tropical island framing
+- Energy: 5/10 (chill vibes)
+
+**Example: "LAST BYTE RADIO"** (Check `.env.lastbyte` if you have access)
+- Station: LAST BYTE RADIO, Chicago
+- Vibe: witty, darkly humorous, slightly unhinged, cyberpunk survivor
+- World: Post-capitalist dystopian cyber future
+- News: Chicago local + tech feeds with dystopian framing
+- Hallucinated: Corp collapses, power grid failures, underground mesh networks
+- Energy: 8/10 (high energy, fast-paced)
+
+**Other ideas:**
+- Jazz lounge: smooth, sophisticated, late-night vibes
+- College radio: chaotic, enthusiastic, discovering new music
+- Pirate station: rebellious, anti-establishment, underground
+- News talk: serious, journalistic, minimal music
+
+**All configurable via .env!**
+
 ## Architecture
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                         LAST BYTE RADIO                         │
+│                      AI RADIO STATION                           │
 └─────────────────────────────────────────────────────────────────┘
 
 ┌──────────────────┐    ┌──────────────────┐    ┌──────────────────┐
@@ -96,7 +228,7 @@ sudo chown ai-radio:ai-radio /srv/ai_radio
 
 ```bash
 cd /srv/ai_radio
-sudo -u ai-radio git clone https://github.com/YOUR_USERNAME/clanker-radio.git .
+sudo -u ai-radio git clone https://github.com/YOUR_USERNAME/ai-radio-station.git .
 ```
 
 ### 3. Python Environment Setup
@@ -119,20 +251,20 @@ Create `/srv/ai_radio/.env`:
 # BASE CONFIGURATION
 # ============================================================================
 RADIO_BASE_PATH=/srv/ai_radio
-RADIO_STATION_TZ=America/Chicago
+RADIO_STATION_TZ=UTC
 
 # ============================================================================
 # STATION IDENTITY
 # ============================================================================
-RADIO_STATION_NAME="LAST BYTE RADIO"
-RADIO_STATION_LOCATION="Chicago"
+RADIO_STATION_NAME="Your Station Name"
+RADIO_STATION_LOCATION="Your City"
 
 # ============================================================================
 # LOCATION FOR WEATHER (REQUIRED)
 # ============================================================================
 # Find coordinates at https://www.latlong.net/
-RADIO_STATION_LAT=41.8781
-RADIO_STATION_LON=-87.6298
+RADIO_STATION_LAT=0.0
+RADIO_STATION_LON=0.0
 
 # ============================================================================
 # API KEYS (REQUIRED FOR PRODUCTION)
@@ -168,9 +300,9 @@ RADIO_GEMINI_TTS_VOICE=Kore
 # NATIONAL WEATHER SERVICE CONFIGURATION
 # ============================================================================
 # Find your grid at: https://www.weather.gov/ → enter location → click map → check URL
-RADIO_NWS_OFFICE=LOT  # Chicago office
-RADIO_NWS_GRID_X=76
-RADIO_NWS_GRID_Y=73
+RADIO_NWS_OFFICE=YOUR_OFFICE  # Chicago office
+RADIO_NWS_GRID_X=0
+RADIO_NWS_GRID_Y=0
 
 # ============================================================================
 # NEWS RSS FEEDS (Optional - customize your news sources)
@@ -759,4 +891,4 @@ For issues, questions, or contributions:
 
 ---
 
-**Broadcasting from the neon-lit wasteland. Still here. Still transmitting. 📻**
+**Build your own autonomous radio station. Configure it your way. 📻**

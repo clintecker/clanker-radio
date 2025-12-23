@@ -85,8 +85,8 @@ class TestRSSNewsClient:
                 mock_response = Mock()
                 mock_response.raise_for_status = Mock()
                 mock_response.content = b"""<?xml version="1.0"?>
-                    <rss><channel><title>Chicago Tribune</title>
-                    <item><title>Tribune Story 1</title><link>https://tribune.com/1</link></item>
+                    <rss><channel><title>Test News Source</title>
+                    <item><title>Test Story 1</title><link>https://testnews.com/1</link></item>
                     </channel></rss>"""
                 return mock_response
             return Mock(bozo=True, entries=[])

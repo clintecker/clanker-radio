@@ -108,7 +108,7 @@ class RSSNewsClient:
         self.categorized_feeds = config.news_rss_feeds
         self.max_headlines_per_feed = 10  # Increased to get better today's news coverage
         self.timeout = 10.0
-        self.user_agent = "AIRadioStation/1.0 (https://radio.clintecker.com)"
+        self.user_agent = "AIRadioStation/1.0 (+https://github.com/your-username/ai-radio-station)"
         self.categories_to_select = 3
         self.articles_per_category = 1
 
@@ -143,21 +143,24 @@ class RSSNewsClient:
                 avoid_section += "\n".join([f"- {h}" for h in recent_headlines[-10:]])  # Last 10
                 avoid_section += "\n\nDO NOT repeat these topics, themes, or similar phrasing."
 
-            prompt = f"""Generate a single, plausible news headline for a dystopian Chicago radio bulletin.
+            prompt = f"""Generate a single, plausible news headline for {config.station_name} broadcasting from {config.station_location}.
 
 KERNEL/SEED TOPIC: {kernel}
 
 REAL HEADLINES FOR CONTEXT (to match tone and style):
 {real_context}{avoid_section}
 
+STATION SETTING: {config.world_setting}
+STATION TONE: {config.world_tone}
+
 CRITICAL RULES:
 - Generate ONE headline only (10-15 words)
 - Make it sound like a real news headline from today
-- Fit the dystopian Chicago setting (corporate control, failing infrastructure, surveillance)
+- Fit the station's world setting and tone
 - Match the tone and credibility of the real headlines
 - Should be indistinguishable from actual news
-- NO sci-fi jargon, no "neon-lit," no "cyberpunk" labels
-- Specific Chicago references (districts, infrastructure, local details)
+- NO forced jargon or heavy-handed theme labels
+- Specific local references when appropriate
 - Sound like it came from AP or Reuters
 - MUST be different from recent headlines above
 

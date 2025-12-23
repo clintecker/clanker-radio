@@ -1,14 +1,76 @@
 #!/bin/bash
 # Deploy AI Radio Station files to production server
 #
-# Usage: ./scripts/deploy.sh [component]
+# Usage: ./scripts/deploy.sh [profile] [component]
+#   profile: Deployment profile name (e.g., 'lastbyte' loads .deploy_config.lastbyte)
 #   component: frontend, scripts, systemd, code, config, all (default: all)
+#
+# Examples:
+#   ./scripts/deploy.sh lastbyte           # Deploy all using lastbyte profile
+#   ./scripts/deploy.sh lastbyte frontend  # Deploy only frontend using lastbyte profile
+#   ./scripts/deploy.sh frontend           # Deploy frontend using .deploy_config
+#
+# Configuration:
+#   Create .deploy_config or .deploy_config.<profile> with:
+#   - DEPLOY_SERVER: SSH connection string (e.g., user@hostname)
+#   - DEPLOY_BASE_PATH: Remote base path (default: /srv/ai_radio)
+#   - DEPLOY_USER: Remote user for file ownership (default: ai-radio)
 
 set -e
 
-SERVER="clint@10.10.0.86"
-BASE_REMOTE="/srv/ai_radio"
-USER="clint"
+# Parse arguments
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+
+# Check if first arg is a profile (not a component name)
+VALID_COMPONENTS="frontend scripts systemd code config all health"
+PROFILE=""
+COMPONENT=""
+
+if [ -n "$1" ]; then
+    if [[ " $VALID_COMPONENTS " =~ " $1 " ]]; then
+        # First arg is a component
+        COMPONENT="$1"
+    else
+        # First arg is a profile
+        PROFILE="$1"
+        COMPONENT="${2:-all}"
+    fi
+else
+    COMPONENT="all"
+fi
+
+# Source deployment config
+if [ -n "$PROFILE" ]; then
+    DEPLOY_CONFIG="$PROJECT_ROOT/.deploy_config.$PROFILE"
+    if [ ! -f "$DEPLOY_CONFIG" ]; then
+        echo "ERROR: Profile config not found: .deploy_config.$PROFILE"
+        exit 1
+    fi
+    echo "Loading deployment profile: $PROFILE"
+    source "$DEPLOY_CONFIG"
+elif [ -f "$PROJECT_ROOT/.deploy_config" ]; then
+    echo "Loading deployment config from .deploy_config"
+    source "$PROJECT_ROOT/.deploy_config"
+fi
+
+# Configuration from environment or defaults
+SERVER="${DEPLOY_SERVER:-user@your-server.com}"
+BASE_REMOTE="${DEPLOY_BASE_PATH:-/srv/ai_radio}"
+USER="${DEPLOY_USER:-ai-radio}"
+
+# Check if SERVER is still default
+if [ "$SERVER" = "user@your-server.com" ]; then
+    echo "ERROR: Please configure deployment settings!"
+    echo ""
+    echo "Set environment variables:"
+    echo "  export DEPLOY_SERVER='user@hostname'"
+    echo "  export DEPLOY_BASE_PATH='/srv/ai_radio'"
+    echo "  export DEPLOY_USER='ai-radio'"
+    echo ""
+    echo "Or edit scripts/deploy.sh directly"
+    exit 1
+fi
 
 # Colors for output
 RED='\033[0;31m'
@@ -151,9 +213,7 @@ check_health() {
     echo ""
 }
 
-# Parse component argument
-COMPONENT="${1:-all}"
-
+# Dispatch to component deployment function
 case "$COMPONENT" in
     frontend)
         deploy_frontend
