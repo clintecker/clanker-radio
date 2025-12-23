@@ -581,12 +581,19 @@ def get_current_playing() -> tuple[dict | None, dict | None]:
         conn.close()
 
         if row:
+            duration_sec = row[4]
+            # If duration is null (breaks/bumpers not in assets table), get from file
+            if duration_sec is None and source_type in ("break", "bumper") and filename:
+                logger.info(f"Getting duration for {source_type} from file: {filename}")
+                duration_sec = get_duration_from_file(filename)
+                logger.info(f"Duration result: {duration_sec}")
+
             current = {
                 "asset_id": row[0],
                 "title": row[1],
                 "artist": row[2],
                 "album": row[3],
-                "duration_sec": row[4],
+                "duration_sec": duration_sec,
                 "played_at": row[5],
                 "source": row[6]
             }
@@ -602,12 +609,17 @@ def get_current_playing() -> tuple[dict | None, dict | None]:
                 title = ls_metadata.get("title") or "Unknown"
                 artist = "Clint Ecker"
 
+            # Get duration from file for breaks/bumpers
+            duration_sec = None
+            if source_type in ("break", "bumper") and filename:
+                duration_sec = get_duration_from_file(filename)
+
             current = {
                 "asset_id": None,
                 "title": title,
                 "artist": artist,
                 "album": ls_metadata.get("album"),
-                "duration_sec": None,
+                "duration_sec": duration_sec,
                 "played_at": datetime.now(timezone.utc).isoformat(),
                 "source": source_type
             }
