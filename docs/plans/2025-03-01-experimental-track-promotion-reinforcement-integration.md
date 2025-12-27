@@ -53,6 +53,7 @@ The system likely includes:
   - fill queues/playlists
   - emit now-playing metadata
 - Separate experimental and main stations (mounts or playlists).
+- Track generation may currently call a completely generic API that will be replaced by a real implementation later.
 
 These are assumptions, not mandates. If the real system differs, adapt accordingly.
 
@@ -82,6 +83,7 @@ The implementation SHOULD:
 
 - hook into existing generation outputs
 - avoid duplicating generation logic
+- tolerate the current generic generation API so it can be swapped later without reworking the promotion pipeline
 
 If the current system already stages tracks somewhere, integrate at that boundary.
 
