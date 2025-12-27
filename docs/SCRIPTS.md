@@ -14,6 +14,7 @@ Complete reference for all scripts in the AI Radio Station project. Scripts are 
 | `record_play.py` | Log play history | Liquidsoap callback |
 | `export_now_playing.py` | Update web interface | systemd timer (every 10 sec) |
 | `deploy.sh` | Deploy to production | Manual |
+| `generate_custom_break.py` | Broadcast custom message | Manual |
 | `health_check.py` | Check service status | Manual or cron |
 | `batch_ingest.sh` | Ingest music library | Manual |
 | `sync_db.sh` | Sync database locally | Manual |
@@ -390,6 +391,40 @@ cd /srv/ai_radio
 **Configuration:** All via `.env` file (news feeds, weather location, TTS voice, energy level, etc.)
 
 **Related:** `schedule_break.py` to queue the generated break
+
+---
+
+### generate_custom_break.py
+
+**Purpose:** Generate and broadcast a custom on-demand message with provided text.
+
+**Runs:** Manually by operator/admin
+
+**Usage:**
+```bash
+# Generate and queue a custom announcement
+cd /srv/ai_radio
+.venv/bin/python scripts/generate_custom_break.py "Your custom message here"
+```
+
+**What it does:**
+1. Takes provided text as script
+2. Synthesizes voice using TTS (Gemini/OpenAI)
+3. Selects random background bed
+4. Mixes voice with bed
+5. Saves to `assets/breaks/custom_break_{timestamp}.mp3`
+6. Pushes to override queue (plays immediately after current track)
+
+**When to use:**
+- Special announcements
+- Emergency broadcasts
+- Station updates
+- Holiday greetings
+- Testing TTS and mixing
+
+**Queue behavior:** Uses override queue, which has highest priority and interrupts normal programming at the next track boundary.
+
+**Related:** `generate_break.py` for automated news breaks, `schedule_break.py` for queuing
 
 ---
 

@@ -312,6 +312,100 @@ RADIO_BREAK_FRESHNESS_MINUTES=50
 
 ---
 
+## Streaming Configuration
+
+The station broadcasts in three quality levels simultaneously, allowing listeners to choose based on their bandwidth:
+
+### Stream Endpoints
+
+| Endpoint | Bitrate | Sample Rate | Use Case |
+|----------|---------|-------------|----------|
+| `/radio` | 192 kbps | 48000 Hz | High quality (default for direct listeners) |
+| `/radio-128` | 128 kbps | 44100 Hz | Balanced quality/bandwidth (website default) |
+| `/radio-96` | 96 kbps | 44100 Hz | Low bandwidth (mobile/slow connections) |
+
+**All streams:**
+- MP3 format (stereo)
+- Same synchronized content (single Liquidsoap source)
+- Same programming schedule
+- Play at exactly the same time
+
+### Icecast Configuration
+
+Multi-bitrate streaming requires increasing Icecast's source limit:
+
+```xml
+<!-- /etc/icecast2/icecast.xml -->
+<limits>
+    <sources>5</sources>  <!-- Allow multiple bitrate streams -->
+    <!-- other limits... -->
+</limits>
+```
+
+After changing, restart Icecast: `sudo systemctl restart icecast2`
+
+### Nginx Configuration
+
+Each stream should be optimized for long-duration audio:
+
+```nginx
+location /radio-128 {
+    proxy_buffering off;           # No delays
+    proxy_request_buffering off;
+    proxy_http_version 1.1;
+    proxy_set_header Connection "";
+    proxy_set_header Accept-Encoding "";  # No compression of MP3
+    proxy_read_timeout 3600s;      # 1 hour timeout
+    send_timeout 3600s;
+    proxy_cache off;
+    proxy_pass http://icecast_server;
+    add_header Access-Control-Allow-Origin *;
+    add_header Cache-Control "no-cache, no-store";
+}
+```
+
+### Liquidsoap Configuration
+
+Streams are defined in `config/radio.liq` using multiple `output.icecast()` blocks:
+
+```liquidsoap
+# High quality (192 kbps)
+output.icecast(
+  %mp3(bitrate=192, samplerate=48000, stereo=true),
+  mount="/radio",
+  name="#{station_name}",
+  radio
+)
+
+# Medium quality (128 kbps) - Recommended default
+output.icecast(
+  %mp3(bitrate=128, samplerate=44100, stereo=true),
+  mount="/radio-128",
+  name="#{station_name} (128kbps)",
+  radio
+)
+
+# Low bandwidth (96 kbps)
+output.icecast(
+  %mp3(bitrate=96, samplerate=44100, stereo=true),
+  mount="/radio-96",
+  name="#{station_name} (96kbps)",
+  radio
+)
+```
+
+### Website Quality Selector
+
+The web interface (`nginx/index.html`) defaults to 128 kbps and includes a dropdown selector for quality switching. When users change quality, the player:
+
+1. Preserves playback state (playing/muted)
+2. Switches to new stream endpoint
+3. Resumes from live broadcast point
+
+No additional configuration needed - quality selector is built into the website.
+
+---
+
 ## World-Building
 
 This is where your station's personality really comes alive. These settings control the universe your station exists in and how content is filtered through that lens.
