@@ -99,7 +99,7 @@ def ingest_audio_file(
             insert_asset(
                 conn,
                 asset_id=asset_id,
-                path=source_path,
+                path=output_path,  # Store normalized file path, not staging path
                 kind=kind,
                 duration_sec=metadata.duration_sec,
                 loudness_lufs=norm_result["loudness_lufs"],
@@ -121,8 +121,8 @@ def ingest_audio_file(
 
         return {
             "id": asset_id,
-            "path": str(source_path),
-            "output_path": str(output_path),
+            "path": str(output_path),  # Database path (normalized file location)
+            "source_path": str(source_path),  # Original staging path for reference
             "kind": kind,
             "title": metadata.title,
             "artist": metadata.artist,
