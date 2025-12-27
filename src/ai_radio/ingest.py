@@ -104,6 +104,7 @@ def ingest_audio_file(
                 duration_sec=metadata.duration_sec,
                 loudness_lufs=norm_result["loudness_lufs"],
                 true_peak_dbtp=norm_result["true_peak_dbtp"],
+                energy_level=50,  # Default medium energy for all tracks
                 title=metadata.title,
                 artist=metadata.artist,
                 album=metadata.album,
