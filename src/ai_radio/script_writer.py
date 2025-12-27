@@ -403,6 +403,13 @@ ONLY the script text that will be spoken. NO stage directions, sound effects, or
 
         prompt += f"""
 
+**TEMPORAL REFERENCE RULES:**
+CRITICAL: When referring to {temporal['day_of_week']}, use relative time words:
+- Say "today" or "this {temporal['time_period']}", NOT "{temporal['day_of_week']}"
+- Say "tonight" for this evening, NOT "{temporal['day_of_week']} night"
+- Say "tomorrow" for next day, NOT the day name
+- Only use day names for 2+ days out (e.g., "Wednesday" when it's currently Monday)
+
 **CURRENT CONDITIONS:**
 - Now: {weather.temperature}°F, {weather.conditions}
 - Period: {weather.current_period.name}"""
