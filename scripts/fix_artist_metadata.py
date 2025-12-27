@@ -17,7 +17,7 @@ from ai_radio.config import config
 
 
 def fix_database_artist(conn):
-    """Update all music assets to have artist='Clint Ecker'.
+    """Update all music assets to have artist from config.
 
     Args:
         conn: SQLite database connection
@@ -26,6 +26,7 @@ def fix_database_artist(conn):
         int: Number of records updated
     """
     cursor = conn.cursor()
+    target_artist = config.music_artist
 
     # Count current records with wrong artist
     cursor.execute(
@@ -33,25 +34,27 @@ def fix_database_artist(conn):
         SELECT COUNT(*)
         FROM assets
         WHERE kind = 'music'
-        AND (artist IS NULL OR artist != 'Clint Ecker')
-    """
+        AND (artist IS NULL OR artist != ?)
+    """,
+        (target_artist,),
     )
     count_before = cursor.fetchone()[0]
 
     if count_before == 0:
-        print("✅ All music assets already have correct artist")
+        print(f"✅ All music assets already have correct artist: {target_artist}")
         return 0
 
-    print(f"🔧 Updating {count_before} music assets to artist='Clint Ecker'...")
+    print(f"🔧 Updating {count_before} music assets to artist='{target_artist}'...")
 
     # Update all music assets
     cursor.execute(
         """
         UPDATE assets
-        SET artist = 'Clint Ecker'
+        SET artist = ?
         WHERE kind = 'music'
-        AND (artist IS NULL OR artist != 'Clint Ecker')
-    """
+        AND (artist IS NULL OR artist != ?)
+    """,
+        (target_artist, target_artist),
     )
 
     conn.commit()
@@ -71,6 +74,7 @@ def fix_file_id3_tags(conn):
         int: Number of files updated
     """
     cursor = conn.cursor()
+    target_artist = config.music_artist
 
     # Get all music asset paths
     cursor.execute(
@@ -88,7 +92,7 @@ def fix_file_id3_tags(conn):
         print("⚠️  No music assets found")
         return 0
 
-    print(f"🎵 Updating ID3 tags on {total} music files...")
+    print(f"🎵 Updating ID3 tags to '{target_artist}' on {total} music files...")
 
     updated = 0
     errors = 0
@@ -102,7 +106,7 @@ def fix_file_id3_tags(conn):
             continue
 
         try:
-            set_artist_metadata(file_path, "Clint Ecker")
+            set_artist_metadata(file_path, target_artist)
             updated += 1
 
             # Progress indicator every 10 files

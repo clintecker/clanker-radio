@@ -106,7 +106,7 @@ def ingest_audio_file(
                 true_peak_dbtp=norm_result["true_peak_dbtp"],
                 energy_level=50,  # Default medium energy for all tracks
                 title=metadata.title,
-                artist="Clint Ecker",  # All music attributed to Clint Ecker
+                artist=config.music_artist,  # Configurable music artist (RADIO_MUSIC_ARTIST)
                 album=metadata.album,
             )
         except Exception as db_error:
@@ -118,7 +118,7 @@ def ingest_audio_file(
 
         print(f"✅ Successfully ingested: {metadata.title}")
         print(f"   Asset ID: {asset_id}")
-        print(f"   Artist: Clint Ecker")
+        print(f"   Artist: {config.music_artist}")
         print(f"   Output: {output_path}")
 
         return {
@@ -127,7 +127,7 @@ def ingest_audio_file(
             "source_path": str(source_path),  # Original staging path for reference
             "kind": kind,
             "title": metadata.title,
-            "artist": "Clint Ecker",  # All music attributed to Clint Ecker
+            "artist": config.music_artist,  # Configurable music artist (RADIO_MUSIC_ARTIST)
             "album": metadata.album,
             "duration_sec": metadata.duration_sec,
             "loudness_lufs": norm_result["loudness_lufs"],

@@ -110,6 +110,12 @@ class RadioConfig(BaseSettings):
 
     break_freshness_minutes: int = Field(default=50, description="Break freshness threshold")
 
+    # Music asset configuration
+    music_artist: str = Field(
+        default="Clint Ecker",
+        description="Artist name for all ingested music (ID3 tags and database)"
+    )
+
     # World-building: Configure your station's personality and setting
     world_setting: str = Field(
         default="laid-back tropical island paradise",

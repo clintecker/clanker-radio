@@ -10,6 +10,8 @@ from typing import Optional
 
 from mutagen import File as MutagenFile
 
+from ai_radio.config import config
+
 
 @dataclass
 class AudioMetadata:
@@ -89,16 +91,19 @@ def extract_metadata(file_path: Path) -> AudioMetadata:
         raise ValueError(f"Failed to extract metadata from {file_path}: {e}")
 
 
-def set_artist_metadata(file_path: Path, artist_name: str = "Clint Ecker") -> None:
+def set_artist_metadata(file_path: Path, artist_name: Optional[str] = None) -> None:
     """Set artist metadata on audio file ID3 tags.
 
     Args:
         file_path: Path to audio file to modify
-        artist_name: Artist name to set (default: "Clint Ecker")
+        artist_name: Artist name to set (default: config.music_artist)
 
     Raises:
         ValueError: If file cannot be modified
     """
+    if artist_name is None:
+        artist_name = config.music_artist
+
     if not file_path.exists():
         raise ValueError(f"File not found: {file_path}")
 
@@ -123,7 +128,7 @@ def normalize_audio(
 ) -> dict:
     """Normalize audio file to broadcast standards using ffmpeg-normalize.
 
-    After normalization, sets artist ID3 tag to "Clint Ecker" on output file.
+    After normalization, sets artist ID3 tag on output file using config.music_artist.
 
     Args:
         input_path: Source audio file
@@ -201,8 +206,8 @@ def normalize_audio(
         loudness_lufs = output_i if output_i is not None else target_lufs
         true_peak_dbtp = output_tp if output_tp is not None else true_peak
 
-        # Set artist ID3 tag to "Clint Ecker" on normalized output
-        set_artist_metadata(output_path, "Clint Ecker")
+        # Set artist ID3 tag on normalized output (uses config.music_artist)
+        set_artist_metadata(output_path)
 
         return {
             "loudness_lufs": loudness_lufs,
