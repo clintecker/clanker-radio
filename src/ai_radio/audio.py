@@ -89,6 +89,32 @@ def extract_metadata(file_path: Path) -> AudioMetadata:
         raise ValueError(f"Failed to extract metadata from {file_path}: {e}")
 
 
+def set_artist_metadata(file_path: Path, artist_name: str = "Clint Ecker") -> None:
+    """Set artist metadata on audio file ID3 tags.
+
+    Args:
+        file_path: Path to audio file to modify
+        artist_name: Artist name to set (default: "Clint Ecker")
+
+    Raises:
+        ValueError: If file cannot be modified
+    """
+    if not file_path.exists():
+        raise ValueError(f"File not found: {file_path}")
+
+    try:
+        audio = MutagenFile(file_path, easy=True)
+        if audio is None:
+            raise ValueError(f"Unsupported audio format: {file_path}")
+
+        # Set artist tag
+        audio["artist"] = [artist_name]
+        audio.save()
+
+    except Exception as e:
+        raise ValueError(f"Failed to set artist metadata on {file_path}: {e}")
+
+
 def normalize_audio(
     input_path: Path,
     output_path: Path,
@@ -96,6 +122,8 @@ def normalize_audio(
     true_peak: float = -1.0,
 ) -> dict:
     """Normalize audio file to broadcast standards using ffmpeg-normalize.
+
+    After normalization, sets artist ID3 tag to "Clint Ecker" on output file.
 
     Args:
         input_path: Source audio file
@@ -172,6 +200,9 @@ def normalize_audio(
         # (parsing might fail with older ffmpeg-normalize versions)
         loudness_lufs = output_i if output_i is not None else target_lufs
         true_peak_dbtp = output_tp if output_tp is not None else true_peak
+
+        # Set artist ID3 tag to "Clint Ecker" on normalized output
+        set_artist_metadata(output_path, "Clint Ecker")
 
         return {
             "loudness_lufs": loudness_lufs,
