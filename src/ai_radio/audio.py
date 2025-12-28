@@ -222,3 +222,72 @@ def normalize_audio(
         raise ValueError(
             f"Audio normalization failed for {input_path}: {e.stderr}"
         )
+
+
+def measure_loudness(input_path: Path) -> dict:
+    """Measure audio loudness without creating an output file.
+
+    Uses ffmpeg-normalize in dry-run mode to get EBU R128 stats.
+
+    Args:
+        input_path: Source audio file
+
+    Returns:
+        dict with loudness_lufs and true_peak_dbtp values
+
+    Raises:
+        ValueError: If measurement fails or stats cannot be parsed
+    """
+    if not input_path.exists():
+        raise ValueError(f"File not found: {input_path}")
+
+    try:
+        cmd = [
+            "ffmpeg-normalize",
+            str(input_path),
+            "-n",  # No-op / dry-run mode
+            "-f",  # Force overwrite
+            "--normalization-type", "ebu",
+            "--print-stats",
+        ]
+
+        result = subprocess.run(
+            cmd,
+            capture_output=True,
+            text=True,
+            timeout=120,
+            check=True,
+        )
+
+        # Parse output for loudness stats
+        # Example line: "Integrated loudness: -23.5 LUFS"
+        # Example line: "True peak: -1.2 dBTP"
+        loudness_lufs = None
+        true_peak_dbtp = None
+
+        for line in result.stderr.splitlines():
+            if "Input Integrated" in line or "Integrated loudness" in line:
+                # Extract number before "LUFS"
+                match = re.search(r"(-?\d+\.?\d*)\s*LUFS", line)
+                if match:
+                    loudness_lufs = float(match.group(1))
+            elif "Input True Peak" in line or "True peak" in line:
+                # Extract number before "dBTP"
+                match = re.search(r"(-?\d+\.?\d*)\s*dBTP", line)
+                if match:
+                    true_peak_dbtp = float(match.group(1))
+
+        if loudness_lufs is None or true_peak_dbtp is None:
+            raise ValueError(
+                f"Failed to parse loudness stats from ffmpeg-normalize output"
+            )
+
+        return {
+            "loudness_lufs": loudness_lufs,
+            "true_peak_dbtp": true_peak_dbtp,
+        }
+
+    except subprocess.CalledProcessError as e:
+        raise ValueError(f"Failed to measure loudness: {e.stderr}")
+    except subprocess.TimeoutExpired:
+        raise ValueError(f"Loudness measurement timed out for {input_path}")
