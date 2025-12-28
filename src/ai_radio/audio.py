@@ -259,32 +259,35 @@ def measure_loudness(input_path: Path) -> dict:
             check=True,
         )
 
-        # Parse output for loudness stats
-        # Example line: "Integrated loudness: -23.5 LUFS"
-        # Example line: "True peak: -1.2 dBTP"
-        loudness_lufs = None
-        true_peak_dbtp = None
+        # Parse the output to extract INPUT loudness measurements
+        # ffmpeg-normalize prints JSON-like stats with --print-stats
+        # Check both stdout and stderr as output location varies
+        input_i = None
+        input_tp = None
 
-        for line in result.stderr.splitlines():
-            if "Input Integrated" in line or "Integrated loudness" in line:
-                # Extract number before "LUFS"
-                match = re.search(r"(-?\d+\.?\d*)\s*LUFS", line)
-                if match:
-                    loudness_lufs = float(match.group(1))
-            elif "Input True Peak" in line or "True peak" in line:
-                # Extract number before "dBTP"
-                match = re.search(r"(-?\d+\.?\d*)\s*dBTP", line)
-                if match:
-                    true_peak_dbtp = float(match.group(1))
+        # Combine stdout and stderr for parsing
+        combined_output = result.stdout + "\n" + result.stderr
 
-        if loudness_lufs is None or true_peak_dbtp is None:
+        # Find all JSON-like blocks in output
+        for line in combined_output.split("\n"):
+            # Look for input measurements in JSON format
+            if '"input_i":' in line:
+                match = re.search(r'"input_i":\s*(-?\d+\.?\d*)', line)
+                if match:
+                    input_i = float(match.group(1))
+            if '"input_tp":' in line:
+                match = re.search(r'"input_tp":\s*(-?\d+\.?\d*)', line)
+                if match:
+                    input_tp = float(match.group(1))
+
+        if input_i is None or input_tp is None:
             raise ValueError(
                 f"Failed to parse loudness stats from ffmpeg-normalize output"
             )
 
         return {
-            "loudness_lufs": loudness_lufs,
-            "true_peak_dbtp": true_peak_dbtp,
+            "loudness_lufs": input_i,
+            "true_peak_dbtp": input_tp,
         }
 
     except subprocess.CalledProcessError as e:
