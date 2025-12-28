@@ -3,10 +3,7 @@
 import sqlite3
 import sys
 import tempfile
-from datetime import datetime, timezone
 from pathlib import Path
-
-import pytest
 
 # Add scripts directory to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent / "scripts"))

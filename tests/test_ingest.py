@@ -285,7 +285,6 @@ def test_ingest_existing_registers_without_normalization(tmp_path):
 
     # Set up database
     db_path = tmp_path / "test.db"
-    import sqlite3
     conn = sqlite3.connect(db_path)
     conn.execute("""
         CREATE TABLE assets (

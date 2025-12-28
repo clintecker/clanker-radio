@@ -120,11 +120,12 @@ def batch_ingest(
 
         try:
             # Ingest the file
+            output_path = config.bumpers_path if kind == "bumper" else config.breaks_path
             result = ingest_audio_file(
                 source_path=file_path,
                 kind=kind,
                 db_path=config.db_path,
-                music_dir=config.assets_path / kind + "s",  # bumpers or breaks directory
+                output_dir=output_path,
                 target_lufs=-18.0,
                 true_peak=-1.0,
             )
