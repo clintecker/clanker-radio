@@ -582,6 +582,12 @@ def get_current_playing() -> tuple[dict | None, dict | None]:
         # The tighter window for non-music prevents matching old plays of same asset_id
         filename_stem = os.path.splitext(os.path.basename(filename))[0]
 
+        # Compute time cutoffs in Python using ISO format to match stored timestamps
+        # This avoids lexical mismatch between ISO 8601 (with 'T') and SQLite datetime format (with space)
+        from datetime import timedelta
+        cutoff_10min = (datetime.now(timezone.utc) - timedelta(minutes=10)).isoformat()
+        cutoff_30s = (datetime.now(timezone.utc) - timedelta(seconds=30)).isoformat()
+
         cursor.execute(
             """
             SELECT
@@ -606,14 +612,14 @@ def get_current_playing() -> tuple[dict | None, dict | None]:
             FROM play_history ph
             LEFT JOIN assets a ON ph.asset_id = a.id
             WHERE (
-                (a.path = ? AND ph.played_at >= datetime('now', '-10 minutes'))
+                (a.path = ? AND ph.played_at >= ?)
                 OR
-                (ph.asset_id = ? AND ph.played_at >= datetime('now', '-30 seconds') AND ph.source IN ('break', 'bumper'))
+                (ph.asset_id = ? AND ph.played_at >= ? AND ph.source IN ('break', 'bumper'))
             )
             ORDER BY ph.played_at DESC
             LIMIT 1
             """,
-            (config.station_name, filename, filename_stem)
+            (config.station_name, filename, cutoff_10min, filename_stem, cutoff_30s)
         )
 
         row = cursor.fetchone()

@@ -76,7 +76,6 @@ def test_get_current_playing_for_music_track(db_connection, mocker):
     )
     # Insert a corresponding play_history entry 5 minutes ago
     # Use real current time (unfrozen) because SQLite's datetime('now') is not affected by freezegun
-    import datetime as dt_module
     five_min_ago = (dt_module.datetime.now(dt_module.timezone.utc) - dt_module.timedelta(minutes=5)).isoformat()
     cursor.execute(
         "INSERT INTO play_history (asset_id, played_at, source) VALUES (?, ?, ?)",
@@ -139,13 +138,13 @@ def test_get_current_playing_for_station_id_recent(db_connection, mocker, mock_c
     assert current["duration_sec"] == 15.0
 
 
-def test_get_current_playing_for_station_id_old_plays_still_match(db_connection, mocker):
+def test_get_current_playing_for_station_id_outside_30s_window(db_connection, mocker):
     """
-    Scenario 3: Station ID play >30s ago - documents current behavior.
+    Scenario 3: Station ID play >30s ago should NOT match (30-second window enforcement).
 
-    NOTE: The SQL WHERE clause should theoretically reject plays outside the 30s window,
-    but in practice the query appears to match them anyway. This test documents the
-    actual behavior rather than the intended behavior.
+    The 30-second time window should prevent matching old plays of the same asset_id.
+    When the query rejects the old play, the code falls back to constructing metadata
+    from the filename with a current timestamp.
     """
     # --- Setup ---
     mocker.patch("export_now_playing.get_icecast_status", return_value={})
@@ -156,8 +155,7 @@ def test_get_current_playing_for_station_id_old_plays_still_match(db_connection,
     mocker.patch("export_now_playing.get_duration_from_file", return_value=15.0)
 
     cursor = db_connection.cursor()
-    # Insert a play_history entry 45 seconds ago
-    # Use real current time because SQLite's datetime('now') is not affected by freezegun
+    # Insert a play_history entry 45 seconds ago (outside 30-second window)
     forty_five_sec_ago = (dt_module.datetime.now(dt_module.timezone.utc) - dt_module.timedelta(seconds=45)).isoformat()
     cursor.execute(
         "INSERT INTO play_history (asset_id, played_at, source) VALUES (?, ?, ?)",
@@ -171,16 +169,21 @@ def test_get_current_playing_for_station_id_old_plays_still_match(db_connection,
     current, _ = export_now_playing.get_current_playing()
 
     # --- Assert ---
-    # Query finds the old record (documents actual behavior, may be a bug)
+    # The 30-second window should reject the old play, falling back to constructed metadata
     assert current is not None
-    assert current["asset_id"] == "station_id_5"
+    # Fallback doesn't populate asset_id from database
+    assert current["asset_id"] is None
     assert current["title"] == "Station Identification"
     assert current["source"] == "bumper"
-    # Confirms it's using the database record, not fallback
-    assert current["played_at"] == forty_five_sec_ago
+    # Verify fallback behavior: timestamp should be recent (not 45s ago)
+    assert current["played_at"] != forty_five_sec_ago
+    played_at_dt = dt_module.datetime.fromisoformat(current["played_at"].replace('Z', '+00:00'))
+    now_dt = dt_module.datetime.now(dt_module.timezone.utc)
+    time_diff = (now_dt - played_at_dt).total_seconds()
+    assert time_diff < 2, f"Expected fallback timestamp to be recent, but it was {time_diff}s ago"
 
 
-def test_get_current_playing_for_station_id_most_recent(db_connection, mocker, mock_config):
+def test_get_current_playing_for_station_id_most_recent(db_connection, mocker):
     """
     Scenario 4: Multiple plays of same station ID, should return the most recent.
     """
