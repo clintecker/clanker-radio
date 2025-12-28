@@ -280,8 +280,12 @@ def stream(job_id: str):
         # If job is already complete or failed, return final result
         if job["status"] == "complete":
             def complete_stream():
-                yield f"event: complete\n"
-                yield f"data: {json.dumps({'download_url': f'/api/dj-tag/download/{job[\"output_file\"]}', 'filename': job[\"output_file\"]})}\n\n"
+                result_data = {
+                    'download_url': f'/api/dj-tag/download/{job["output_file"]}',
+                    'filename': job["output_file"]
+                }
+                yield "event: complete\n"
+                yield f"data: {json.dumps(result_data)}\n\n"
             return Response(
                 complete_stream(),
                 mimetype="text/event-stream",
@@ -289,8 +293,12 @@ def stream(job_id: str):
             )
         elif job["status"] == "failed":
             def error_stream():
-                yield f"event: error\n"
-                yield f"data: {json.dumps({'error': job.get('error', 'Generation failed'), 'retry': False})}\n\n"
+                error_data = {
+                    'error': job.get('error', 'Generation failed'),
+                    'retry': False
+                }
+                yield "event: error\n"
+                yield f"data: {json.dumps(error_data)}\n\n"
             return Response(
                 error_stream(),
                 mimetype="text/event-stream",
