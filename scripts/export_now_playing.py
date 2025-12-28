@@ -518,7 +518,12 @@ def get_current_playing() -> tuple[dict | None, dict | None]:
                             ELSE 'Unknown'
                         END
                     ) as title,
-                    COALESCE(a.artist, 'Clint Ecker') as artist,
+                    COALESCE(a.artist,
+                        CASE
+                            WHEN ph.source IN ('break', 'bumper') THEN ?
+                            ELSE 'Clint Ecker'
+                        END
+                    ) as artist,
                     a.album,
                     a.duration_sec,
                     ph.played_at,
@@ -529,7 +534,8 @@ def get_current_playing() -> tuple[dict | None, dict | None]:
                   AND ph.source IN ('music', 'break', 'bumper')
                 ORDER BY ph.played_at DESC
                 LIMIT 1
-                """
+                """,
+                (config.station_name,)
             )
 
             row = cursor.fetchone()
@@ -564,7 +570,11 @@ def get_current_playing() -> tuple[dict | None, dict | None]:
         else:
             source_type = "music"
 
-        # Get most recent play_history entry for this file
+        # Get most recent play_history entry for this file.
+        # The asset_id for non-music tracks (breaks, bumpers) is the filename stem,
+        # so we need to match on that OR the full path for music assets.
+        filename_stem = os.path.splitext(os.path.basename(filename))[0]
+
         cursor.execute(
             """
             SELECT
@@ -576,19 +586,24 @@ def get_current_playing() -> tuple[dict | None, dict | None]:
                         ELSE 'Unknown'
                     END
                 ) as title,
-                COALESCE(a.artist, 'Clint Ecker') as artist,
+                COALESCE(a.artist,
+                    CASE
+                        WHEN ph.source IN ('break', 'bumper') THEN ?
+                        ELSE 'Clint Ecker'
+                    END
+                ) as artist,
                 a.album,
                 a.duration_sec,
                 ph.played_at,
                 ph.source
             FROM play_history ph
             LEFT JOIN assets a ON ph.asset_id = a.id
-            WHERE a.path = ?
+            WHERE (a.path = ? OR ph.asset_id = ?)
               AND ph.played_at >= datetime('now', '-10 minutes')
             ORDER BY ph.played_at DESC
             LIMIT 1
             """,
-            (filename,)
+            (config.station_name, filename, filename_stem)
         )
 
         row = cursor.fetchone()

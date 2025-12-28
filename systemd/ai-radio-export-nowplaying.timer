@@ -1,11 +1,17 @@
-[Unit]
-Description=AI Radio Now Playing Export Timer
-Documentation=https://github.com/your-username/ai-radio-station
+# DISABLED: This timer is disabled to eliminate race conditions
+# The now_playing.json export is now triggered exclusively by record_play.py
+# when tracks change, providing immediate updates without polling conflicts.
+#
+# If you need to re-enable periodic exports for debugging, uncomment below:
 
-[Timer]
-# Run every 10 seconds for more responsive now playing updates
-OnBootSec=5s
-OnUnitActiveSec=10s
-
-[Install]
-WantedBy=timers.target
+# [Unit]
+# Description=AI Radio Now Playing Export Timer
+# Documentation=https://github.com/your-username/ai-radio-station
+#
+# [Timer]
+# # Run every 10 seconds for more responsive now playing updates
+# OnBootSec=5s
+# OnUnitActiveSec=10s
+#
+# [Install]
+# WantedBy=timers.target
