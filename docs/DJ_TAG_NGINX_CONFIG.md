@@ -46,8 +46,8 @@ location /api/dj-tag/ {
     proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
     proxy_set_header X-Forwarded-Proto $scheme;
 
-    # Proxy to Flask API
-    proxy_pass http://dj_tag_api/;
+    # Proxy to Flask API (no trailing slash - preserves full path)
+    proxy_pass http://dj_tag_api;
 }
 ```
 

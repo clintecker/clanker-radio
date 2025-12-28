@@ -442,8 +442,12 @@
                 });
 
                 eventSource.addEventListener('error', (e) => {
-                    const data = JSON.parse(e.data);
-                    showError(data.error);
+                    try {
+                        const data = JSON.parse(e.data);
+                        showError(data.error || 'An error occurred');
+                    } catch (parseError) {
+                        showError('An unexpected error occurred');
+                    }
                     document.getElementById('progressSection').classList.remove('active');
                     document.getElementById('generateBtn').disabled = false;
                     eventSource.close();

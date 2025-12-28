@@ -22,7 +22,6 @@ from flask import Flask, request, jsonify, Response, send_file
 from flask_cors import CORS
 
 # Add parent directory to path for imports
-import sys
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from src.ai_radio.dj_tag_generator import DJTagGenerator, GenerationProgress
@@ -218,6 +217,10 @@ def generate():
             "job_id": "abc123",
             "stream_url": "/api/dj-tag/stream/abc123"
         }
+
+    Note: Generation only starts when client connects to stream_url.
+    Jobs remain in "generating" state until stream connection is made.
+    This is expected behavior for single-user admin tool.
     """
     try:
         data = request.json
@@ -265,11 +268,39 @@ def stream(job_id: str):
         - progress: {"percent": 45, "message": "Converting..."}
         - complete: {"download_url": "/api/.../file.mp3", "filename": "..."}
         - error: {"error": "...", "retry": true/false}
+
+    Note: Only starts generation if job status is "generating" and not already started.
+    Prevents duplicate generation threads on SSE reconnects.
     """
     with jobs_lock:
         if job_id not in jobs:
             return jsonify({"error": "Job not found"}), 404
         job = jobs[job_id]
+
+        # If job is already complete or failed, return final result
+        if job["status"] == "complete":
+            def complete_stream():
+                yield f"event: complete\n"
+                yield f"data: {json.dumps({'download_url': f'/api/dj-tag/download/{job[\"output_file\"]}', 'filename': job[\"output_file\"]})}\n\n"
+            return Response(
+                complete_stream(),
+                mimetype="text/event-stream",
+                headers={"Cache-Control": "no-cache", "Connection": "keep-alive", "X-Accel-Buffering": "no"},
+            )
+        elif job["status"] == "failed":
+            def error_stream():
+                yield f"event: error\n"
+                yield f"data: {json.dumps({'error': job.get('error', 'Generation failed'), 'retry': False})}\n\n"
+            return Response(
+                error_stream(),
+                mimetype="text/event-stream",
+                headers={"Cache-Control": "no-cache", "Connection": "keep-alive", "X-Accel-Buffering": "no"},
+            )
+
+        # Mark as started to prevent duplicate generation
+        if job.get("started", False):
+            return jsonify({"error": "Generation already in progress"}), 409
+        job["started"] = True
 
     def event_stream():
         """Generate SSE events."""
