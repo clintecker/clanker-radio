@@ -627,9 +627,12 @@ def get_current_playing() -> tuple[dict | None, dict | None]:
 
         if row:
             duration_sec = row[4]
+            row_source = row[6]  # Source from database (accurate for this play record)
+
             # If duration is null (breaks/bumpers not in assets table), get from file
-            if duration_sec is None and source_type in ("break", "bumper") and filename:
-                logger.info(f"Getting duration for {source_type} from file: {filename}")
+            # Use row_source instead of source_type since Liquidsoap may have moved to next track
+            if duration_sec is None and row_source in ("break", "bumper") and filename:
+                logger.info(f"Getting duration for {row_source} from file: {filename}")
                 duration_sec = get_duration_from_file(filename)
                 logger.info(f"Duration result: {duration_sec}")
 
@@ -640,7 +643,7 @@ def get_current_playing() -> tuple[dict | None, dict | None]:
                 "album": row[3],
                 "duration_sec": duration_sec,
                 "played_at": row[5],
-                "source": row[6]
+                "source": row_source
             }
         else:
             # Not in play_history yet - construct minimal metadata

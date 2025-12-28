@@ -303,6 +303,49 @@ After initial implementation, a thorough code review identified several critical
 3. **Integration Tests** for SQL query logic with various track types
 4. **Database WAL Mode** optimization for better concurrent access
 
+## Post-Deployment Fixes (2025-12-28)
+
+After initial deployment, we discovered two additional issues:
+
+### Issue 4: Triggered Exports Not Working
+
+**Problem**: File ownership prevented triggered exports from running. Scripts were owned by deployment user instead of `ai-radio` user.
+
+**Symptom**: Station IDs and track changes only updated via 2-minute fallback timer, causing up to 2-minute delays in metadata updates.
+
+**Root Cause**: Deployment script copies files correctly but in one instance, ownership was not set properly.
+
+**Fix**: Ensured deployment script sets correct ownership:
+```bash
+sudo chown ai-radio:ai-radio /srv/ai_radio/scripts/*.py
+```
+
+**Verification**: The `deploy_scripts()` function already includes this step (line 139), but should be verified after each deployment.
+
+### Issue 5: Station ID Duration Showing as Null
+
+**Problem**: Station IDs showed `duration_sec: null`, causing frontend playhead to display "00:00 / 00:00".
+
+**Root Cause**: When fallback timer runs ~50 seconds after station ID starts:
+1. SQL query finds station ID in play_history (within 30-second window initially)
+2. But Liquidsoap has moved to next music track
+3. Code checked `source_type` from NEW Liquidsoap metadata (music)
+4. Didn't call ffprobe because source_type != "bumper"
+
+**Fix Applied** (scripts/export_now_playing.py:630-637):
+- Use `row_source` from database instead of `source_type` from Liquidsoap
+- This ensures duration is calculated based on the ACTUAL play record, not current stream state
+
+```python
+row_source = row[6]  # Source from database (accurate for this play record)
+
+if duration_sec is None and row_source in ("break", "bumper") and filename:
+    logger.info(f"Getting duration for {row_source} from file: {filename}")
+    duration_sec = get_duration_from_file(filename)
+```
+
+**Impact**: Station IDs and breaks now show correct duration and playhead progress.
+
 ## Related Issues
 
 - Issue #1: Station ID playback causes queue rewind and stuck now_playing metadata ✅
