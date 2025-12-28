@@ -113,7 +113,7 @@ credentials.json
 /srv/
 
 # Nginx admin interface (if it contains sensitive data)
-nginx/admin/
+# nginx/admin/ - Re-enabled to track admin HTML files
 
 # Generated files
 next.mp3
