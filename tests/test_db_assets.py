@@ -4,7 +4,7 @@ import pytest
 import sqlite3
 from pathlib import Path
 
-from ai_radio.db_assets import insert_asset, get_asset, get_asset_by_path
+from ai_radio.db_assets import insert_asset, get_asset, get_asset_by_id, get_asset_by_path
 
 
 @pytest.fixture
@@ -99,7 +99,7 @@ def test_get_asset_by_id(db_conn):
         energy_level=75,
     )
 
-    asset = get_asset(db_conn, "abc123")
+    asset = get_asset_by_id(db_conn, "abc123")
 
     assert asset is not None
     assert asset["id"] == "abc123"

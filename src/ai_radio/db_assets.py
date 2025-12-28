@@ -108,6 +108,10 @@ def get_asset(conn: sqlite3.Connection, asset_id: str) -> Optional[dict]:
     }
 
 
+# Alias for clarity in migration code
+get_asset_by_id = get_asset
+
+
 def get_asset_by_path(conn: sqlite3.Connection, path: Path) -> Optional[dict]:
     """Retrieve asset record by file path.
 
