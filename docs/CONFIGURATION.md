@@ -188,6 +188,83 @@ RADIO_NEWS_SCRIPT_TEMPERATURE=0.6
 - Lower = straighter delivery
 - Recommended: 0.5-0.7 (news should be grounded)
 
+### Automatic Fallback Chains
+
+The station uses automatic fallback to prevent service interruptions when API quotas are exhausted.
+
+#### Script Generation Fallback
+
+**Fallback order:** Claude → Gemini → OpenAI
+
+When generating news/weather scripts, the system automatically tries each provider in sequence if the previous one fails with a quota error.
+
+**Quota error detection:**
+- HTTP 429 (rate limit)
+- "quota exceeded" or "insufficient_quota" messages
+- "credit balance" errors
+- "resource_exhausted" errors
+
+**Configuration:**
+```bash
+# Primary (required)
+RADIO_LLM_API_KEY=sk-ant-api03-...
+
+# First fallback (recommended)
+RADIO_GEMINI_API_KEY=AIza...
+
+# Final fallback (optional but recommended)
+RADIO_OPENAI_API_KEY=sk-proj-...
+```
+
+**Minimum configuration:** Just Claude (`RADIO_LLM_API_KEY`)
+- If Claude quota exhausted, breaks will fail to generate
+- Template "AI Radio Station update" may play
+
+**Recommended configuration:** Claude + Gemini
+- Two-tier fallback provides resilience
+- Gemini has generous free tier
+- Covers most quota scenarios
+
+**Full protection:** Claude + Gemini + OpenAI
+- Three-tier fallback
+- Maximum resilience
+- Recommended for production stations
+
+#### Text-to-Speech Fallback
+
+**Fallback order:** Gemini Pro → Gemini Flash → OpenAI
+
+TTS also uses automatic fallback when quota errors occur.
+
+**Configuration:**
+```bash
+RADIO_TTS_PROVIDER=gemini           # Primary provider
+RADIO_GEMINI_API_KEY=AIza...        # Used for both Gemini models
+RADIO_OPENAI_API_KEY=sk-proj-...    # OpenAI fallback (optional)
+
+# Gemini models (fallback is automatic)
+RADIO_GEMINI_TTS_MODEL=gemini-2.5-pro-preview-tts  # Pro tried first
+# If Pro quota exhausted, automatically tries Flash
+# If both Gemini quotas exhausted, tries OpenAI if key configured
+```
+
+**Note:** Same API keys are used for both purposes:
+- `RADIO_GEMINI_API_KEY` → Script generation AND TTS
+- `RADIO_OPENAI_API_KEY` → Script generation AND TTS
+
+**Monitoring fallbacks:**
+
+Check logs to see when fallbacks occur:
+```bash
+journalctl -u ai-radio-break-gen.service | grep -E "quota|fallback|failed"
+```
+
+Successful fallback looks like:
+```
+✗ Anthropic Claude quota exhausted
+✓ Google Gemini script generation succeeded
+```
+
 ---
 
 ## News Configuration

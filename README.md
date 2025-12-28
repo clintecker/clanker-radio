@@ -33,9 +33,28 @@ An autonomous internet radio station that generates and broadcasts AI-created co
 **Minimum requirements:**
 - Ubuntu 24.04 server with SSH + sudo access
 - 2GB RAM, 10GB disk space
-- API keys: [Anthropic Claude](https://console.anthropic.com/) + [Google Gemini](https://ai.google.dev/)
+- API keys (see below)
 - Your coordinates (for weather)
 - Music files (20+ tracks minimum)
+
+#### API Keys
+
+The station uses AI providers with automatic fallback for resilience:
+
+**Script Generation** (News/Weather bulletins):
+- **Fallback chain:** Claude → Gemini → OpenAI
+- **Minimum:** [Anthropic Claude](https://console.anthropic.com/) (required)
+- **Recommended:** Claude + [Google Gemini](https://ai.google.dev/) (robust two-tier fallback)
+- **Full protection:** Claude + Gemini + [OpenAI](https://platform.openai.com/api-keys) (three-tier fallback)
+
+**Text-to-Speech** (Voice synthesis):
+- **Fallback chain:** Gemini Pro → Gemini Flash → OpenAI
+- **Recommended:** [Google Gemini](https://ai.google.dev/) (better quality, lower cost)
+- **Optional:** [OpenAI](https://platform.openai.com/api-keys) (fallback if Gemini quota exhausted)
+
+**Key reuse:** Same Gemini and OpenAI keys work for both script generation AND voice synthesis.
+
+**Why fallbacks matter:** When API quotas are exhausted, the system automatically tries the next provider. Without fallbacks, breaks may fail to generate and a generic template will play instead.
 
 ### Default vs Custom
 
@@ -131,7 +150,7 @@ See [VM Setup Guide](docs/VM_SETUP.md) for complete system requirements and inst
 - Ubuntu 24.04 LTS server
 - 2GB RAM, 10GB disk space
 - Python 3.12+, Liquidsoap 2.0+, Icecast2, FFmpeg
-- API keys: Anthropic Claude + Google Gemini
+- API keys: Minimum Claude (required), recommended Claude + Gemini (see [API Keys](#api-keys) section)
 
 ## Installation
 
@@ -149,13 +168,15 @@ All station configuration is done via `.env` file - no code changes needed!
 
 **Configure 100+ settings including:**
 - Station identity (name, location, personality)
-- API keys (Claude for scripts, Gemini/OpenAI for voice)
+- API keys (with automatic fallback: Claude → Gemini → OpenAI)
 - World-building (cyberpunk dystopia? Tropical island? Jazz lounge?)
 - Announcer personality (energy level, vibe, humor style)
 - News sources (RSS feeds + hallucinated content)
 - Audio timing (crossfades, bed volumes, break scheduling)
 
-See [Configuration Guide](docs/CONFIGURATION.md) for complete reference.
+**Automatic fallback chains:** The station automatically falls back to alternate AI providers when quotas are exhausted, ensuring continuous operation.
+
+See [Configuration Guide](docs/CONFIGURATION.md) for complete reference including detailed fallback documentation.
 
 ### Station Scheduling
 
