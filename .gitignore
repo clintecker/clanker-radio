@@ -51,6 +51,9 @@ htmlcov/
 *~
 .DS_Store
 
+# Git worktrees
+.worktrees/
+
 # Database
 *.db
 *.sqlite
