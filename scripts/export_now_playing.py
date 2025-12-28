@@ -527,7 +527,8 @@ def get_current_playing() -> tuple[dict | None, dict | None]:
                     a.album,
                     a.duration_sec,
                     ph.played_at,
-                    ph.source
+                    ph.source,
+                    a.path
                 FROM play_history ph
                 LEFT JOIN assets a ON ph.asset_id = a.id
                 WHERE ph.played_at >= datetime('now', '-10 minutes')
@@ -544,14 +545,42 @@ def get_current_playing() -> tuple[dict | None, dict | None]:
             if not row:
                 return None, stream_info
 
+            # Get duration from file if needed (same logic as main path)
+            duration_sec = row[4]
+            row_source = row[6]
+            row_path = row[7]
+
+            if duration_sec is None and row_source in ("break", "bumper"):
+                if row_path and os.path.exists(row_path):
+                    file_to_probe = row_path
+                else:
+                    asset_id = row[0]
+                    base_dir = config.assets_path
+                    subdir = "bumpers" if row_source == "bumper" else "breaks"
+
+                    file_to_probe = None
+                    for ext in [".wav", ".mp3", ".ogg"]:
+                        candidate_path = base_dir / subdir / f"{asset_id}{ext}"
+                        if candidate_path.exists():
+                            file_to_probe = str(candidate_path)
+                            break
+
+                    if file_to_probe is None:
+                        logger.warning(f"[Fallback] Could not find file for {row_source} asset_id={asset_id}")
+
+                if file_to_probe:
+                    logger.info(f"[Fallback] Getting duration for {row_source} from file: {file_to_probe}")
+                    duration_sec = get_duration_from_file(file_to_probe)
+                    logger.info(f"[Fallback] Duration result: {duration_sec}")
+
             current = {
                 "asset_id": row[0],
                 "title": row[1],
                 "artist": row[2],
                 "album": row[3],
-                "duration_sec": row[4],
+                "duration_sec": duration_sec,
                 "played_at": row[5],
-                "source": row[6]
+                "source": row_source
             }
 
             return current, stream_info
@@ -608,7 +637,8 @@ def get_current_playing() -> tuple[dict | None, dict | None]:
                 a.album,
                 a.duration_sec,
                 ph.played_at,
-                ph.source
+                ph.source,
+                a.path
             FROM play_history ph
             LEFT JOIN assets a ON ph.asset_id = a.id
             WHERE (
@@ -628,13 +658,39 @@ def get_current_playing() -> tuple[dict | None, dict | None]:
         if row:
             duration_sec = row[4]
             row_source = row[6]  # Source from database (accurate for this play record)
+            row_path = row[7]    # Path from database (may be None for bumpers/breaks not in assets)
 
             # If duration is null (breaks/bumpers not in assets table), get from file
-            # Use row_source instead of source_type since Liquidsoap may have moved to next track
-            if duration_sec is None and row_source in ("break", "bumper") and filename:
-                logger.info(f"Getting duration for {row_source} from file: {filename}")
-                duration_sec = get_duration_from_file(filename)
-                logger.info(f"Duration result: {duration_sec}")
+            # Use row_path from database if available, otherwise construct from asset_id
+            # This handles cases where Liquidsoap has moved to next track after the record was created
+            if duration_sec is None and row_source in ("break", "bumper"):
+                # Determine which file path to use
+                if row_path and os.path.exists(row_path):
+                    # Use path from database if available (music tracks in assets table)
+                    file_to_probe = row_path
+                else:
+                    # Construct path from asset_id for bumpers/breaks not in assets table
+                    # asset_id is filename stem like "station_id_02" or "break_20251222_025240"
+                    asset_id = row[0]
+                    base_dir = config.assets_path
+                    subdir = "bumpers" if row_source == "bumper" else "breaks"
+
+                    # Try common extensions
+                    file_to_probe = None
+                    for ext in [".wav", ".mp3", ".ogg"]:
+                        candidate_path = base_dir / subdir / f"{asset_id}{ext}"
+                        if candidate_path.exists():
+                            file_to_probe = str(candidate_path)
+                            break
+
+                    if file_to_probe is None:
+                        # File not found, skip duration calculation
+                        logger.warning(f"Could not find file for {row_source} asset_id={asset_id}")
+
+                if file_to_probe:
+                    logger.info(f"Getting duration for {row_source} from file: {file_to_probe}")
+                    duration_sec = get_duration_from_file(file_to_probe)
+                    logger.info(f"Duration result: {duration_sec}")
 
             current = {
                 "asset_id": row[0],
