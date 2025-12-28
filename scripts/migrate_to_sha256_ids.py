@@ -104,9 +104,10 @@ def find_non_sha256_ids(conn: sqlite3.Connection) -> list[tuple[str, str]]:
     cursor = conn.cursor()
     cursor.execute(
         """
-        SELECT DISTINCT asset_id, kind
-        FROM play_history
-        ORDER BY asset_id
+        SELECT DISTINCT ph.asset_id, COALESCE(a.kind, 'unknown') as kind
+        FROM play_history ph
+        LEFT JOIN assets a ON ph.asset_id = a.id
+        ORDER BY ph.asset_id
         """
     )
 
@@ -363,14 +364,27 @@ def main():
 
     # Build combined stem → SHA256 mapping
     stem_to_sha256 = {}
-    stem_to_sha256.update(bumper_mapping)
+    stem_to_sha256.update(
+        {stem: sha256 for stem, (sha256, _) in bumper_mapping.items()}
+    )
     stem_to_sha256.update(
         {stem: sha256 for stem, (sha256, _) in break_mapping.items()}
     )
 
-    # Step 2: Ingest files into assets table
+    # Step 2: Create database backup (before any modifications)
+    if not args.dry_run:
+        print("\n" + "=" * 70)
+        print("Step 2: Creating database backup")
+        print("=" * 70)
+
+        backup_path = args.db.parent / f"{args.db.stem}.bak-pre-migration"
+        print(f"\n💾 Creating backup: {backup_path}")
+        shutil.copy2(args.db, backup_path)
+        print(f"   ✅ Backup created")
+
+    # Step 3: Ingest files into assets table
     print("\n" + "=" * 70)
-    print("Step 2: Ingesting files into assets table")
+    print("Step 3: Ingesting files into assets table")
     print("=" * 70)
 
     conn = sqlite3.connect(args.db)
@@ -414,9 +428,9 @@ def main():
             else:
                 print(f"   🔍 Would ingest: {file_path.name}")
 
-        # Step 3: Find non-SHA256 IDs in play_history
+        # Step 4: Find non-SHA256 IDs in play_history
         print("\n" + "=" * 70)
-        print("Step 3: Finding non-SHA256 IDs in play_history")
+        print("Step 4: Finding non-SHA256 IDs in play_history")
         print("=" * 70)
 
         non_sha256_ids = find_non_sha256_ids(conn)
@@ -449,17 +463,6 @@ def main():
                     create_orphan_asset(conn, asset_id, kind)
                 else:
                     print(f"      🔍 Would create orphan asset: {orphan_id}")
-
-        # Step 4: Create backup (unless dry-run)
-        if not args.dry_run:
-            print("\n" + "=" * 70)
-            print("Step 4: Creating database backup")
-            print("=" * 70)
-
-            backup_path = args.db.parent / f"{args.db.stem}.bak-pre-migration"
-            print(f"\n💾 Creating backup: {backup_path}")
-            shutil.copy2(args.db, backup_path)
-            print(f"   ✅ Backup created")
 
         # Step 5: Update play_history
         print("\n" + "=" * 70)

@@ -161,38 +161,52 @@ class TestFindNonSHA256IDs:
         with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as tmp:
             conn = sqlite3.connect(tmp.name)
 
-            # Create tables
+            # Create tables matching real schema
             conn.execute("""
                 CREATE TABLE play_history (
                     id INTEGER PRIMARY KEY,
                     asset_id TEXT NOT NULL,
+                    played_at TEXT NOT NULL,
+                    source TEXT NOT NULL
+                )
+            """)
+            conn.execute("""
+                CREATE TABLE assets (
+                    id TEXT PRIMARY KEY,
+                    path TEXT NOT NULL,
                     kind TEXT NOT NULL,
-                    played_at TEXT NOT NULL
+                    duration_sec REAL NOT NULL,
+                    created_at TEXT NOT NULL
                 )
             """)
 
             # Insert test data
             conn.execute(
-                "INSERT INTO play_history (asset_id, kind, played_at) VALUES (?, ?, ?)",
-                ("bumper_001", "bumper", "2025-01-01T00:00:00Z"),
+                "INSERT INTO play_history (asset_id, played_at, source) VALUES (?, ?, ?)",
+                ("bumper_001", "2025-01-01T00:00:00Z", "bumper"),
             )
             conn.execute(
-                "INSERT INTO play_history (asset_id, kind, played_at) VALUES (?, ?, ?)",
-                ("a" * 64, "break", "2025-01-01T00:00:00Z"),
+                "INSERT INTO play_history (asset_id, played_at, source) VALUES (?, ?, ?)",
+                ("a" * 64, "2025-01-01T00:00:00Z", "break"),
             )
             conn.execute(
-                "INSERT INTO play_history (asset_id, kind, played_at) VALUES (?, ?, ?)",
-                ("old_break_weather", "break", "2025-01-01T00:00:00Z"),
+                "INSERT INTO play_history (asset_id, played_at, source) VALUES (?, ?, ?)",
+                ("old_break_weather", "2025-01-01T00:00:00Z", "break"),
+            )
+            # Add corresponding assets (old IDs won't have assets, so they'll show as 'unknown')
+            conn.execute(
+                "INSERT INTO assets (id, path, kind, duration_sec, created_at) VALUES (?, ?, ?, ?, ?)",
+                ("a" * 64, "/path/to/break.mp3", "break", 10.0, "2025-01-01T00:00:00Z"),
             )
             conn.commit()
 
             # Find non-SHA256 IDs
             non_sha256 = find_non_sha256_ids(conn)
 
-            # Verify results
+            # Verify results (old IDs without assets get 'unknown' kind)
             assert len(non_sha256) == 2
-            assert ("bumper_001", "bumper") in non_sha256
-            assert ("old_break_weather", "break") in non_sha256
+            assert ("bumper_001", "unknown") in non_sha256
+            assert ("old_break_weather", "unknown") in non_sha256
 
             # SHA256 ID should not be in results
             sha256_ids = [id for id, _ in non_sha256]
