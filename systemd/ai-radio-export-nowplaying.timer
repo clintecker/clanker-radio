@@ -1,17 +1,13 @@
-# DISABLED: This timer is disabled to eliminate race conditions
-# The now_playing.json export is now triggered exclusively by record_play.py
-# when tracks change, providing immediate updates without polling conflicts.
-#
-# If you need to re-enable periodic exports for debugging, uncomment below:
+[Unit]
+Description=AI Radio Now Playing Export Timer (Fallback)
+Documentation=https://github.com/your-username/ai-radio-station
 
-# [Unit]
-# Description=AI Radio Now Playing Export Timer
-# Documentation=https://github.com/your-username/ai-radio-station
-#
-# [Timer]
-# # Run every 10 seconds for more responsive now playing updates
-# OnBootSec=5s
-# OnUnitActiveSec=10s
-#
-# [Install]
-# WantedBy=timers.target
+[Timer]
+# Fallback timer - runs every 2 minutes as safety net
+# Normal operation: exports triggered immediately by record_play.py
+# This timer only catches cases where triggered export fails
+OnBootSec=30s
+OnUnitActiveSec=2m
+
+[Install]
+WantedBy=timers.target

@@ -559,9 +559,6 @@ def get_current_playing() -> tuple[dict | None, dict | None]:
         # Got Liquidsoap metadata - look up in play_history by filename
         filename = ls_metadata["filename"]
 
-        conn = sqlite3.connect(DB_PATH)
-        cursor = conn.cursor()
-
         # Determine source type from filename path
         if "/breaks/" in filename:
             source_type = "break"
@@ -570,9 +567,20 @@ def get_current_playing() -> tuple[dict | None, dict | None]:
         else:
             source_type = "music"
 
+        # For non-music tracks, give database write time to complete
+        # record_play.py triggers this export asynchronously, so there's a tiny
+        # race window where we might query before the write finishes
+        if source_type in ("break", "bumper"):
+            import time
+            time.sleep(0.1)  # 100ms buffer
+
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+
         # Get most recent play_history entry for this file.
-        # The asset_id for non-music tracks (breaks, bumpers) is the filename stem,
-        # so we need to match on that OR the full path for music assets.
+        # Music tracks: match on full path (a.path) within 10 minutes
+        # Non-music tracks: match on asset_id (filename stem) within 30 seconds
+        # The tighter window for non-music prevents matching old plays of same asset_id
         filename_stem = os.path.splitext(os.path.basename(filename))[0]
 
         cursor.execute(
@@ -598,8 +606,11 @@ def get_current_playing() -> tuple[dict | None, dict | None]:
                 ph.source
             FROM play_history ph
             LEFT JOIN assets a ON ph.asset_id = a.id
-            WHERE (a.path = ? OR ph.asset_id = ?)
-              AND ph.played_at >= datetime('now', '-10 minutes')
+            WHERE (
+                (a.path = ? AND ph.played_at >= datetime('now', '-10 minutes'))
+                OR
+                (ph.asset_id = ? AND ph.played_at >= datetime('now', '-30 seconds') AND ph.source IN ('break', 'bumper'))
+            )
             ORDER BY ph.played_at DESC
             LIMIT 1
             """,

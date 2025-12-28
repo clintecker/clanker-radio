@@ -42,22 +42,26 @@ Fixed critical bugs causing incorrect metadata display after station IDs and new
 
 ## Fixes Applied
 
-### Fix 1: Corrected SQL Query ✅
+### Fix 1: Corrected SQL Query ✅ (Updated after code review)
 
 **File:** `scripts/export_now_playing.py`
 
 **Changes:**
 1. Added `filename_stem` calculation to extract asset_id for non-music tracks
-2. Changed WHERE clause from:
+2. Changed WHERE clause with **tighter time windows** to prevent matching old plays:
    ```sql
-   WHERE a.path = ?
+   WHERE (
+       (a.path = ? AND ph.played_at >= datetime('now', '-10 minutes'))
+       OR
+       (ph.asset_id = ? AND ph.played_at >= datetime('now', '-30 seconds')
+        AND ph.source IN ('break', 'bumper'))
+   )
    ```
-   To:
-   ```sql
-   WHERE (a.path = ? OR ph.asset_id = ?)
-   ```
+   - Music tracks: 10-minute window (normal)
+   - Station IDs/breaks: **30-second window** (prevents matching old plays of same asset_id)
 3. Fixed artist logic to use `config.station_name` for breaks/bumpers
 4. Updated query parameters to include station name and filename stem
+5. **Added 100ms sleep buffer** for non-music tracks to allow database write to complete
 
 **Code:**
 ```python
@@ -98,20 +102,20 @@ cursor.execute(
 
 **Also fixed fallback query at line 510-539** with same artist logic improvement.
 
-### Fix 2: Disabled Systemd Timer ✅
+### Fix 2: Timer as Fallback ✅ (Changed after code review)
 
 **File:** `systemd/ai-radio-export-nowplaying.timer`
 
 **Changes:**
-- Commented out entire timer configuration
-- Added explanation of why it's disabled
-- Kept file for reference/debugging
+- Changed from 10-second interval to **2-minute fallback**
+- Timer now runs every 2 minutes as safety net
+- Primary exports still triggered immediately by `record_play.py`
 
 **Rationale:**
-- Triggered exports from `record_play.py` provide immediate updates
-- Eliminates race conditions
-- Reduces unnecessary system load
-- More reliable than periodic polling
+- Triggered exports provide immediate updates (100-200ms)
+- 2-minute fallback catches failures without racing with triggered exports
+- Provides resilience if `record_play.py` crashes or fails to trigger
+- Much longer interval (2min vs 10s) prevents race conditions
 
 ### Fix 3: Optimized Frontend Polling ✅
 
@@ -265,9 +269,34 @@ For even more responsive updates, consider implementing Server-Sent Events (SSE)
 4. `docs/now_playing_sequence_diagram.md` - Added sequence diagrams (new)
 5. `docs/FIXES_APPLIED.md` - This document (new)
 
+## Code Review Findings
+
+After initial implementation, a thorough code review identified several critical issues that have been addressed:
+
+### Critical Issues Fixed
+
+1. **SQL Query Logic Flaw**: Original fix used `WHERE (a.path = ? OR ph.asset_id = ?)` which could match OLD plays of the same asset_id within the 10-minute window. Fixed by using a 30-second window for non-music tracks.
+
+2. **Race Condition**: Export process runs asynchronously and could query database before write completes. Fixed by adding 100ms sleep buffer for non-music tracks.
+
+3. **Timer Disabled Completely**: Removing timer entirely left no resilience if triggered exports fail. Fixed by keeping timer as 2-minute fallback.
+
+### Known Limitations
+
+- **Frontend Polling**: 2-second polling still has some latency for very short tracks (could be improved with Server-Sent Events)
+- **Test Coverage**: Integration tests not yet written (recommended before production deployment)
+- **30-Second Window**: Very rapid repeated plays of same station ID could theoretically fail (unlikely in practice)
+
+### Future Improvements
+
+1. **Server-Sent Events (SSE)** for real-time push updates (sub-second latency)
+2. **Adaptive Frontend Polling** that increases frequency near track boundaries
+3. **Integration Tests** for SQL query logic with various track types
+4. **Database WAL Mode** optimization for better concurrent access
+
 ## Related Issues
 
-- Issue #1: Station ID playback causes queue rewind and stuck now_playing metadata
-- Issue #5: now_playing.json causes display issues after station IDs and breaks
+- Issue #1: Station ID playback causes queue rewind and stuck now_playing metadata ✅
+- Issue #5: now_playing.json causes display issues after station IDs and breaks ✅
 
 Both issues should be resolved by these fixes.
