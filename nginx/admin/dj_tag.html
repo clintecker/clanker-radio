@@ -1,0 +1,477 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DJ Tag Generator - LAST BYTE RADIO</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Courier New', monospace;
+            background: #1a1a2e;
+            color: #eee;
+            padding: 40px 20px;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            color: #667eea;
+            margin-bottom: 0.5em;
+            font-size: 2.5em;
+        }
+
+        .subtitle {
+            color: #999;
+            margin-bottom: 2em;
+            font-size: 1.1em;
+        }
+
+        .card {
+            background: #16213e;
+            border: 1px solid #0f3460;
+            border-radius: 8px;
+            padding: 2em;
+            margin-bottom: 2em;
+        }
+
+        .form-group {
+            margin-bottom: 1.5em;
+        }
+
+        label {
+            display: block;
+            color: #667eea;
+            margin-bottom: 0.5em;
+            font-weight: bold;
+        }
+
+        textarea, input[type="text"], select {
+            width: 100%;
+            padding: 0.75em;
+            background: #0f3460;
+            border: 1px solid #667eea;
+            border-radius: 4px;
+            color: #eee;
+            font-family: 'Courier New', monospace;
+            font-size: 1em;
+        }
+
+        textarea {
+            min-height: 120px;
+            resize: vertical;
+        }
+
+        .slider-group {
+            display: flex;
+            align-items: center;
+            gap: 1em;
+        }
+
+        input[type="range"] {
+            flex: 1;
+            -webkit-appearance: none;
+            appearance: none;
+            height: 6px;
+            background: #0f3460;
+            border-radius: 3px;
+            outline: none;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 18px;
+            height: 18px;
+            background: #667eea;
+            cursor: pointer;
+            border-radius: 50%;
+        }
+
+        input[type="range"]::-moz-range-thumb {
+            width: 18px;
+            height: 18px;
+            background: #667eea;
+            cursor: pointer;
+            border-radius: 50%;
+            border: none;
+        }
+
+        .slider-value {
+            min-width: 60px;
+            text-align: right;
+            color: #eee;
+            font-weight: bold;
+        }
+
+        .radio-group {
+            display: flex;
+            gap: 1.5em;
+        }
+
+        .radio-group label {
+            display: flex;
+            align-items: center;
+            gap: 0.5em;
+            cursor: pointer;
+            font-weight: normal;
+        }
+
+        .radio-group input[type="radio"] {
+            width: auto;
+        }
+
+        button {
+            background: #667eea;
+            color: #fff;
+            border: none;
+            padding: 1em 2em;
+            font-size: 1.1em;
+            font-weight: bold;
+            border-radius: 4px;
+            cursor: pointer;
+            font-family: 'Courier New', monospace;
+            transition: all 0.3s;
+        }
+
+        button:hover:not(:disabled) {
+            background: #5568d3;
+            transform: translateY(-2px);
+        }
+
+        button:disabled {
+            background: #444;
+            cursor: not-allowed;
+            opacity: 0.6;
+        }
+
+        .progress-section {
+            display: none;
+            margin-top: 2em;
+        }
+
+        .progress-section.active {
+            display: block;
+        }
+
+        .progress-bar-container {
+            background: #0f3460;
+            border-radius: 4px;
+            overflow: hidden;
+            height: 30px;
+            margin-bottom: 1em;
+        }
+
+        .progress-bar {
+            height: 100%;
+            background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+            width: 0%;
+            transition: width 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #fff;
+            font-weight: bold;
+        }
+
+        .progress-message {
+            color: #aaa;
+            font-style: italic;
+        }
+
+        .error {
+            background: #ff4444;
+            color: #fff;
+            padding: 1em;
+            border-radius: 4px;
+            margin-bottom: 1em;
+            display: none;
+        }
+
+        .error.active {
+            display: block;
+        }
+
+        .back-link {
+            display: inline-block;
+            margin-top: 2em;
+            color: #667eea;
+            text-decoration: none;
+        }
+
+        .back-link:hover {
+            text-decoration: underline;
+        }
+
+        .help-text {
+            color: #999;
+            font-size: 0.9em;
+            margin-top: 0.5em;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎙️ DJ TAG GENERATOR</h1>
+        <div class="subtitle">Generate custom audio tags for your DJ mixes</div>
+
+        <div class="error" id="errorDisplay"></div>
+
+        <div class="card">
+            <form id="tagForm">
+                <div class="form-group">
+                    <label for="tagText">Tag Text *</label>
+                    <textarea
+                        id="tagText"
+                        name="text"
+                        required
+                        maxlength="5000"
+                        placeholder="oh, holy shit! They put MISTER BEEF in the booth?!?"
+                    ></textarea>
+                    <div class="help-text">Max 5000 characters</div>
+                </div>
+
+                <div class="form-group">
+                    <label for="voice">Voice</label>
+                    <select id="voice" name="voice">
+                        <option value="Aoede">Aoede</option>
+                        <option value="Charon">Charon</option>
+                        <option value="Fenrir">Fenrir</option>
+                        <option value="Kore" selected>Kore</option>
+                        <option value="Laomedeia">Laomedeia</option>
+                        <option value="Puck">Puck</option>
+                        <option value="Acherner">Acherner</option>
+                        <option value="Atlas">Atlas</option>
+                        <option value="Callisto">Callisto</option>
+                        <option value="Dione">Dione</option>
+                        <option value="Enceladus">Enceladus</option>
+                        <option value="Hyperion">Hyperion</option>
+                        <option value="Iapetus">Iapetus</option>
+                        <option value="Janus">Janus</option>
+                        <option value="Mimas">Mimas</option>
+                        <option value="Oberon">Oberon</option>
+                        <option value="Pandora">Pandora</option>
+                        <option value="Prometheus">Prometheus</option>
+                        <option value="Rhea">Rhea</option>
+                        <option value="Tethys">Tethys</option>
+                        <option value="Titan">Titan</option>
+                        <option value="Triton">Triton</option>
+                        <option value="Umbriel">Umbriel</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>Model</label>
+                    <div class="radio-group">
+                        <label>
+                            <input type="radio" name="model" value="gemini-2.5-pro-preview-tts" checked>
+                            Pro (High Quality)
+                        </label>
+                        <label>
+                            <input type="radio" name="model" value="gemini-2.5-flash-preview-tts">
+                            Flash (Low Latency)
+                        </label>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="temperature">Temperature (Creativity)</label>
+                    <div class="slider-group">
+                        <input
+                            type="range"
+                            id="temperature"
+                            name="temperature"
+                            min="0"
+                            max="2"
+                            step="0.1"
+                            value="2.0"
+                        >
+                        <span class="slider-value" id="temperatureValue">2.0</span>
+                    </div>
+                    <div class="help-text">0.0 = Consistent, 2.0 = Creative</div>
+                </div>
+
+                <div class="form-group">
+                    <label for="speakingRate">Speaking Rate</label>
+                    <div class="slider-group">
+                        <input
+                            type="range"
+                            id="speakingRate"
+                            name="speaking_rate"
+                            min="0.5"
+                            max="2.0"
+                            step="0.1"
+                            value="1.0"
+                        >
+                        <span class="slider-value" id="speakingRateValue">1.0x</span>
+                    </div>
+                    <div class="help-text">0.5x = Slow, 2.0x = Fast</div>
+                </div>
+
+                <div class="form-group">
+                    <label for="pitch">Pitch</label>
+                    <div class="slider-group">
+                        <input
+                            type="range"
+                            id="pitch"
+                            name="pitch"
+                            min="-20"
+                            max="20"
+                            step="1"
+                            value="0"
+                        >
+                        <span class="slider-value" id="pitchValue">0</span>
+                    </div>
+                    <div class="help-text">-20 = Lower, +20 = Higher</div>
+                </div>
+
+                <div class="form-group">
+                    <label for="stylePrompt">Style Prompt (Optional)</label>
+                    <input
+                        type="text"
+                        id="stylePrompt"
+                        name="style_prompt"
+                        placeholder="excited and energetic"
+                    >
+                    <div class="help-text">Natural language description of desired delivery style</div>
+                </div>
+
+                <button type="submit" id="generateBtn">Generate DJ Tag</button>
+            </form>
+
+            <div class="progress-section" id="progressSection">
+                <div class="progress-bar-container">
+                    <div class="progress-bar" id="progressBar">0%</div>
+                </div>
+                <div class="progress-message" id="progressMessage">Starting...</div>
+            </div>
+        </div>
+
+        <a href="/admin/" class="back-link">← Back to Admin</a>
+    </div>
+
+    <script>
+        // Update slider value displays
+        document.getElementById('temperature').addEventListener('input', (e) => {
+            document.getElementById('temperatureValue').textContent = e.target.value;
+        });
+
+        document.getElementById('speakingRate').addEventListener('input', (e) => {
+            document.getElementById('speakingRateValue').textContent = e.target.value + 'x';
+        });
+
+        document.getElementById('pitch').addEventListener('input', (e) => {
+            document.getElementById('pitchValue').textContent = e.target.value;
+        });
+
+        // Form submission
+        document.getElementById('tagForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            // Hide error, show progress
+            document.getElementById('errorDisplay').classList.remove('active');
+            document.getElementById('progressSection').classList.add('active');
+            document.getElementById('generateBtn').disabled = true;
+
+            // Reset progress
+            updateProgress(0, 'Starting...');
+
+            // Collect form data
+            const formData = new FormData(e.target);
+            const data = {
+                text: formData.get('text'),
+                voice: formData.get('voice'),
+                model: formData.get('model'),
+                temperature: parseFloat(formData.get('temperature')),
+                speaking_rate: parseFloat(formData.get('speaking_rate')),
+                pitch: parseFloat(formData.get('pitch')),
+                style_prompt: formData.get('style_prompt') || undefined,
+            };
+
+            try {
+                // Start generation
+                const response = await fetch('/api/dj-tag/generate', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(data),
+                });
+
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.error || 'Generation failed');
+                }
+
+                const result = await response.json();
+                const streamUrl = result.stream_url;
+
+                // Connect to SSE stream
+                const eventSource = new EventSource(streamUrl);
+
+                eventSource.addEventListener('progress', (e) => {
+                    const data = JSON.parse(e.data);
+                    updateProgress(data.percent, data.message);
+                });
+
+                eventSource.addEventListener('complete', (e) => {
+                    const data = JSON.parse(e.data);
+                    updateProgress(100, 'Complete!');
+
+                    // Trigger download
+                    const link = document.createElement('a');
+                    link.href = data.download_url;
+                    link.download = data.filename;
+                    link.click();
+
+                    // Re-enable form after short delay
+                    setTimeout(() => {
+                        document.getElementById('progressSection').classList.remove('active');
+                        document.getElementById('generateBtn').disabled = false;
+                    }, 2000);
+
+                    eventSource.close();
+                });
+
+                // Note: Server-sent 'error' events are handled by the listener above (line 427)
+                // EventSource.onerror handles connection errors (no e.data available)
+                eventSource.onerror = (e) => {
+                    // Connection error
+                    if (eventSource.readyState === EventSource.CLOSED) {
+                        showError('Connection lost. Please try again.');
+                        document.getElementById('progressSection').classList.remove('active');
+                        document.getElementById('generateBtn').disabled = false;
+                    }
+                };
+
+            } catch (error) {
+                showError(error.message);
+                document.getElementById('progressSection').classList.remove('active');
+                document.getElementById('generateBtn').disabled = false;
+            }
+        });
+
+        function updateProgress(percent, message) {
+            const bar = document.getElementById('progressBar');
+            const msg = document.getElementById('progressMessage');
+            bar.style.width = percent + '%';
+            bar.textContent = percent + '%';
+            msg.textContent = message;
+        }
+
+        function showError(message) {
+            const errorDiv = document.getElementById('errorDisplay');
+            errorDiv.textContent = message;
+            errorDiv.classList.add('active');
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LAST BYTE RADIO - Admin</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Courier New', monospace;
+            background: #1a1a2e;
+            color: #eee;
+            padding: 40px 20px;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            color: #667eea;
+            margin-bottom: 0.5em;
+            font-size: 2.5em;
+        }
+
+        .subtitle {
+            color: #999;
+            margin-bottom: 2em;
+            font-size: 1.1em;
+        }
+
+        .admin-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 3em;
+        }
+
+        .admin-card {
+            background: #16213e;
+            border: 1px solid #0f3460;
+            border-radius: 8px;
+            padding: 1.5em;
+            transition: all 0.3s;
+        }
+
+        .admin-card:hover {
+            border-color: #667eea;
+            transform: translateY(-2px);
+        }
+
+        .admin-card h2 {
+            color: #667eea;
+            font-size: 1.3em;
+            margin-bottom: 0.5em;
+        }
+
+        .admin-card p {
+            color: #aaa;
+            margin-bottom: 1em;
+            line-height: 1.6;
+        }
+
+        .admin-card a {
+            display: inline-block;
+            color: #667eea;
+            text-decoration: none;
+            padding: 0.5em 1em;
+            border: 1px solid #667eea;
+            border-radius: 4px;
+            transition: all 0.3s;
+        }
+
+        .admin-card a:hover {
+            background: #667eea;
+            color: #fff;
+        }
+
+        .status {
+            background: #16213e;
+            border: 1px solid #0f3460;
+            border-radius: 8px;
+            padding: 1.5em;
+        }
+
+        .status h2 {
+            color: #667eea;
+            margin-bottom: 1em;
+        }
+
+        .status-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 0.5em 0;
+            border-bottom: 1px solid #0f3460;
+        }
+
+        .status-item:last-child {
+            border-bottom: none;
+        }
+
+        .status-label {
+            color: #999;
+        }
+
+        .status-value {
+            color: #eee;
+            font-weight: bold;
+        }
+
+        .back-link {
+            display: inline-block;
+            margin-top: 2em;
+            color: #667eea;
+            text-decoration: none;
+        }
+
+        .back-link:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎛️ ADMIN PANEL</h1>
+        <div class="subtitle">Last Byte Radio Station Management</div>
+
+        <div class="admin-grid">
+            <div class="admin-card">
+                <h2>Icecast Admin</h2>
+                <p>Manage stream configuration, monitor listeners, and control mount points.</p>
+                <a href="/admin/icecast/">Open Icecast →</a>
+            </div>
+
+            <div class="admin-card">
+                <h2>Liquidsoap Control</h2>
+                <p>Liquidsoap Harbor HTTP API (temporarily disabled - use Unix socket).</p>
+                <a href="#" style="opacity: 0.5; cursor: not-allowed;">Coming Soon</a>
+            </div>
+
+            <div class="admin-card">
+                <h2>DJ Tag Generator</h2>
+                <p>Generate custom audio tags for DJ mixes with AI voice synthesis.</p>
+                <a href="/admin/dj-tag.html">Generate Tags →</a>
+            </div>
+        </div>
+
+        <div class="status">
+            <h2>Quick Status</h2>
+            <div class="status-item">
+                <span class="status-label">Station:</span>
+                <span class="status-value">LAST BYTE RADIO</span>
+            </div>
+            <div class="status-item">
+                <span class="status-label">Location:</span>
+                <span class="status-value">Chicago, IL</span>
+            </div>
+            <div class="status-item">
+                <span class="status-label">Bitrate:</span>
+                <span class="status-value">192 kbps</span>
+            </div>
+            <div class="status-item">
+                <span class="status-label">Format:</span>
+                <span class="status-value">MP3</span>
+            </div>
+        </div>
+
+        <a href="/" class="back-link">← Back to Radio</a>
+    </div>
+</body>
+</html>
