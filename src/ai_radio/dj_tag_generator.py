@@ -89,14 +89,25 @@ class DJTagGenerator:
             output_path: Path for output MP3 file
             voice: Gemini voice name (e.g., "Laomedeia", "Kore", "Puck")
             model: Gemini TTS model (pro or flash)
-            temperature: Creativity level (0.0-2.0)
-            speaking_rate: Speech speed (0.5-2.0)
-            pitch: Voice pitch adjustment (-20.0 to +20.0)
-            style_prompt: Optional natural language style guidance
+            temperature: Creativity level for text generation (0.0-2.0)
+            speaking_rate: Speech speed hint (0.5-2.0) - stored in metadata only,
+                not supported by Gemini TTS API. Use style_prompt instead.
+            pitch: Voice pitch hint (-20.0 to +20.0) - stored in metadata only,
+                not supported by Gemini TTS API. Use style_prompt instead.
+            style_prompt: Optional natural language style guidance. Use this to
+                control pacing (e.g., "speak quickly and energetically" or
+                "slow and deliberate") and tone instead of numeric parameters.
             progress_callback: Optional callback for progress updates
 
         Returns:
             GeneratedTag with metadata, or None if generation fails
+
+        Note:
+            The Gemini TTS API uses natural language prompts for voice control
+            instead of numeric parameters. Use style_prompt to describe desired
+            pacing, tone, and delivery style. The speaking_rate and pitch
+            parameters are accepted for API compatibility but only stored in
+            the returned GeneratedTag metadata.
         """
         # Validation
         if not text or not text.strip():
@@ -135,7 +146,11 @@ class DJTagGenerator:
                                 voice_name=voice
                             )
                         )
-                    )
+                    ),
+                    # Temperature controls text generation randomness (0.0-2.0)
+                    # Note: speaking_rate and pitch are not supported by Gemini TTS API
+                    # Use style_prompt for natural language control of pacing/tone instead
+                    temperature=temperature,
                 )
             else:
                 # For mocked tests, use None config

@@ -111,6 +111,67 @@ class TestDJTagGenerator:
                 finally:
                     output_path.unlink(missing_ok=True)
 
+    @patch('ai_radio.dj_tag_generator.subprocess.run')
+    @patch('ai_radio.dj_tag_generator.types')
+    def test_temperature_passed_to_api(self, mock_types, mock_subprocess):
+        """Test that temperature parameter is passed to GenerateContentConfig."""
+        with patch('ai_radio.dj_tag_generator.config') as mock_config:
+            mock_config.gemini_api_key = "test-key"
+
+            # Mock successful ffmpeg conversion
+            mock_subprocess.return_value = Mock(returncode=0, stderr="")
+
+            # Mock types module classes
+            mock_config_obj = MagicMock()
+            mock_config_obj.temperature = 1.5
+            mock_types.GenerateContentConfig.return_value = mock_config_obj
+            mock_types.SpeechConfig.return_value = MagicMock()
+            mock_types.VoiceConfig.return_value = MagicMock()
+            mock_types.PrebuiltVoiceConfig.return_value = MagicMock()
+
+            with patch('ai_radio.dj_tag_generator.genai') as mock_genai:
+                # Mock Gemini client and response
+                mock_client = MagicMock()
+                mock_genai.Client.return_value = mock_client
+
+                mock_response = MagicMock()
+                mock_part = MagicMock()
+                mock_part.inline_data.data = b"fake_pcm_data"
+                mock_response.candidates = [MagicMock()]
+                mock_response.candidates[0].content.parts = [mock_part]
+
+                mock_client.models.generate_content.return_value = mock_response
+
+                generator = DJTagGenerator()
+
+                with tempfile.NamedTemporaryFile(suffix='.mp3', delete=False) as f:
+                    output_path = Path(f.name)
+
+                try:
+                    result = generator.generate(
+                        text="Test with custom temperature",
+                        output_path=output_path,
+                        voice="Kore",
+                        temperature=1.5,
+                        speaking_rate=1.2,
+                        pitch=5.0,
+                    )
+
+                    assert result is not None
+
+                    # Verify GenerateContentConfig was called with temperature
+                    mock_types.GenerateContentConfig.assert_called_once()
+                    call_kwargs = mock_types.GenerateContentConfig.call_args.kwargs
+                    assert 'temperature' in call_kwargs
+                    assert call_kwargs['temperature'] == 1.5
+
+                    # Verify result metadata includes all parameters
+                    assert result.temperature == 1.5
+                    assert result.speaking_rate == 1.2
+                    assert result.pitch == 5.0
+                finally:
+                    output_path.unlink(missing_ok=True)
+
     def test_progress_callback_is_called(self):
         """Test that progress callback receives updates."""
         progress_updates = []
