@@ -12,6 +12,7 @@ import argparse
 import sqlite3
 import sys
 from pathlib import Path
+from typing import Optional
 
 from ai_radio.audio import extract_metadata, normalize_audio
 from ai_radio.config import config
@@ -22,44 +23,51 @@ def ingest_audio_file(
     source_path: Path,
     kind: str,
     db_path: Path,
-    music_dir: Path,
+    output_dir: Optional[Path] = None,  # Renamed from music_dir, now optional
     target_lufs: float = -18.0,
     true_peak: float = -1.0,
+    ingest_existing: bool = False,  # NEW parameter
 ) -> dict:
     """Ingest audio file into asset library.
 
     Args:
         source_path: Path to source audio file
-        kind: Asset kind (music, break, bed, safety)
+        kind: Asset kind (music, break, bed, safety, bumper)
         db_path: Path to SQLite database
-        music_dir: Directory for normalized music files
+        output_dir: Output directory for normalized files (required when ingest_existing=False)
         target_lufs: Target loudness in LUFS
         true_peak: True peak limit in dBTP
+        ingest_existing: If True, register existing file in-place without normalization
 
     Returns:
         dict with asset information
 
     Raises:
-        ValueError: If ingestion fails
+        ValueError: If ingestion fails or required parameters missing
     """
+    # Validate parameters first (before file checks)
+    if kind not in ("music", "break", "bed", "safety", "bumper"):
+        raise ValueError(f"Invalid kind: {kind}. Must be music, break, bed, safety, or bumper")
+
+    if not ingest_existing and output_dir is None:
+        raise ValueError("output_dir is required when ingest_existing=False")
+
     if not source_path.exists():
         raise ValueError(f"Source file not found: {source_path}")
 
-    if kind not in ("music", "break", "bed", "safety"):
-        raise ValueError(f"Invalid kind: {kind}. Must be music, break, bed, or safety")
-
-    # Validate music directory exists and is writable
-    if not music_dir.exists():
-        raise ValueError(f"Music directory does not exist: {music_dir}")
-    if not music_dir.is_dir():
-        raise ValueError(f"Music directory path is not a directory: {music_dir}")
-    # Test write permission by attempting to create a temp file
-    test_file = music_dir / ".write_test"
-    try:
-        test_file.touch()
-        test_file.unlink()
-    except (PermissionError, OSError) as e:
-        raise ValueError(f"Music directory is not writable: {music_dir}") from e
+    # Validate output directory only for new ingestion
+    if not ingest_existing:
+        if not output_dir.exists():
+            raise ValueError(f"Output directory does not exist: {output_dir}")
+        if not output_dir.is_dir():
+            raise ValueError(f"Output directory path is not a directory: {output_dir}")
+        # Test write permission
+        test_file = output_dir / ".write_test"
+        try:
+            test_file.touch()
+            test_file.unlink()
+        except (PermissionError, OSError) as e:
+            raise ValueError(f"Output directory is not writable: {output_dir}") from e
 
     # Connect to database
     conn = sqlite3.connect(db_path)
@@ -82,58 +90,76 @@ def ingest_audio_file(
         print(f"   Artist: {metadata.artist}")
         print(f"   Duration: {metadata.duration_sec:.1f}s")
 
-        # Step 3: Normalize audio
-        output_path = music_dir / f"{asset_id}.mp3"
+        if ingest_existing:
+            # Register existing file without normalization
+            print(f"📍 Registering existing file (no normalization)...")
+            from ai_radio.audio import measure_loudness
 
-        print(f"🔊 Normalizing audio to {target_lufs} LUFS...")
-        norm_result = normalize_audio(
-            source_path,
-            output_path,
-            target_lufs=target_lufs,
-            true_peak=true_peak,
-        )
-        print(f"   Loudness: {norm_result['loudness_lufs']:.1f} LUFS")
-        print(f"   True Peak: {norm_result['true_peak_dbtp']:.1f} dBTP")
+            loudness_stats = measure_loudness(source_path)
+            print(f"   Loudness: {loudness_stats['loudness_lufs']:.1f} LUFS")
+            print(f"   True Peak: {loudness_stats['true_peak_dbtp']:.1f} dBTP")
 
-        # Step 4: Insert into database
+            # Use source path as-is
+            final_path = source_path
+            loudness_lufs = loudness_stats["loudness_lufs"]
+            true_peak_dbtp = loudness_stats["true_peak_dbtp"]
+        else:
+            # Normalize and copy to output directory
+            output_path = output_dir / f"{asset_id}.mp3"
+
+            print(f"🔊 Normalizing audio to {target_lufs} LUFS...")
+            norm_result = normalize_audio(
+                source_path,
+                output_path,
+                target_lufs=target_lufs,
+                true_peak=true_peak,
+            )
+            print(f"   Loudness: {norm_result['loudness_lufs']:.1f} LUFS")
+            print(f"   True Peak: {norm_result['true_peak_dbtp']:.1f} dBTP")
+
+            final_path = output_path
+            loudness_lufs = norm_result["loudness_lufs"]
+            true_peak_dbtp = norm_result["true_peak_dbtp"]
+
+        # Step 3: Insert into database
         print(f"💾 Inserting asset record into database...")
         try:
             insert_asset(
                 conn,
                 asset_id=asset_id,
-                path=output_path,  # Store normalized file path, not staging path
+                path=final_path,
                 kind=kind,
                 duration_sec=metadata.duration_sec,
-                loudness_lufs=norm_result["loudness_lufs"],
-                true_peak_dbtp=norm_result["true_peak_dbtp"],
+                loudness_lufs=loudness_lufs,
+                true_peak_dbtp=true_peak_dbtp,
                 energy_level=50,  # Default medium energy for all tracks
                 title=metadata.title,
-                artist=config.music_artist,  # Configurable music artist (RADIO_MUSIC_ARTIST)
+                artist=config.music_artist,
                 album=metadata.album,
             )
         except Exception as db_error:
             # Clean up orphaned normalized file if DB insert fails
-            if output_path.exists():
-                print(f"⚠️  Cleaning up orphaned file: {output_path}", file=sys.stderr)
-                output_path.unlink()
+            if not ingest_existing and final_path.exists():
+                print(f"⚠️  Cleaning up orphaned file: {final_path}", file=sys.stderr)
+                final_path.unlink()
             raise
 
         print(f"✅ Successfully ingested: {metadata.title}")
         print(f"   Asset ID: {asset_id}")
         print(f"   Artist: {config.music_artist}")
-        print(f"   Output: {output_path}")
+        print(f"   Output: {final_path}")
 
         return {
             "id": asset_id,
-            "path": str(output_path),  # Database path (normalized file location)
-            "source_path": str(source_path),  # Original staging path for reference
+            "path": str(final_path),
+            "source_path": str(source_path),
             "kind": kind,
             "title": metadata.title,
-            "artist": config.music_artist,  # Configurable music artist (RADIO_MUSIC_ARTIST)
+            "artist": config.music_artist,
             "album": metadata.album,
             "duration_sec": metadata.duration_sec,
-            "loudness_lufs": norm_result["loudness_lufs"],
-            "true_peak_dbtp": norm_result["true_peak_dbtp"],
+            "loudness_lufs": loudness_lufs,
+            "true_peak_dbtp": true_peak_dbtp,
         }
 
     except Exception as e:
@@ -155,7 +181,7 @@ def main():
     )
     parser.add_argument(
         "--kind",
-        choices=["music", "break", "bed", "safety"],
+        choices=["music", "break", "bed", "safety", "bumper"],
         default="music",
         help="Asset kind (default: music)",
     )
@@ -191,7 +217,7 @@ def main():
             source_path=args.source_path,
             kind=args.kind,
             db_path=args.db,
-            music_dir=args.music_dir,
+            output_dir=args.music_dir,
             target_lufs=args.target_lufs,
             true_peak=args.true_peak,
         )

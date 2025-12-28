@@ -157,7 +157,7 @@ def test_database_consistency_after_failed_ingestion(tmp_path):
             source_path=Path("/nonexistent/file.mp3"),
             kind="music",
             db_path=db_path,
-            music_dir=music_dir,
+            output_dir=music_dir,
         )
     except ValueError:
         pass  # Expected
@@ -245,7 +245,7 @@ def test_multiple_assets_in_database(tmp_path):
         source_path=test_file,
         kind="music",
         db_path=db_path,
-        music_dir=music_dir,
+        output_dir=music_dir,
     )
 
     # Verify single asset was created
