@@ -13,6 +13,9 @@ def test_liquidsoap_client_send_command_success():
     with patch('socket.socket') as mock_socket_class:
         mock_sock = MagicMock()
         mock_socket_class.return_value = mock_sock
+        # Mock the context manager
+        mock_sock.__enter__.return_value = mock_sock
+        mock_sock.__exit__.return_value = None
         mock_sock.recv.return_value = b"OK\nEND\n"
 
         with patch.object(Path, 'exists', return_value=True):
@@ -21,7 +24,6 @@ def test_liquidsoap_client_send_command_success():
         assert response == "OK\nEND"
         mock_sock.connect.assert_called_once()
         mock_sock.sendall.assert_called_once_with(b"help\n")
-        mock_sock.close.assert_called_once()
 
 
 def test_liquidsoap_client_send_command_timeout():
@@ -31,14 +33,14 @@ def test_liquidsoap_client_send_command_timeout():
     with patch('socket.socket') as mock_socket_class:
         mock_sock = MagicMock()
         mock_socket_class.return_value = mock_sock
+        # Mock the context manager
+        mock_sock.__enter__.return_value = mock_sock
+        mock_sock.__exit__.return_value = None
         mock_sock.recv.side_effect = socket.timeout()
 
         with patch.object(Path, 'exists', return_value=True):
             with pytest.raises(ConnectionError, match="timeout"):
                 client.send_command("help")
-
-        # Socket should still be closed via finally block
-        mock_sock.close.assert_called_once()
 
 
 def test_liquidsoap_client_send_command_socket_not_found():
@@ -54,8 +56,8 @@ def test_liquidsoap_client_get_queue_length_success():
     """Test getting queue length with valid response"""
     client = LiquidsoapClient()
 
-    # Simulate Liquidsoap response with 3 tracks
-    mock_response = "track1.mp3\ntrack2.mp3\ntrack3.mp3\nEND\n"
+    # Simulate Liquidsoap response with 3 tracks (space-separated IDs)
+    mock_response = "123 124 125\nEND\n"
 
     with patch.object(client, 'send_command', return_value=mock_response):
         length = client.get_queue_length("music")

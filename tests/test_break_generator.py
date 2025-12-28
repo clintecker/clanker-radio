@@ -22,6 +22,7 @@ from ai_radio.news import NewsData, NewsHeadline
 from ai_radio.script_writer import BulletinScript
 from ai_radio.voice_synth import AudioFile
 from ai_radio.audio_mixer import MixedAudio
+from conftest import create_test_weather_data
 
 
 class TestBreakGenerator:
@@ -38,12 +39,7 @@ class TestBreakGenerator:
     def test_generate_full_pipeline_success(self, tmp_path):
         """generate should execute full pipeline successfully."""
         # Mock weather data
-        mock_weather = WeatherData(
-            temperature=72,
-            conditions="Sunny",
-            forecast_short="Clear skies expected.",
-            timestamp=datetime.now(),
-        )
+        mock_weather = create_test_weather_data(temperature=72, conditions="Sunny")
 
         # Mock news data
         mock_news = NewsData(
@@ -128,12 +124,7 @@ class TestBreakGenerator:
 
     def test_generate_weather_only(self, tmp_path):
         """generate should handle weather-only breaks."""
-        mock_weather = WeatherData(
-            temperature=68,
-            conditions="Cloudy",
-            forecast_short="Mild conditions.",
-            timestamp=datetime.now(),
-        )
+        mock_weather = create_test_weather_data(temperature=68, conditions="Cloudy")
 
         mock_script = BulletinScript(
             script_text="Weather update",
@@ -244,12 +235,7 @@ class TestBreakGenerator:
 
     def test_generate_script_generation_fails(self):
         """generate should return None when script generation fails."""
-        mock_weather = WeatherData(
-            temperature=70,
-            conditions="Clear",
-            forecast_short="Nice day.",
-            timestamp=datetime.now(),
-        )
+        mock_weather = create_test_weather_data(temperature=70, conditions="Clear")
 
         with patch("ai_radio.break_generator.get_weather") as mock_get_weather, \
              patch("ai_radio.break_generator.get_news") as mock_get_news, \
@@ -266,12 +252,7 @@ class TestBreakGenerator:
 
     def test_generate_tts_fails(self, tmp_path):
         """generate should return None when TTS synthesis fails."""
-        mock_weather = WeatherData(
-            temperature=65,
-            conditions="Rainy",
-            forecast_short="Wet conditions.",
-            timestamp=datetime.now(),
-        )
+        mock_weather = create_test_weather_data(temperature=65, conditions="Rainy")
 
         mock_script = BulletinScript(
             script_text="Test",
@@ -300,12 +281,7 @@ class TestBreakGenerator:
 
     def test_generate_mixing_fails(self, tmp_path):
         """generate should return None when audio mixing fails."""
-        mock_weather = WeatherData(
-            temperature=60,
-            conditions="Windy",
-            forecast_short="Strong winds.",
-            timestamp=datetime.now(),
-        )
+        mock_weather = create_test_weather_data(temperature=60, conditions="Windy")
 
         mock_script = BulletinScript(
             script_text="Test",
@@ -350,12 +326,7 @@ class TestBreakGenerator:
 
     def test_generate_selects_random_bed(self, tmp_path):
         """generate should randomly select from available bed files."""
-        mock_weather = WeatherData(
-            temperature=75,
-            conditions="Sunny",
-            forecast_short="Beautiful day.",
-            timestamp=datetime.now(),
-        )
+        mock_weather = create_test_weather_data(temperature=75, conditions="Sunny")
 
         mock_script = BulletinScript(
             script_text="Test",

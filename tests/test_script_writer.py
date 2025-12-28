@@ -17,48 +17,8 @@ from anthropic import APIError
 
 from ai_radio.news import NewsData, NewsHeadline
 from ai_radio.script_writer import ClaudeScriptWriter, BulletinScript, generate_bulletin
-from ai_radio.weather import WeatherData, ForecastPeriod, HourlyForecast
 
-
-def create_test_weather_data(temperature=70, conditions="Sunny"):
-    """Create test WeatherData with proper structure."""
-    current_period = ForecastPeriod(
-        name="This Afternoon",
-        temperature=temperature,
-        conditions=conditions,
-        detailed="Test forecast details",
-        wind_speed="5 mph",
-        precip_chance=10,
-    )
-
-    upcoming_period = ForecastPeriod(
-        name="Tonight",
-        temperature=temperature - 10,
-        conditions="Clear",
-        detailed="Clear skies overnight",
-        wind_speed="3 mph",
-        precip_chance=0,
-    )
-
-    hourly = HourlyForecast(
-        time=datetime.now(),
-        temperature=temperature,
-        conditions=conditions,
-        wind_speed=5,
-        precip_chance=10,
-    )
-
-    return WeatherData(
-        temperature=temperature,
-        conditions=conditions,
-        current_period=current_period,
-        upcoming_periods=[upcoming_period],
-        hourly_forecast=[hourly],
-        temp_trend="steady",
-        notable_events=[],
-        travel_impact=None,
-        timestamp=datetime.now(),
-    )
+from conftest import create_test_weather_data
 
 
 class TestClaudeScriptWriter:

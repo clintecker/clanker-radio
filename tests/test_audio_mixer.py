@@ -73,7 +73,8 @@ class TestAudioMixer:
             # Verify result
             assert result is not None
             assert result.file_path == output_path
-            assert result.duration == 45.5
+            # Duration should be voice_duration + preroll + postroll = 45.5 + 3.0 + 5.4 = 53.9
+            assert result.duration == 53.9
             assert result.voice_file == voice_path
             assert result.bed_file == bed_path
 

@@ -14,6 +14,7 @@ import httpx
 import pytest
 
 from ai_radio.weather import NWSWeatherClient, WeatherData, get_weather
+from conftest import create_test_weather_data
 
 
 class TestNWSWeatherClient:
@@ -32,13 +33,38 @@ class TestNWSWeatherClient:
         """fetch_current_weather should return WeatherData on successful API call."""
         client = NWSWeatherClient()
 
-        mock_response = {
+        mock_periods_response = {
             "properties": {
                 "periods": [
                     {
+                        "name": "This Afternoon",
                         "temperature": 72,
                         "shortForecast": "Partly Cloudy",
                         "detailedForecast": "Partly cloudy with a high near 72. Southwest wind 5 to 10 mph.",
+                        "windSpeed": "5 to 10 mph",
+                        "probabilityOfPrecipitation": {"value": 10}
+                    },
+                    {
+                        "name": "Tonight",
+                        "temperature": 60,
+                        "shortForecast": "Clear",
+                        "detailedForecast": "Clear skies overnight.",
+                        "windSpeed": "3 mph",
+                        "probabilityOfPrecipitation": {"value": 0}
+                    }
+                ]
+            }
+        }
+
+        mock_hourly_response = {
+            "properties": {
+                "periods": [
+                    {
+                        "startTime": "2024-01-01T12:00:00Z",
+                        "temperature": 72,
+                        "shortForecast": "Partly Cloudy",
+                        "windSpeed": "5 mph",
+                        "probabilityOfPrecipitation": {"value": 10}
                     }
                 ]
             }
@@ -48,24 +74,26 @@ class TestNWSWeatherClient:
             mock_client = Mock()
             mock_client_class.return_value.__enter__.return_value = mock_client
 
-            mock_get_response = Mock()
-            mock_get_response.json.return_value = mock_response
-            mock_client.get.return_value = mock_get_response
+            # Mock two calls: periods first, then hourly
+            mock_periods_resp = Mock()
+            mock_periods_resp.json.return_value = mock_periods_response
+            mock_hourly_resp = Mock()
+            mock_hourly_resp.json.return_value = mock_hourly_response
+
+            mock_client.get.side_effect = [mock_periods_resp, mock_hourly_resp]
 
             weather = client.fetch_current_weather()
 
-            # Verify API call
-            mock_client.get.assert_called_once()
-            call_args = mock_client.get.call_args
-            assert "User-Agent" in call_args[1]["headers"]
-            assert "gridpoints/LOT/76,73/forecast" in call_args[0][0]
+            # Verify both API calls were made
+            assert mock_client.get.call_count == 2
+            first_call = mock_client.get.call_args_list[0]
+            assert "User-Agent" in first_call[1]["headers"]
+            assert "gridpoints/LOT/76,73/forecast" in first_call[0][0]
 
             # Verify returned data
             assert weather is not None
             assert weather.temperature == 72
             assert weather.conditions == "Partly Cloudy"
-            assert "Partly cloudy" in weather.forecast_short
-            assert len(weather.forecast_short) <= 200
             assert isinstance(weather.timestamp, datetime)
 
     def test_fetch_current_weather_http_error(self):
@@ -139,18 +167,35 @@ class TestNWSWeatherClient:
             assert weather is None
 
     def test_forecast_truncation(self):
-        """fetch_current_weather should truncate long forecasts to 200 chars."""
+        """fetch_current_weather should handle long detailed forecasts."""
         client = NWSWeatherClient()
 
         long_forecast = "A" * 500  # 500 character forecast
 
-        mock_response = {
+        mock_periods_response = {
             "properties": {
                 "periods": [
                     {
+                        "name": "This Afternoon",
                         "temperature": 68,
                         "shortForecast": "Sunny",
                         "detailedForecast": long_forecast,
+                        "windSpeed": "5 mph",
+                        "probabilityOfPrecipitation": {"value": 10}
+                    }
+                ]
+            }
+        }
+
+        mock_hourly_response = {
+            "properties": {
+                "periods": [
+                    {
+                        "startTime": "2024-01-01T12:00:00Z",
+                        "temperature": 68,
+                        "shortForecast": "Sunny",
+                        "windSpeed": "5 mph",
+                        "probabilityOfPrecipitation": {"value": 10}
                     }
                 ]
             }
@@ -160,15 +205,18 @@ class TestNWSWeatherClient:
             mock_client = Mock()
             mock_client_class.return_value.__enter__.return_value = mock_client
 
-            mock_get_response = Mock()
-            mock_get_response.json.return_value = mock_response
-            mock_client.get.return_value = mock_get_response
+            mock_periods_resp = Mock()
+            mock_periods_resp.json.return_value = mock_periods_response
+            mock_hourly_resp = Mock()
+            mock_hourly_resp.json.return_value = mock_hourly_response
+
+            mock_client.get.side_effect = [mock_periods_resp, mock_hourly_resp]
 
             weather = client.fetch_current_weather()
 
             assert weather is not None
-            assert len(weather.forecast_short) == 200
-            assert weather.forecast_short == "A" * 200
+            assert weather.current_period.detailed == long_forecast
+            assert len(weather.current_period.detailed) == 500
 
 
 class TestGetWeatherConvenience:
@@ -176,12 +224,7 @@ class TestGetWeatherConvenience:
 
     def test_get_weather_success(self):
         """get_weather should return WeatherData on success."""
-        mock_weather = WeatherData(
-            temperature=75,
-            conditions="Clear",
-            forecast_short="Clear skies",
-            timestamp=datetime.now(),
-        )
+        mock_weather = create_test_weather_data(temperature=75, conditions="Clear")
 
         with patch("ai_radio.weather.NWSWeatherClient") as mock_client_class:
             mock_client = Mock()
