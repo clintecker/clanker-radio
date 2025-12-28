@@ -90,13 +90,15 @@ class DJTagGenerator:
             voice: Gemini voice name (e.g., "Laomedeia", "Kore", "Puck")
             model: Gemini TTS model (pro or flash)
             temperature: Creativity level for text generation (0.0-2.0)
-            speaking_rate: Speech speed hint (0.5-2.0) - stored in metadata only,
-                not supported by Gemini TTS API. Use style_prompt instead.
-            pitch: Voice pitch hint (-20.0 to +20.0) - stored in metadata only,
-                not supported by Gemini TTS API. Use style_prompt instead.
-            style_prompt: Optional natural language style guidance. Use this to
-                control pacing (e.g., "speak quickly and energetically" or
-                "slow and deliberate") and tone instead of numeric parameters.
+            speaking_rate: Speech speed hint (0.5-2.0) - **metadata only, does not
+                affect audio output**. Gemini TTS does not support numeric rate control.
+                Use style_prompt for pacing control.
+            pitch: Voice pitch hint (-20.0 to +20.0) - **metadata only, does not
+                affect audio output**. Gemini TTS does not support numeric pitch control.
+                Use style_prompt for tone control.
+            style_prompt: Optional natural language style guidance. **Use this to
+                control pacing, tone, and delivery style.** For example: "speak quickly
+                and energetically" or "slow and deliberate".
             progress_callback: Optional callback for progress updates
 
         Returns:
@@ -243,8 +245,13 @@ class DJTagGenerator:
                 pitch=pitch,
             )
 
-        except Exception as e:
+        except Exception:
             logger.exception("DJ tag generation failed")
             if progress_callback:
-                progress_callback(GenerationProgress(percent=0, message=f"Error: {e!s}"))
+                progress_callback(
+                    GenerationProgress(
+                        percent=0,
+                        message="Generation failed. Please try again or contact support.",
+                    )
+                )
             return None

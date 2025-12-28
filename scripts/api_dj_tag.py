@@ -7,7 +7,6 @@ via Server-Sent Events (SSE). Binds to 127.0.0.1:5001 for nginx proxy.
 
 import json
 import logging
-import os
 import secrets
 import signal
 import sys
@@ -235,9 +234,6 @@ def generate():
 
         if len(text) > 5000:
             return jsonify({"error": "Text exceeds maximum length (5000 characters)"}), 400
-
-        # Cleanup old files before starting new job
-        cleanup_old_files()
 
         # Create job
         job_id = generate_job_id()

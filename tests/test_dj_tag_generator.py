@@ -1,4 +1,5 @@
 """Tests for DJ tag generator."""
+import os
 import tempfile
 from pathlib import Path
 from unittest.mock import Mock, patch, MagicMock
@@ -33,7 +34,10 @@ class TestDJTagGenerator:
                 generator = DJTagGenerator()
 
                 # Create path for non-existent file in temp directory
-                output_path = Path(tempfile.gettempdir()) / f"test_empty_{tempfile._get_candidate_names().__next__()}.mp3"
+                fd, temp_path = tempfile.mkstemp(suffix='.mp3')
+                os.close(fd)  # Close file descriptor
+                os.unlink(temp_path)  # Remove file so generator creates it
+                output_path = Path(temp_path)
 
                 try:
                     result = generator.generate(
@@ -54,7 +58,10 @@ class TestDJTagGenerator:
                 generator = DJTagGenerator()
 
                 # Create path for non-existent file in temp directory
-                output_path = Path(tempfile.gettempdir()) / f"test_length_{tempfile._get_candidate_names().__next__()}.mp3"
+                fd, temp_path = tempfile.mkstemp(suffix='.mp3')
+                os.close(fd)
+                os.unlink(temp_path)
+                output_path = Path(temp_path)
 
                 try:
                     # Generate text > 5000 characters
@@ -93,7 +100,10 @@ class TestDJTagGenerator:
                 generator = DJTagGenerator()
 
                 # Create path for non-existent file in temp directory
-                output_path = Path(tempfile.gettempdir()) / f"test_api_{tempfile._get_candidate_names().__next__()}.mp3"
+                fd, temp_path = tempfile.mkstemp(suffix='.mp3')
+                os.close(fd)
+                os.unlink(temp_path)
+                output_path = Path(temp_path)
 
                 try:
                     result = generator.generate(
@@ -149,7 +159,10 @@ class TestDJTagGenerator:
                 generator = DJTagGenerator()
 
                 # Create path for non-existent file in temp directory
-                output_path = Path(tempfile.gettempdir()) / f"test_temp_{tempfile._get_candidate_names().__next__()}.mp3"
+                fd, temp_path = tempfile.mkstemp(suffix='.mp3')
+                os.close(fd)
+                os.unlink(temp_path)
+                output_path = Path(temp_path)
 
                 try:
                     result = generator.generate(
@@ -204,7 +217,10 @@ class TestDJTagGenerator:
                     generator = DJTagGenerator()
 
                     # Create path for non-existent file in temp directory
-                    output_path = Path(tempfile.gettempdir()) / f"test_progress_{tempfile._get_candidate_names().__next__()}.mp3"
+                    fd, temp_path = tempfile.mkstemp(suffix='.mp3')
+                    os.close(fd)
+                    os.unlink(temp_path)
+                    output_path = Path(temp_path)
 
                     try:
                         generator.generate(

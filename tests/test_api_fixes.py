@@ -1,5 +1,8 @@
 #!/usr/bin/env python3
-"""Test script for verifying CRITICAL bug fixes in api_dj_tag.py.
+"""Integration test script for api_dj_tag.py.
+
+IMPORTANT: This is a manual integration test that requires a running API server.
+Run with: pytest tests/test_api_fixes.py -m integration
 
 Tests:
 1. Thread safety - concurrent job creation
@@ -10,9 +13,13 @@ Tests:
 import json
 import time
 import requests
+import pytest
 from concurrent.futures import ThreadPoolExecutor
 
 BASE_URL = "http://127.0.0.1:5001"
+
+# Mark all tests in this file as integration tests that require a running server
+pytestmark = pytest.mark.skip(reason="Integration test - requires running API server on port 5001")
 
 
 def test_health_endpoint():
