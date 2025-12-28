@@ -164,7 +164,7 @@ def migrate_play_history(
     orphan_mapping: dict[str, str],
     dry_run: bool = False,
 ) -> dict:
-    """Update play_history with SHA256 IDs using SQL CASE expression.
+    """Update play_history with SHA256 IDs using safe parameterized queries.
 
     Args:
         conn: Database connection
@@ -175,47 +175,35 @@ def migrate_play_history(
     Returns:
         Dict with migration statistics
     """
-    # Build CASE expression for SQL UPDATE
-    case_parts = []
+    # Combine all mappings
+    all_mapping = {**mapping, **orphan_mapping}
 
-    # Add regular mappings (stem → SHA256)
-    for stem, sha256 in mapping.items():
-        case_parts.append(f"WHEN asset_id = '{stem}' THEN '{sha256}'")
-
-    # Add orphan mappings (stem → orphan_stem)
-    for stem, orphan_id in orphan_mapping.items():
-        case_parts.append(f"WHEN asset_id = '{stem}' THEN '{orphan_id}'")
-
-    if not case_parts:
+    if not all_mapping:
         print("   No mappings to apply")
         return {"updated": 0, "unmapped": 0}
 
-    case_expression = "\n            ".join(case_parts)
-
-    # Get count before update
     cursor = conn.cursor()
+
+    # Get total play_history count
     cursor.execute("SELECT COUNT(*) FROM play_history")
     total_count = cursor.fetchone()[0]
 
     # Count records that will be updated
-    all_stems = list(mapping.keys()) + list(orphan_mapping.keys())
-    placeholders = ",".join("?" * len(all_stems))
+    placeholders = ",".join("?" * len(all_mapping))
     cursor.execute(
         f"SELECT COUNT(*) FROM play_history WHERE asset_id IN ({placeholders})",
-        all_stems,
+        list(all_mapping.keys()),
     )
     update_count = cursor.fetchone()[0]
 
     # Count unmapped (non-SHA256, non-orphan IDs that we don't have mappings for)
-    cursor.execute(
-        """
-        SELECT COUNT(DISTINCT asset_id)
-        FROM play_history
-        WHERE asset_id NOT LIKE '________-____-____-____-____________'
-    """
-    )
-    non_sha256_count = cursor.fetchone()[0]
-    unmapped_count = non_sha256_count - len(all_stems)
+    cursor.execute("SELECT DISTINCT asset_id FROM play_history")
+    non_sha256_ids = [
+        row[0]
+        for row in cursor.fetchall()
+        if not is_sha256_hash(row[0]) and not is_orphan_id(row[0])
+    ]
+    unmapped_count = len([id for id in non_sha256_ids if id not in all_mapping])
 
     print(f"\n📊 Migration Statistics:")
     print(f"   Total play_history records: {total_count}")
@@ -226,22 +214,38 @@ def migrate_play_history(
         print("\n🔍 DRY RUN: Would execute UPDATE but not committing")
         return {"updated": update_count, "unmapped": unmapped_count}
 
-    # Execute update
-    update_sql = f"""
-        UPDATE play_history
-        SET asset_id = CASE
-            {case_expression}
-            ELSE asset_id
-        END
-        WHERE asset_id IN ({placeholders})
-    """
+    # Use temporary table for safe mapping (prevents SQL injection)
+    cursor.execute(
+        "CREATE TEMP TABLE IF NOT EXISTS migration_map (old_id TEXT PRIMARY KEY, new_id TEXT)"
+    )
+    cursor.execute("DELETE FROM migration_map")  # Clear if exists
 
-    cursor.execute(update_sql, all_stems)
+    # Insert mappings using parameterized query
+    cursor.executemany(
+        "INSERT INTO migration_map (old_id, new_id) VALUES (?, ?)",
+        list(all_mapping.items()),
+    )
+
+    # Update play_history using JOIN (safe from SQL injection)
+    cursor.execute(
+        """
+        UPDATE play_history
+        SET asset_id = (
+            SELECT new_id FROM migration_map WHERE old_id = play_history.asset_id
+        )
+        WHERE asset_id IN (SELECT old_id FROM migration_map)
+    """
+    )
+
+    updated = cursor.rowcount
     conn.commit()
 
-    print(f"   ✅ Updated {cursor.rowcount} records")
+    print(f"   ✅ Updated {updated} records")
 
-    return {"updated": cursor.rowcount, "unmapped": unmapped_count}
+    # Clean up temp table
+    cursor.execute("DROP TABLE migration_map")
+
+    return {"updated": updated, "unmapped": unmapped_count}
 
 
 def validate_migration(conn: sqlite3.Connection) -> bool:
