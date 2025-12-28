@@ -12,12 +12,10 @@ Architecture:
 import json
 import logging
 import os
-import select
 import socket
 import sqlite3
 import sys
 import tempfile
-import time
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -156,7 +154,7 @@ def get_queue_next(limit: int = 1) -> list[dict]:
                             except (ValueError, TypeError):
                                 pass
 
-                        # If not available, look up from database or file
+                        # If not available, look up from database
                         if duration_sec is None:
                             if actual_source == "music":
                                 # Music tracks: query database
@@ -173,9 +171,8 @@ def get_queue_next(limit: int = 1) -> list[dict]:
                                             duration_sec = row[0]
                                 except Exception as e:
                                     logger.debug(f"Could not look up duration for {filename}: {e}")
-                            elif actual_source in ("break", "bumper") and filename:
-                                # Breaks/bumpers: use ffprobe on actual file
-                                duration_sec = get_duration_from_file(filename)
+                            # Note: breaks/bumpers may not have duration in queue
+                            # This is acceptable for "next up" display
 
                         tracks.append({
                             "asset_id": asset_id,
@@ -198,29 +195,6 @@ def get_queue_next(limit: int = 1) -> list[dict]:
         return []
 
 
-def get_duration_from_file(file_path: str) -> float | None:
-    """Get audio file duration using ffprobe.
-
-    Args:
-        file_path: Path to audio file
-
-    Returns:
-        Duration in seconds, or None if cannot be determined
-    """
-    import subprocess
-    try:
-        result = subprocess.run(
-            ["ffprobe", "-v", "error", "-show_entries", "format=duration",
-             "-of", "default=noprint_wrappers=1:nokey=1", file_path],
-            capture_output=True,
-            text=True,
-            timeout=5
-        )
-        if result.returncode == 0 and result.stdout.strip():
-            return float(result.stdout.strip())
-    except Exception as e:
-        logger.warning(f"Could not get duration for {file_path}: {e}")
-    return None
 
 
 def get_recent_plays(limit: int = 5) -> list[dict]:
@@ -399,340 +373,131 @@ def get_liquidsoap_metadata() -> dict | None:
         return None
 
 
-def get_current_playing() -> tuple[dict | None, dict | None]:
-    """Get currently playing track using Liquidsoap socket as source of truth.
+def get_stream_info() -> dict | None:
+    """Get stream metrics from Icecast.
 
-    Flow:
-    1. Get stream metrics from Icecast (listeners, bitrate, etc.)
-    2. Get current filename from Liquidsoap socket (real-time, accurate)
-    3. Look up full metadata from play_history database
+    Returns:
+        Dict with listener counts, bitrate, and fallback status, or None if unavailable
+    """
+    try:
+        icecast_data = get_icecast_status()
+        if not icecast_data:
+            return None
+
+        source_raw = icecast_data.get('source', {})
+
+        fallback_mode = False
+        # Handle both single source (dict) and multiple sources (list)
+        if isinstance(source_raw, list):
+            # Multiple sources - find /radio mount (but NOT /radio-fallback)
+            main_source = next(
+                (s for s in source_raw
+                 if '/radio' in s.get('listenurl', '') and '/radio-fallback' not in s.get('listenurl', '')),
+                None
+            )
+
+            fallback_source = next(
+                (s for s in source_raw if '/radio-fallback' in s.get('listenurl', '')),
+                None
+            )
+
+            # Use fallback if:
+            # 1. No main source found, OR
+            # 2. Main source exists but has no listeners AND fallback has listeners
+            if not main_source or (fallback_source and
+                                  main_source.get('listeners', 0) == 0 and
+                                  fallback_source.get('listeners', 0) > 0):
+                source_data = fallback_source if fallback_source else {}
+                fallback_mode = True
+            else:
+                source_data = main_source
+        else:
+            # Single source - check if it's the fallback mount
+            source_data = source_raw
+            if '/radio-fallback' in source_data.get('listenurl', ''):
+                fallback_mode = True
+
+        return {
+            "listeners": source_data.get('listeners', 0),
+            "listener_peak": source_data.get('listener_peak', 0),
+            "bitrate": source_data.get('bitrate', 0),
+            "samplerate": source_data.get('samplerate', 0),
+            "stream_start": source_data.get('stream_start_iso8601', None),
+            "fallback_mode": fallback_mode
+        }
+
+    except Exception as e:
+        logger.debug(f"Could not get stream info: {e}")
+        return None
+
+
+def get_current_playing() -> tuple[dict | None, dict | None]:
+    """Get current track from play_history + assets JOIN.
+
+    Simplified flow:
+    1. Query play_history with LEFT JOIN to assets
+    2. All metadata comes from database (no file inspection)
+    3. Graceful degradation for deleted assets
 
     Returns:
         Tuple of (current_track, stream_info) or (None, None) if unavailable
     """
-    try:
-        # Get stream metrics from Icecast
-        icecast_data = get_icecast_status()
-        stream_info = None
+    from datetime import timedelta
 
-        fallback_mode = False
-        if icecast_data:
-            source_raw = icecast_data.get('source', {})
+    conn = sqlite3.connect(config.db_path)
+    cursor = conn.cursor()
 
-            # Handle both single source (dict) and multiple sources (list)
-            # Try to find main /radio mount first, fallback to /radio-fallback if main is down
-            if isinstance(source_raw, list):
-                # Multiple sources - find /radio mount (but NOT /radio-fallback)
-                main_source = next(
-                    (s for s in source_raw
-                     if '/radio' in s.get('listenurl', '') and '/radio-fallback' not in s.get('listenurl', '')),
-                    None
-                )
+    # Compute cutoff in Python for timestamp format compatibility
+    cutoff = (datetime.now(timezone.utc) - timedelta(minutes=10)).isoformat()
 
-                fallback_source = next(
-                    (s for s in source_raw if '/radio-fallback' in s.get('listenurl', '')),
-                    None
-                )
+    cursor.execute("""
+        SELECT
+            ph.asset_id,
+            a.title,
+            a.artist,
+            a.album,
+            a.duration_sec,
+            ph.played_at,
+            ph.source
+        FROM play_history ph
+        LEFT JOIN assets a ON ph.asset_id = a.id
+        WHERE ph.played_at >= ?
+        ORDER BY ph.played_at DESC
+        LIMIT 1
+    """, (cutoff,))
 
-                # Check if we should use fallback:
-                # 1. No main source found, OR
-                # 2. Main source exists but has no listeners AND fallback has listeners
-                if not main_source or (fallback_source and
-                                      main_source.get('listeners', 0) == 0 and
-                                      fallback_source.get('listeners', 0) > 0):
-                    source_data = fallback_source if fallback_source else {}
-                    fallback_mode = True
-                else:
-                    source_data = main_source
-            else:
-                # Single source - check if it's the fallback mount
-                source_data = source_raw
-                if '/radio-fallback' in source_data.get('listenurl', ''):
-                    fallback_mode = True
+    row = cursor.fetchone()
+    conn.close()
 
-            stream_info = {
-                "listeners": source_data.get('listeners', 0),
-                "listener_peak": source_data.get('listener_peak', 0),
-                "bitrate": source_data.get('bitrate', 0),
-                "samplerate": source_data.get('samplerate', 0),
-                "stream_start": source_data.get('stream_start_iso8601', None),
-                "fallback_mode": fallback_mode
-            }
-
-        # Get current track from Liquidsoap (real-time source of truth)
-        ls_metadata = get_liquidsoap_metadata()
-
-        # If in fallback mode and no main Liquidsoap metadata, show fallback status
-        if fallback_mode and not ls_metadata:
-            current = {
-                "asset_id": None,
-                "title": "Technical Difficulties",
-                "artist": config.station_name,
-                "album": None,
-                "duration_sec": None,
-                "played_at": datetime.now(timezone.utc).isoformat(),
-                "source": "fallback"
-            }
-            return current, stream_info
-
-        # Check if we're in startup mode (connected but no music queued yet)
-        # This happens right after Liquidsoap starts before music is enqueued
-        if not fallback_mode and not ls_metadata and stream_info:
-            # Check if stream just started (within last 2 minutes)
-            stream_start = stream_info.get('stream_start')
-            if stream_start:
-                try:
-                    from dateutil import parser
-                    start_time = parser.parse(stream_start)
-                    now = datetime.now(timezone.utc)
-                    seconds_since_start = (now - start_time).total_seconds()
-
-                    if seconds_since_start < 120:  # Within 2 minutes of startup
-                        current = {
-                            "asset_id": None,
-                            "title": "Station Starting Up",
-                            "artist": config.station_name,
-                            "album": None,
-                            "duration_sec": None,
-                            "played_at": datetime.now(timezone.utc).isoformat(),
-                            "source": "startup"
-                        }
-                        return current, stream_info
-                except Exception:
-                    pass
-
-        if not ls_metadata:
-            # Fallback: use most recent play_history entry
-            logger.debug("No Liquidsoap metadata, falling back to play_history")
-            conn = sqlite3.connect(DB_PATH)
-            cursor = conn.cursor()
-
-            cursor.execute(
-                """
-                SELECT
-                    ph.asset_id,
-                    COALESCE(a.title,
-                        CASE
-                            WHEN ph.source = 'break' THEN 'News Break'
-                            WHEN ph.source = 'bumper' THEN 'Station Identification'
-                            ELSE 'Unknown'
-                        END
-                    ) as title,
-                    COALESCE(a.artist,
-                        CASE
-                            WHEN ph.source IN ('break', 'bumper') THEN ?
-                            ELSE 'Clint Ecker'
-                        END
-                    ) as artist,
-                    a.album,
-                    a.duration_sec,
-                    ph.played_at,
-                    ph.source,
-                    a.path
-                FROM play_history ph
-                LEFT JOIN assets a ON ph.asset_id = a.id
-                WHERE ph.played_at >= datetime('now', '-10 minutes')
-                  AND ph.source IN ('music', 'break', 'bumper')
-                ORDER BY ph.played_at DESC
-                LIMIT 1
-                """,
-                (config.station_name,)
-            )
-
-            row = cursor.fetchone()
-            conn.close()
-
-            if not row:
-                return None, stream_info
-
-            # Get duration from file if needed (same logic as main path)
-            duration_sec = row[4]
-            row_source = row[6]
-            row_path = row[7]
-
-            if duration_sec is None and row_source in ("break", "bumper"):
-                if row_path and os.path.exists(row_path):
-                    file_to_probe = row_path
-                else:
-                    asset_id = row[0]
-                    base_dir = config.assets_path
-                    subdir = "bumpers" if row_source == "bumper" else "breaks"
-
-                    file_to_probe = None
-                    for ext in [".wav", ".mp3", ".ogg"]:
-                        candidate_path = base_dir / subdir / f"{asset_id}{ext}"
-                        if candidate_path.exists():
-                            file_to_probe = str(candidate_path)
-                            break
-
-                    if file_to_probe is None:
-                        logger.warning(f"[Fallback] Could not find file for {row_source} asset_id={asset_id}")
-
-                if file_to_probe:
-                    logger.info(f"[Fallback] Getting duration for {row_source} from file: {file_to_probe}")
-                    duration_sec = get_duration_from_file(file_to_probe)
-                    logger.info(f"[Fallback] Duration result: {duration_sec}")
-
-            current = {
-                "asset_id": row[0],
-                "title": row[1],
-                "artist": row[2],
-                "album": row[3],
-                "duration_sec": duration_sec,
-                "played_at": row[5],
-                "source": row_source
-            }
-
-            return current, stream_info
-
-        # Got Liquidsoap metadata - look up in play_history by filename
-        filename = ls_metadata["filename"]
-
-        # Determine source type from filename path
-        if "/breaks/" in filename:
-            source_type = "break"
-        elif "/bumpers/" in filename or "station_id" in filename:
-            source_type = "bumper"
-        else:
-            source_type = "music"
-
-        # For non-music tracks, give database write time to complete
-        # record_play.py triggers this export asynchronously, so there's a tiny
-        # race window where we might query before the write finishes
-        if source_type in ("break", "bumper"):
-            time.sleep(0.1)  # 100ms buffer
-
-        conn = sqlite3.connect(DB_PATH)
-        cursor = conn.cursor()
-
-        # Get most recent play_history entry for this file.
-        # Music tracks: match on full path (a.path) within 10 minutes
-        # Non-music tracks: match on asset_id (filename stem) within 30 seconds
-        # The tighter window for non-music prevents matching old plays of same asset_id
-        filename_stem = os.path.splitext(os.path.basename(filename))[0]
-
-        # Compute time cutoffs in Python using ISO format to match stored timestamps
-        # This avoids lexical mismatch between ISO 8601 (with 'T') and SQLite datetime format (with space)
-        from datetime import timedelta
-        cutoff_10min = (datetime.now(timezone.utc) - timedelta(minutes=10)).isoformat()
-        cutoff_30s = (datetime.now(timezone.utc) - timedelta(seconds=30)).isoformat()
-
-        cursor.execute(
-            """
-            SELECT
-                ph.asset_id,
-                COALESCE(a.title,
-                    CASE
-                        WHEN ph.source = 'break' THEN 'News Break'
-                        WHEN ph.source = 'bumper' THEN 'Station Identification'
-                        ELSE 'Unknown'
-                    END
-                ) as title,
-                COALESCE(a.artist,
-                    CASE
-                        WHEN ph.source IN ('break', 'bumper') THEN ?
-                        ELSE 'Clint Ecker'
-                    END
-                ) as artist,
-                a.album,
-                a.duration_sec,
-                ph.played_at,
-                ph.source,
-                a.path
-            FROM play_history ph
-            LEFT JOIN assets a ON ph.asset_id = a.id
-            WHERE (
-                (a.path = ? AND ph.played_at >= ?)
-                OR
-                (ph.asset_id = ? AND ph.played_at >= ? AND ph.source IN ('break', 'bumper'))
-            )
-            ORDER BY ph.played_at DESC
-            LIMIT 1
-            """,
-            (config.station_name, filename, cutoff_10min, filename_stem, cutoff_30s)
-        )
-
-        row = cursor.fetchone()
-        conn.close()
-
-        if row:
-            duration_sec = row[4]
-            row_source = row[6]  # Source from database (accurate for this play record)
-            row_path = row[7]    # Path from database (may be None for bumpers/breaks not in assets)
-
-            # If duration is null (breaks/bumpers not in assets table), get from file
-            # Use row_path from database if available, otherwise construct from asset_id
-            # This handles cases where Liquidsoap has moved to next track after the record was created
-            if duration_sec is None and row_source in ("break", "bumper"):
-                # Determine which file path to use
-                if row_path and os.path.exists(row_path):
-                    # Use path from database if available (music tracks in assets table)
-                    file_to_probe = row_path
-                else:
-                    # Construct path from asset_id for bumpers/breaks not in assets table
-                    # asset_id is filename stem like "station_id_02" or "break_20251222_025240"
-                    asset_id = row[0]
-                    base_dir = config.assets_path
-                    subdir = "bumpers" if row_source == "bumper" else "breaks"
-
-                    # Try common extensions
-                    file_to_probe = None
-                    for ext in [".wav", ".mp3", ".ogg"]:
-                        candidate_path = base_dir / subdir / f"{asset_id}{ext}"
-                        if candidate_path.exists():
-                            file_to_probe = str(candidate_path)
-                            break
-
-                    if file_to_probe is None:
-                        # File not found, skip duration calculation
-                        logger.warning(f"Could not find file for {row_source} asset_id={asset_id}")
-
-                if file_to_probe:
-                    logger.info(f"Getting duration for {row_source} from file: {file_to_probe}")
-                    duration_sec = get_duration_from_file(file_to_probe)
-                    logger.info(f"Duration result: {duration_sec}")
-
-            current = {
-                "asset_id": row[0],
-                "title": row[1],
-                "artist": row[2],
-                "album": row[3],
-                "duration_sec": duration_sec,
-                "played_at": row[5],
-                "source": row_source
-            }
-        else:
-            # Not in play_history yet - construct minimal metadata
-            if source_type == "break":
-                title = "News Break"
-                artist = config.station_name
-            elif source_type == "bumper":
-                title = "Station Identification"
-                artist = config.station_name
-            else:
-                title = ls_metadata.get("title") or "Unknown"
-                artist = "Clint Ecker"
-
-            # Get duration from file for breaks/bumpers
-            duration_sec = None
-            if source_type in ("break", "bumper") and filename:
-                duration_sec = get_duration_from_file(filename)
-
-            current = {
-                "asset_id": None,
-                "title": title,
-                "artist": artist,
-                "album": ls_metadata.get("album"),
-                "duration_sec": duration_sec,
-                "played_at": datetime.now(timezone.utc).isoformat(),
-                "source": source_type
-            }
-
-        return current, stream_info
-
-    except Exception as e:
-        logger.warning(f"Failed to get current playing: {e}")
+    if not row:
         return None, None
+
+    # Graceful degradation for deleted assets
+    if row[1] is None:  # title is NULL = deleted asset
+        current = {
+            "asset_id": row[0],
+            "title": "[Deleted Track]",
+            "artist": "Unknown",
+            "album": None,
+            "duration_sec": 0,
+            "played_at": row[5],
+            "source": row[6] if row[6] else "unknown"
+        }
+    else:
+        current = {
+            "asset_id": row[0],
+            "title": row[1],
+            "artist": row[2],
+            "album": row[3],
+            "duration_sec": row[4],
+            "played_at": row[5],
+            "source": row[6]
+        }
+
+    # Stream info from Icecast (keep existing logic)
+    stream_info = get_stream_info()
+
+    return current, stream_info
 
 
 def export_now_playing():
