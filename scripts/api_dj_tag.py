@@ -9,12 +9,14 @@ import json
 import logging
 import os
 import secrets
+import signal
+import sys
 import time
 from datetime import datetime, timedelta
 from pathlib import Path
 from queue import Queue
-from threading import Thread
-from typing import Dict
+from threading import Thread, Lock
+from typing import Dict, Set
 
 from flask import Flask, request, jsonify, Response, send_file
 from flask_cors import CORS
@@ -52,8 +54,36 @@ except (OSError, PermissionError):
 MAX_FILES = 100
 MAX_AGE_HOURS = 24
 
-# Job tracking
+# Job tracking with thread safety
 jobs: Dict[str, dict] = {}
+jobs_lock = Lock()
+active_threads: Set[Thread] = set()
+shutdown_requested = False
+
+
+def handle_shutdown(signum, frame):
+    """Handle graceful shutdown on SIGTERM/SIGINT.
+
+    Args:
+        signum: Signal number
+        frame: Current stack frame
+    """
+    global shutdown_requested
+    logger.info(f"Received signal {signum}, initiating graceful shutdown...")
+    shutdown_requested = True
+
+    # Wait for active threads to complete (with timeout)
+    logger.info(f"Waiting for {len(active_threads)} active generation threads...")
+    for thread in list(active_threads):
+        thread.join(timeout=30.0)
+
+    logger.info("Shutdown complete")
+    sys.exit(0)
+
+
+# Register signal handlers
+signal.signal(signal.SIGTERM, handle_shutdown)
+signal.signal(signal.SIGINT, handle_shutdown)
 
 
 def cleanup_old_files():
@@ -129,9 +159,10 @@ def background_generation(job_id: str, params: dict, progress_queue: Queue):
 
         if result:
             # Success
-            jobs[job_id]["status"] = "complete"
-            jobs[job_id]["output_file"] = output_filename
-            jobs[job_id]["duration"] = result.duration_estimate
+            with jobs_lock:
+                jobs[job_id]["status"] = "complete"
+                jobs[job_id]["output_file"] = output_filename
+                jobs[job_id]["duration"] = result.duration_estimate
 
             progress_queue.put({
                 "event": "complete",
@@ -140,8 +171,9 @@ def background_generation(job_id: str, params: dict, progress_queue: Queue):
             })
         else:
             # Failed
-            jobs[job_id]["status"] = "failed"
-            jobs[job_id]["error"] = "Generation failed"
+            with jobs_lock:
+                jobs[job_id]["status"] = "failed"
+                jobs[job_id]["error"] = "Generation failed"
 
             progress_queue.put({
                 "event": "error",
@@ -151,8 +183,9 @@ def background_generation(job_id: str, params: dict, progress_queue: Queue):
 
     except Exception as e:
         logger.error(f"Generation error for job {job_id}: {e}")
-        jobs[job_id]["status"] = "failed"
-        jobs[job_id]["error"] = str(e)
+        with jobs_lock:
+            jobs[job_id]["status"] = "failed"
+            jobs[job_id]["error"] = str(e)
 
         progress_queue.put({
             "event": "error",
@@ -205,11 +238,12 @@ def generate():
 
         # Create job
         job_id = generate_job_id()
-        jobs[job_id] = {
-            "status": "generating",
-            "created_at": datetime.now().isoformat(),
-            "params": data,
-        }
+        with jobs_lock:
+            jobs[job_id] = {
+                "status": "generating",
+                "created_at": datetime.now().isoformat(),
+                "params": data,
+            }
 
         logger.info(f"Created job {job_id} for text: {text[:50]}...")
 
@@ -232,38 +266,44 @@ def stream(job_id: str):
         - complete: {"download_url": "/api/.../file.mp3", "filename": "..."}
         - error: {"error": "...", "retry": true/false}
     """
-    if job_id not in jobs:
-        return jsonify({"error": "Job not found"}), 404
-
-    job = jobs[job_id]
+    with jobs_lock:
+        if job_id not in jobs:
+            return jsonify({"error": "Job not found"}), 404
+        job = jobs[job_id]
 
     def event_stream():
         """Generate SSE events."""
         progress_queue = Queue()
 
-        # Start background generation
+        # Start background generation (non-daemon for graceful shutdown)
         thread = Thread(
             target=background_generation,
             args=(job_id, job["params"], progress_queue),
-            daemon=True,
         )
+
+        # Track thread for graceful shutdown
+        active_threads.add(thread)
         thread.start()
 
-        # Stream progress updates
-        while True:
-            update = progress_queue.get()
+        try:
+            # Stream progress updates
+            while True:
+                update = progress_queue.get()
 
-            if update is None:
-                # Generation complete
-                break
+                if update is None:
+                    # Generation complete
+                    break
 
-            # Determine event type
-            event_type = update.pop("event", "progress")
+                # Determine event type
+                event_type = update.pop("event", "progress")
 
-            # Format as SSE
-            yield f"event: {event_type}\n"
-            yield f"data: {json.dumps(update)}\n\n"
-            time.sleep(0.1)  # Small delay for browser parsing
+                # Format as SSE
+                yield f"event: {event_type}\n"
+                yield f"data: {json.dumps(update)}\n\n"
+                time.sleep(0.1)  # Small delay for browser parsing
+        finally:
+            # Clean up thread tracking
+            active_threads.discard(thread)
 
     return Response(
         event_stream(),
@@ -286,11 +326,22 @@ def download(filename: str):
     Returns:
         MP3 file with appropriate headers
     """
-    # Security: validate filename
+    # Security: validate filename format
     if not filename.startswith("dj_tag_") or not filename.endswith(".mp3"):
         return jsonify({"error": "Invalid filename"}), 400
 
-    file_path = TMP_DIR / filename
+    # Security: prevent path traversal - no directory separators allowed
+    if "/" in filename or "\\" in filename:
+        return jsonify({"error": "Invalid filename"}), 400
+
+    # Construct and resolve path
+    file_path = (TMP_DIR / filename).resolve()
+
+    # Security: verify resolved path is within TMP_DIR
+    try:
+        file_path.relative_to(TMP_DIR.resolve())
+    except ValueError:
+        return jsonify({"error": "Invalid filename"}), 400
 
     if not file_path.exists():
         return jsonify({"error": "File not found"}), 404
@@ -306,10 +357,13 @@ def download(filename: str):
 @app.route("/api/dj-tag/health")
 def health():
     """Health check endpoint."""
+    with jobs_lock:
+        active_jobs = len([j for j in jobs.values() if j["status"] == "generating"])
+
     return jsonify({
         "status": "ok",
         "timestamp": datetime.now().isoformat(),
-        "active_jobs": len([j for j in jobs.values() if j["status"] == "generating"]),
+        "active_jobs": active_jobs,
         "tmp_dir": str(TMP_DIR),
         "tmp_files": len(list(TMP_DIR.glob("*.mp3"))),
     })
