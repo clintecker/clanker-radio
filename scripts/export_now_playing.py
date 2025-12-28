@@ -240,7 +240,7 @@ def get_recent_plays(limit: int = 5) -> list[dict]:
                         ELSE 'Unknown'
                     END
                 ) as title,
-                COALESCE(a.artist, '{config.station_name}') as artist,
+                COALESCE(a.artist, ?) as artist,
                 a.album,
                 a.duration_sec,
                 a.path,
@@ -252,7 +252,7 @@ def get_recent_plays(limit: int = 5) -> list[dict]:
             ORDER BY ph.played_at DESC
             LIMIT ?
             """,
-            (limit,)
+            (config.station_name, limit)
         )
 
         rows = cursor.fetchall()
@@ -571,7 +571,6 @@ def get_current_playing() -> tuple[dict | None, dict | None]:
         # record_play.py triggers this export asynchronously, so there's a tiny
         # race window where we might query before the write finishes
         if source_type in ("break", "bumper"):
-            import time
             time.sleep(0.1)  # 100ms buffer
 
         conn = sqlite3.connect(DB_PATH)

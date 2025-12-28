@@ -196,11 +196,11 @@ sequenceDiagram
    - No more fabricated metadata
    - Accurate timestamps from play_history
 
-2. **Remove Timer**
-   - Disable systemd timer completely
-   - Only use triggered exports from record_play.py
-   - Eliminates race conditions
-   - Export happens immediately when track changes
+2. **Timer as Fallback**
+   - Change systemd timer from 10s to 2-minute fallback
+   - Primary exports triggered immediately by record_play.py
+   - Eliminates race conditions (2min vs 10s)
+   - Timer provides resilience if triggered export fails
 
 ### ✅ Real-Time Improvements
 

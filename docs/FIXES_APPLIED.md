@@ -65,8 +65,13 @@ Fixed critical bugs causing incorrect metadata display after station IDs and new
 
 **Code:**
 ```python
-# Line 567-601
+# Line 573-617 (simplified for clarity)
 filename_stem = os.path.splitext(os.path.basename(filename))[0]
+
+# For non-music tracks, give database write time to complete
+if source_type in ("break", "bumper"):
+    import time
+    time.sleep(0.1)  # 100ms buffer
 
 cursor.execute(
     """
@@ -91,8 +96,12 @@ cursor.execute(
         ph.source
     FROM play_history ph
     LEFT JOIN assets a ON ph.asset_id = a.id
-    WHERE (a.path = ? OR ph.asset_id = ?)
-      AND ph.played_at >= datetime('now', '-10 minutes')
+    WHERE (
+        (a.path = ? AND ph.played_at >= datetime('now', '-10 minutes'))
+        OR
+        (ph.asset_id = ? AND ph.played_at >= datetime('now', '-30 seconds')
+         AND ph.source IN ('break', 'bumper'))
+    )
     ORDER BY ph.played_at DESC
     LIMIT 1
     """,
