@@ -11,7 +11,6 @@ import json
 import time
 import requests
 from concurrent.futures import ThreadPoolExecutor
-from pathlib import Path
 
 BASE_URL = "http://127.0.0.1:5001"
 
@@ -70,7 +69,7 @@ def test_concurrent_job_creation():
         print(f"✓ All job IDs unique: {len(job_ids) == len(unique_ids)}")
 
         if len(job_ids) != len(unique_ids):
-            print(f"✗ RACE CONDITION DETECTED: Duplicate job IDs found!")
+            print("✗ RACE CONDITION DETECTED: Duplicate job IDs found!")
             return False
 
         return successes == num_jobs

@@ -28,41 +28,45 @@ class TestDJTagGenerator:
         """Test that empty text is rejected."""
         with patch('ai_radio.dj_tag_generator.config') as mock_config:
             mock_config.gemini_api_key = "test-key"
-            generator = DJTagGenerator()
 
-            with tempfile.NamedTemporaryFile(suffix='.mp3', delete=False) as f:
-                output_path = Path(f.name)
+            with patch('ai_radio.dj_tag_generator.genai'):
+                generator = DJTagGenerator()
 
-            try:
-                result = generator.generate(
-                    text="",
-                    output_path=output_path,
-                    voice="Kore"
-                )
-                assert result is None
-            finally:
-                output_path.unlink(missing_ok=True)
+                with tempfile.NamedTemporaryFile(suffix='.mp3', delete=False) as f:
+                    output_path = Path(f.name)
+
+                try:
+                    result = generator.generate(
+                        text="",
+                        output_path=output_path,
+                        voice="Kore"
+                    )
+                    assert result is None
+                finally:
+                    output_path.unlink(missing_ok=True)
 
     def test_generate_validates_text_length(self):
         """Test that text exceeding max length is rejected."""
         with patch('ai_radio.dj_tag_generator.config') as mock_config:
             mock_config.gemini_api_key = "test-key"
-            generator = DJTagGenerator()
 
-            with tempfile.NamedTemporaryFile(suffix='.mp3', delete=False) as f:
-                output_path = Path(f.name)
+            with patch('ai_radio.dj_tag_generator.genai'):
+                generator = DJTagGenerator()
 
-            try:
-                # Generate text > 5000 characters
-                long_text = "a" * 5001
-                result = generator.generate(
-                    text=long_text,
-                    output_path=output_path,
-                    voice="Kore"
-                )
-                assert result is None
-            finally:
-                output_path.unlink(missing_ok=True)
+                with tempfile.NamedTemporaryFile(suffix='.mp3', delete=False) as f:
+                    output_path = Path(f.name)
+
+                try:
+                    # Generate text > 5000 characters
+                    long_text = "a" * 5001
+                    result = generator.generate(
+                        text=long_text,
+                        output_path=output_path,
+                        voice="Kore"
+                    )
+                    assert result is None
+                finally:
+                    output_path.unlink(missing_ok=True)
 
     @patch('ai_radio.dj_tag_generator.subprocess.run')
     def test_generate_calls_gemini_api(self, mock_subprocess):

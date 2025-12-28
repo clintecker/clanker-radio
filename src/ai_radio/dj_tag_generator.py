@@ -208,6 +208,7 @@ class DJTagGenerator:
                     capture_output=True,
                     text=True,
                     check=False,
+                    timeout=60,  # 60 seconds should be sufficient for conversion
                 )
 
                 if result.returncode != 0:
@@ -243,7 +244,7 @@ class DJTagGenerator:
             )
 
         except Exception as e:
-            logger.error(f"DJ tag generation failed: {e}")
+            logger.exception("DJ tag generation failed")
             if progress_callback:
-                progress_callback(GenerationProgress(percent=0, message=f"Error: {str(e)}"))
+                progress_callback(GenerationProgress(percent=0, message=f"Error: {e!s}"))
             return None

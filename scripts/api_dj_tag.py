@@ -109,7 +109,7 @@ def cleanup_old_files():
             logger.info(f"Cleaned up {removed} old DJ tag files")
 
     except Exception as e:
-        logger.error(f"Cleanup failed: {e}")
+        logger.exception(f"Cleanup failed: {e}")
 
 
 def generate_job_id() -> str:
@@ -182,7 +182,7 @@ def background_generation(job_id: str, params: dict, progress_queue: Queue):
             })
 
     except Exception as e:
-        logger.error(f"Generation error for job {job_id}: {e}")
+        logger.exception(f"Generation error for job {job_id}: {e}")
         with jobs_lock:
             jobs[job_id]["status"] = "failed"
             jobs[job_id]["error"] = str(e)

@@ -1,6 +1,6 @@
 [Unit]
 Description=AI Radio DJ Tag Generator API
-Documentation=https://github.com/your-repo/ai-radio
+Documentation=https://github.com/clintecker/clanker-radio
 After=network.target
 
 [Service]
