@@ -240,7 +240,7 @@ def get_recent_plays(limit: int = 5) -> list[dict]:
                         ELSE 'Unknown'
                     END
                 ) as title,
-                COALESCE(a.artist, '{config.station_name}') as artist,
+                COALESCE(a.artist, ?) as artist,
                 a.album,
                 a.duration_sec,
                 a.path,
@@ -252,7 +252,7 @@ def get_recent_plays(limit: int = 5) -> list[dict]:
             ORDER BY ph.played_at DESC
             LIMIT ?
             """,
-            (limit,)
+            (config.station_name, limit)
         )
 
         rows = cursor.fetchall()
@@ -518,7 +518,12 @@ def get_current_playing() -> tuple[dict | None, dict | None]:
                             ELSE 'Unknown'
                         END
                     ) as title,
-                    COALESCE(a.artist, 'Clint Ecker') as artist,
+                    COALESCE(a.artist,
+                        CASE
+                            WHEN ph.source IN ('break', 'bumper') THEN ?
+                            ELSE 'Clint Ecker'
+                        END
+                    ) as artist,
                     a.album,
                     a.duration_sec,
                     ph.played_at,
@@ -529,7 +534,8 @@ def get_current_playing() -> tuple[dict | None, dict | None]:
                   AND ph.source IN ('music', 'break', 'bumper')
                 ORDER BY ph.played_at DESC
                 LIMIT 1
-                """
+                """,
+                (config.station_name,)
             )
 
             row = cursor.fetchone()
@@ -553,9 +559,6 @@ def get_current_playing() -> tuple[dict | None, dict | None]:
         # Got Liquidsoap metadata - look up in play_history by filename
         filename = ls_metadata["filename"]
 
-        conn = sqlite3.connect(DB_PATH)
-        cursor = conn.cursor()
-
         # Determine source type from filename path
         if "/breaks/" in filename:
             source_type = "break"
@@ -564,7 +567,27 @@ def get_current_playing() -> tuple[dict | None, dict | None]:
         else:
             source_type = "music"
 
-        # Get most recent play_history entry for this file
+        # For non-music tracks, give database write time to complete
+        # record_play.py triggers this export asynchronously, so there's a tiny
+        # race window where we might query before the write finishes
+        if source_type in ("break", "bumper"):
+            time.sleep(0.1)  # 100ms buffer
+
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+
+        # Get most recent play_history entry for this file.
+        # Music tracks: match on full path (a.path) within 10 minutes
+        # Non-music tracks: match on asset_id (filename stem) within 30 seconds
+        # The tighter window for non-music prevents matching old plays of same asset_id
+        filename_stem = os.path.splitext(os.path.basename(filename))[0]
+
+        # Compute time cutoffs in Python using ISO format to match stored timestamps
+        # This avoids lexical mismatch between ISO 8601 (with 'T') and SQLite datetime format (with space)
+        from datetime import timedelta
+        cutoff_10min = (datetime.now(timezone.utc) - timedelta(minutes=10)).isoformat()
+        cutoff_30s = (datetime.now(timezone.utc) - timedelta(seconds=30)).isoformat()
+
         cursor.execute(
             """
             SELECT
@@ -576,19 +599,27 @@ def get_current_playing() -> tuple[dict | None, dict | None]:
                         ELSE 'Unknown'
                     END
                 ) as title,
-                COALESCE(a.artist, 'Clint Ecker') as artist,
+                COALESCE(a.artist,
+                    CASE
+                        WHEN ph.source IN ('break', 'bumper') THEN ?
+                        ELSE 'Clint Ecker'
+                    END
+                ) as artist,
                 a.album,
                 a.duration_sec,
                 ph.played_at,
                 ph.source
             FROM play_history ph
             LEFT JOIN assets a ON ph.asset_id = a.id
-            WHERE a.path = ?
-              AND ph.played_at >= datetime('now', '-10 minutes')
+            WHERE (
+                (a.path = ? AND ph.played_at >= ?)
+                OR
+                (ph.asset_id = ? AND ph.played_at >= ? AND ph.source IN ('break', 'bumper'))
+            )
             ORDER BY ph.played_at DESC
             LIMIT 1
             """,
-            (filename,)
+            (config.station_name, filename, cutoff_10min, filename_stem, cutoff_30s)
         )
 
         row = cursor.fetchone()

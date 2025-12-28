@@ -1,11 +1,13 @@
 [Unit]
-Description=AI Radio Now Playing Export Timer
+Description=AI Radio Now Playing Export Timer (Fallback)
 Documentation=https://github.com/your-username/ai-radio-station
 
 [Timer]
-# Run every 10 seconds for more responsive now playing updates
-OnBootSec=5s
-OnUnitActiveSec=10s
+# Fallback timer - runs every 2 minutes as safety net
+# Normal operation: exports triggered immediately by record_play.py
+# This timer only catches cases where triggered export fails
+OnBootSec=30s
+OnUnitActiveSec=2m
 
 [Install]
 WantedBy=timers.target
