@@ -441,18 +441,8 @@
                     eventSource.close();
                 });
 
-                eventSource.addEventListener('error', (e) => {
-                    try {
-                        const data = JSON.parse(e.data);
-                        showError(data.error || 'An error occurred');
-                    } catch (parseError) {
-                        showError('An unexpected error occurred');
-                    }
-                    document.getElementById('progressSection').classList.remove('active');
-                    document.getElementById('generateBtn').disabled = false;
-                    eventSource.close();
-                });
-
+                // Note: Server-sent 'error' events are handled by the listener above (line 427)
+                // EventSource.onerror handles connection errors (no e.data available)
                 eventSource.onerror = (e) => {
                     // Connection error
                     if (eventSource.readyState === EventSource.CLOSED) {

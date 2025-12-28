@@ -32,8 +32,8 @@ class TestDJTagGenerator:
             with patch('ai_radio.dj_tag_generator.genai'):
                 generator = DJTagGenerator()
 
-                with tempfile.NamedTemporaryFile(suffix='.mp3', delete=False) as f:
-                    output_path = Path(f.name)
+                # Create path for non-existent file in temp directory
+                output_path = Path(tempfile.gettempdir()) / f"test_empty_{tempfile._get_candidate_names().__next__()}.mp3"
 
                 try:
                     result = generator.generate(
@@ -53,8 +53,8 @@ class TestDJTagGenerator:
             with patch('ai_radio.dj_tag_generator.genai'):
                 generator = DJTagGenerator()
 
-                with tempfile.NamedTemporaryFile(suffix='.mp3', delete=False) as f:
-                    output_path = Path(f.name)
+                # Create path for non-existent file in temp directory
+                output_path = Path(tempfile.gettempdir()) / f"test_length_{tempfile._get_candidate_names().__next__()}.mp3"
 
                 try:
                     # Generate text > 5000 characters
@@ -92,8 +92,8 @@ class TestDJTagGenerator:
 
                 generator = DJTagGenerator()
 
-                with tempfile.NamedTemporaryFile(suffix='.mp3', delete=False) as f:
-                    output_path = Path(f.name)
+                # Create path for non-existent file in temp directory
+                output_path = Path(tempfile.gettempdir()) / f"test_api_{tempfile._get_candidate_names().__next__()}.mp3"
 
                 try:
                     result = generator.generate(
@@ -148,8 +148,8 @@ class TestDJTagGenerator:
 
                 generator = DJTagGenerator()
 
-                with tempfile.NamedTemporaryFile(suffix='.mp3', delete=False) as f:
-                    output_path = Path(f.name)
+                # Create path for non-existent file in temp directory
+                output_path = Path(tempfile.gettempdir()) / f"test_temp_{tempfile._get_candidate_names().__next__()}.mp3"
 
                 try:
                     result = generator.generate(
@@ -203,8 +203,8 @@ class TestDJTagGenerator:
 
                     generator = DJTagGenerator()
 
-                    with tempfile.NamedTemporaryFile(suffix='.mp3', delete=False) as f:
-                        output_path = Path(f.name)
+                    # Create path for non-existent file in temp directory
+                    output_path = Path(tempfile.gettempdir()) / f"test_progress_{tempfile._get_candidate_names().__next__()}.mp3"
 
                     try:
                         generator.generate(
