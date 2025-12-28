@@ -151,27 +151,46 @@ class GeminiVoiceSynthesizer:
         try:
             logger.info(f"Synthesizing speech with Gemini voice '{self.voice}'")
 
-            # Build Director's Notes prompt from configuration
+            # Build enhanced five-element Gemini TTS prompt
+            # Based on Google's official framework + PAL recommendations
             director_prompt = f"""# AUDIO PROFILE: {config.announcer_name}
+Post-collapse radio operator. Solo overnight shifts, mid-30s. Seen some things, still showing up.
 
 ## STATION: {config.station_name}, {config.station_location}
+
+## SCENE
+Late-night broadcast booth. Flickering LED panels casting blue-white light. Low equipment hum,
+occasional static pop. Converted server room, stripped cables along the walls. Solo shift,
+city settling outside. That 2am energy.
 
 ### WORLD SETTING
 {config.world_setting}
 
 ### DIRECTOR'S NOTES
 
-Style:
+**Emotional Tone:**
 {config.world_tone}
 
-Core personality (Energy {config.energy_level}/10):
+**Core Personality (Energy {config.energy_level}/10):**
 {config.vibe_keywords}
 
-Delivery style:
+**Vocal Technique:**
+- Relaxed soft palate (no vocal smile, avoid brightness)
+- Flat affect with occasional dry warmth
+- Chest voice, lower-middle register
+- Natural micro-pauses between thoughts
+- Measured breath - don't rush, let exhaustion show in pacing
+- Employ occasional vocal fry on tail-ends of phrases
+- Maintain narrow pitch range with slight downward inflection on terminal phrases
+
+**Delivery Style:**
 {config.delivery_style}
 
-Accent/vocal characteristics:
+**Accent/Vocal Characteristics:**
 {config.accent_style}
+
+### SAMPLE CONTEXT
+(Sighs softly) Alright... another hour. Let's see what we've got.
 
 ### TRANSCRIPT
 {script_text}"""
