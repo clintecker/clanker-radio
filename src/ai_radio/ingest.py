@@ -15,7 +15,7 @@ from pathlib import Path
 
 from ai_radio.audio import extract_metadata, normalize_audio
 from ai_radio.config import config
-from ai_radio.db_assets import insert_asset, get_asset_by_path
+from ai_radio.db_assets import insert_asset, get_asset_by_id
 
 
 def ingest_audio_file(
@@ -65,22 +65,24 @@ def ingest_audio_file(
     conn = sqlite3.connect(db_path)
 
     try:
-        # Check if file already ingested
-        existing = get_asset_by_path(conn, source_path)
-        if existing:
-            print(f"⚠️  File already ingested: {source_path}")
-            print(f"   Asset ID: {existing['id']}")
-            return existing
-
-        # Step 1: Extract metadata
+        # Step 1: Extract metadata to get SHA256 content hash
         print(f"📋 Extracting metadata from {source_path.name}...")
         metadata = extract_metadata(source_path)
+        asset_id = metadata.sha256_id
+
+        # Step 2: Check if content already ingested (by SHA256, not path)
+        existing = get_asset_by_id(conn, asset_id)
+        if existing:
+            print(f"⚠️  Content already ingested: {source_path}")
+            print(f"   Asset ID: {existing['id']}")
+            print(f"   Original path: {existing['path']}")
+            return existing
+
         print(f"   Title: {metadata.title}")
         print(f"   Artist: {metadata.artist}")
         print(f"   Duration: {metadata.duration_sec:.1f}s")
 
-        # Step 2: Normalize audio
-        asset_id = metadata.sha256_id
+        # Step 3: Normalize audio
         output_path = music_dir / f"{asset_id}.mp3"
 
         print(f"🔊 Normalizing audio to {target_lufs} LUFS...")
@@ -93,7 +95,7 @@ def ingest_audio_file(
         print(f"   Loudness: {norm_result['loudness_lufs']:.1f} LUFS")
         print(f"   True Peak: {norm_result['true_peak_dbtp']:.1f} dBTP")
 
-        # Step 3: Insert into database
+        # Step 4: Insert into database
         print(f"💾 Inserting asset record into database...")
         try:
             insert_asset(

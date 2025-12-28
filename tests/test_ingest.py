@@ -211,3 +211,61 @@ def test_ingest_invalid_kind(tmp_path):
             db_path=db_path,
             music_dir=music_dir,
         )
+
+
+def test_ingest_same_content_different_paths_deduplicates(tmp_path):
+    """Verify that files with same content but different paths deduplicate."""
+    import shutil
+
+    db_path = tmp_path / "test.db"
+    music_dir = tmp_path / "music"
+    music_dir.mkdir()
+
+    # Initialize database
+    conn = sqlite3.connect(db_path)
+    cursor = conn.cursor()
+    cursor.execute(
+        """
+        CREATE TABLE assets (
+            id TEXT PRIMARY KEY,
+            path TEXT NOT NULL,
+            kind TEXT NOT NULL CHECK(kind IN ('music', 'break', 'bed', 'safety')),
+            duration_sec REAL,
+            loudness_lufs REAL,
+            true_peak_dbtp REAL,
+            energy_level INTEGER CHECK(energy_level BETWEEN 0 AND 100),
+            title TEXT,
+            artist TEXT,
+            album TEXT,
+            created_at TEXT NOT NULL
+        )
+        """
+    )
+    cursor.execute(
+        "CREATE UNIQUE INDEX idx_assets_path_unique ON assets(path)"
+    )
+    conn.commit()
+    conn.close()
+
+    # Create two copies of same file with different names
+    test_track = Path("tests/fixtures/test_track.mp3")
+    if not test_track.exists():
+        pytest.skip("Test track not available")
+
+    copy1 = tmp_path / "song1.mp3"
+    copy2 = tmp_path / "song2.mp3"
+    shutil.copy(test_track, copy1)
+    shutil.copy(test_track, copy2)
+
+    # Ingest first copy
+    result1 = ingest_audio_file(copy1, "music", db_path, music_dir)
+
+    # Ingest second copy - should return same asset
+    result2 = ingest_audio_file(copy2, "music", db_path, music_dir)
+
+    # Both should have same asset ID (based on SHA256 content)
+    assert result1["id"] == result2["id"]
+
+    # Should only create one normalized file
+    assert (music_dir / f"{result1['id']}.mp3").exists()
+    assert len(list(music_dir.glob("*.mp3"))) == 1
