@@ -1,0 +1,41 @@
+[Unit]
+Description=AI Radio DJ Tag Generator API
+Documentation=https://github.com/your-repo/ai-radio
+After=network.target
+
+[Service]
+Type=simple
+User=clint
+Group=clint
+WorkingDirectory=/srv/ai_radio
+Environment="PATH=/srv/ai_radio/.venv/bin:/usr/local/bin:/usr/bin:/bin"
+Environment="PYTHONUNBUFFERED=1"
+
+# Load environment variables
+EnvironmentFile=/srv/ai_radio/.env
+
+# Run Flask API
+ExecStart=/srv/ai_radio/.venv/bin/python /srv/ai_radio/scripts/api_dj_tag.py
+
+# Restart policy
+Restart=always
+RestartSec=10
+
+# Security hardening
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=yes
+ReadWritePaths=/srv/ai_radio/tmp/dj_tags /srv/ai_radio/logs
+
+# Resource limits
+LimitNOFILE=4096
+MemoryMax=1G
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=ai-radio-dj-tag-api
+
+[Install]
+WantedBy=multi-user.target
