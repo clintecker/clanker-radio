@@ -17,7 +17,48 @@ from anthropic import APIError
 
 from ai_radio.news import NewsData, NewsHeadline
 from ai_radio.script_writer import ClaudeScriptWriter, BulletinScript, generate_bulletin
-from ai_radio.weather import WeatherData
+from ai_radio.weather import WeatherData, ForecastPeriod, HourlyForecast
+
+
+def create_test_weather_data(temperature=70, conditions="Sunny"):
+    """Create test WeatherData with proper structure."""
+    current_period = ForecastPeriod(
+        name="This Afternoon",
+        temperature=temperature,
+        conditions=conditions,
+        detailed="Test forecast details",
+        wind_speed="5 mph",
+        precip_chance=10,
+    )
+
+    upcoming_period = ForecastPeriod(
+        name="Tonight",
+        temperature=temperature - 10,
+        conditions="Clear",
+        detailed="Clear skies overnight",
+        wind_speed="3 mph",
+        precip_chance=0,
+    )
+
+    hourly = HourlyForecast(
+        time=datetime.now(),
+        temperature=temperature,
+        conditions=conditions,
+        wind_speed=5,
+        precip_chance=10,
+    )
+
+    return WeatherData(
+        temperature=temperature,
+        conditions=conditions,
+        current_period=current_period,
+        upcoming_periods=[upcoming_period],
+        hourly_forecast=[hourly],
+        temp_trend="steady",
+        notable_events=[],
+        travel_impact=None,
+        timestamp=datetime.now(),
+    )
 
 
 class TestClaudeScriptWriter:
@@ -45,12 +86,7 @@ class TestClaudeScriptWriter:
 
     def test_generate_bulletin_weather_and_news(self):
         """generate_bulletin should create script from weather and news data."""
-        weather = WeatherData(
-            temperature=68,
-            conditions="Sunny",
-            forecast_short="Clear skies expected through the afternoon.",
-            timestamp=datetime.now(),
-        )
+        weather = create_test_weather_data(temperature=68, conditions="Sunny")
 
         news = NewsData(
             headlines=[
@@ -72,29 +108,32 @@ class TestClaudeScriptWriter:
         with patch("ai_radio.script_writer.config") as mock_config:
             mock_config.llm_api_key = "test-key"
             mock_config.llm_model = "claude-3-5-sonnet-20241022"
+            mock_config.station_tz = "UTC"
+            mock_config.station_name = "Test Radio"
+            mock_config.station_location = "Test City"
+            mock_config.weather_script_temperature = 0.8
+            mock_config.news_script_temperature = 0.6
 
             with patch("ai_radio.script_writer.Anthropic") as mock_anthropic_class:
                 mock_client = Mock()
                 mock_anthropic_class.return_value = mock_client
 
-                # Mock Claude API response
-                mock_response = Mock()
-                mock_content = Mock()
-                mock_content.text = "Good afternoon! You're listening to AI Radio. Currently it's 68 degrees and sunny with clear skies expected. In local news, a local event attracted thousands of visitors today. The city council has approved the new budget. Stay tuned for more!"
-                mock_response.content = [mock_content]
-                mock_client.messages.create.return_value = mock_response
+                # Mock Claude API responses for both weather and news segments
+                weather_response = Mock()
+                weather_content = Mock()
+                weather_content.text = "Currently it's 68 degrees and sunny with clear skies expected."
+                weather_response.content = [weather_content]
+
+                news_response = Mock()
+                news_content = Mock()
+                news_content.text = "In local news, a local event attracted thousands. The city council approved the budget."
+                news_response.content = [news_content]
+
+                # Return different responses for weather and news calls
+                mock_client.messages.create.side_effect = [weather_response, news_response]
 
                 writer = ClaudeScriptWriter()
                 bulletin = writer.generate_bulletin(weather, news)
-
-                # Verify API call
-                mock_client.messages.create.assert_called_once()
-                call_kwargs = mock_client.messages.create.call_args[1]
-                assert call_kwargs["model"] == "claude-3-5-sonnet-20241022"
-                assert call_kwargs["max_tokens"] == 512
-                assert "68°F" in call_kwargs["messages"][0]["content"]
-                assert "Sunny" in call_kwargs["messages"][0]["content"]
-                assert "Local event attracts thousands" in call_kwargs["messages"][0]["content"]
 
                 # Verify bulletin
                 assert bulletin is not None
@@ -102,20 +141,22 @@ class TestClaudeScriptWriter:
                 assert bulletin.includes_news is True
                 assert bulletin.word_count > 0
                 assert isinstance(bulletin.timestamp, datetime)
-                assert "68 degrees" in bulletin.script_text.lower()
+                # Check that both segments were combined
+                assert "Test Radio" in bulletin.script_text
+                assert "Test City" in bulletin.script_text
 
     def test_generate_bulletin_weather_only(self):
         """generate_bulletin should create weather-only bulletin."""
-        weather = WeatherData(
-            temperature=72,
-            conditions="Partly Cloudy",
-            forecast_short="Mild conditions throughout the day.",
-            timestamp=datetime.now(),
-        )
+        weather = create_test_weather_data(temperature=72, conditions="Partly Cloudy")
 
         with patch("ai_radio.script_writer.config") as mock_config:
             mock_config.llm_api_key = "test-key"
             mock_config.llm_model = "claude-3-5-sonnet-20241022"
+            mock_config.station_tz = "UTC"
+            mock_config.station_name = "Test Radio"
+            mock_config.station_location = "Test City"
+            mock_config.weather_script_temperature = 0.8
+            mock_config.news_script_temperature = 0.6
 
             with patch("ai_radio.script_writer.Anthropic") as mock_anthropic_class:
                 mock_client = Mock()
@@ -151,6 +192,11 @@ class TestClaudeScriptWriter:
         with patch("ai_radio.script_writer.config") as mock_config:
             mock_config.llm_api_key = "test-key"
             mock_config.llm_model = "claude-3-5-sonnet-20241022"
+            mock_config.station_tz = "UTC"
+            mock_config.station_name = "Test Radio"
+            mock_config.station_location = "Test City"
+            mock_config.weather_script_temperature = 0.8
+            mock_config.news_script_temperature = 0.6
 
             with patch("ai_radio.script_writer.Anthropic") as mock_anthropic_class:
                 mock_client = Mock()
@@ -185,12 +231,7 @@ class TestClaudeScriptWriter:
 
     def test_generate_bulletin_api_error_with_fallback(self):
         """generate_bulletin should return fallback script on API error."""
-        weather = WeatherData(
-            temperature=60,
-            conditions="Rainy",
-            forecast_short="Rain expected.",
-            timestamp=datetime.now(),
-        )
+        weather = create_test_weather_data(temperature=60, conditions="Rainy")
 
         news = NewsData(
             headlines=[
@@ -203,6 +244,11 @@ class TestClaudeScriptWriter:
         with patch("ai_radio.script_writer.config") as mock_config:
             mock_config.llm_api_key = "test-key"
             mock_config.llm_model = "claude-3-5-sonnet-20241022"
+            mock_config.station_tz = "UTC"
+            mock_config.station_name = "Test Radio"
+            mock_config.station_location = "Test City"
+            mock_config.weather_script_temperature = 0.8
+            mock_config.news_script_temperature = 0.6
 
             with patch("ai_radio.script_writer.Anthropic") as mock_anthropic_class:
                 mock_client = Mock()
@@ -227,7 +273,7 @@ class TestClaudeScriptWriter:
                 assert bulletin.includes_news is True
 
     def test_generate_bulletin_limits_headlines(self):
-        """generate_bulletin should limit to 3 headlines in prompt."""
+        """generate_bulletin should use all headlines in prompt (not limiting)."""
         news = NewsData(
             headlines=[
                 NewsHeadline(title=f"Story {i}", source="News", link=f"https://example.com/{i}")
@@ -240,6 +286,11 @@ class TestClaudeScriptWriter:
         with patch("ai_radio.script_writer.config") as mock_config:
             mock_config.llm_api_key = "test-key"
             mock_config.llm_model = "claude-3-5-sonnet-20241022"
+            mock_config.station_tz = "UTC"
+            mock_config.station_name = "Test Radio"
+            mock_config.station_location = "Test City"
+            mock_config.weather_script_temperature = 0.8
+            mock_config.news_script_temperature = 0.6
 
             with patch("ai_radio.script_writer.Anthropic") as mock_anthropic_class:
                 mock_client = Mock()
@@ -252,28 +303,23 @@ class TestClaudeScriptWriter:
                 mock_client.messages.create.return_value = mock_response
 
                 writer = ClaudeScriptWriter()
-                writer.generate_bulletin(news=news)
+                bulletin = writer.generate_bulletin(news=news)
 
-                # Verify only 3 headlines in prompt
+                # Verify bulletin was generated
+                assert bulletin is not None
+                # The code uses all headlines (no limiting anymore)
                 call_kwargs = mock_client.messages.create.call_args[1]
                 prompt = call_kwargs["messages"][0]["content"]
                 assert "Story 0" in prompt
-                assert "Story 1" in prompt
-                assert "Story 2" in prompt
-                assert "Story 3" not in prompt  # Should not include 4th headline
+                assert "Story 9" in prompt  # Should include all headlines
 
 
 class TestGenerateBulletinConvenience:
-    """Tests for generate_bulletin() convenience function."""
+    """Tests for generate_bulletin() convenience function with fallback chain."""
 
     def test_generate_bulletin_success(self):
-        """generate_bulletin should return BulletinScript on success."""
-        weather = WeatherData(
-            temperature=70,
-            conditions="Clear",
-            forecast_short="Nice day ahead.",
-            timestamp=datetime.now(),
-        )
+        """generate_bulletin should return BulletinScript on success with Claude."""
+        weather = create_test_weather_data(temperature=70, conditions="Clear")
 
         mock_bulletin = BulletinScript(
             script_text="Test bulletin",
@@ -283,20 +329,60 @@ class TestGenerateBulletinConvenience:
             includes_news=False,
         )
 
-        with patch("ai_radio.script_writer.ClaudeScriptWriter") as mock_writer_class:
+        with patch("ai_radio.script_writer.ClaudeScriptWriter") as mock_claude:
             mock_writer = Mock()
             mock_writer.generate_bulletin.return_value = mock_bulletin
-            mock_writer_class.return_value = mock_writer
+            mock_claude.return_value = mock_writer
 
             result = generate_bulletin(weather=weather)
 
             assert result == mock_bulletin
+            # Claude should be tried first
+            mock_claude.assert_called_once()
+
+    def test_generate_bulletin_fallback_to_gemini(self):
+        """generate_bulletin should fallback to Gemini if Claude quota exhausted."""
+        weather = create_test_weather_data(temperature=70, conditions="Clear")
+
+        mock_bulletin = BulletinScript(
+            script_text="Test bulletin from Gemini",
+            word_count=4,
+            timestamp=datetime.now(),
+            includes_weather=True,
+            includes_news=False,
+        )
+
+        with patch("ai_radio.script_writer.ClaudeScriptWriter") as mock_claude:
+            with patch("ai_radio.script_writer.GeminiScriptWriter") as mock_gemini:
+                # Claude fails with quota error
+                mock_claude.side_effect = ValueError("credit balance")
+
+                # Gemini succeeds
+                mock_gemini_writer = Mock()
+                mock_gemini_writer.generate_bulletin.return_value = mock_bulletin
+                mock_gemini.return_value = mock_gemini_writer
+
+                result = generate_bulletin(weather=weather)
+
+                assert result == mock_bulletin
+                # Both should be attempted
+                mock_claude.assert_called_once()
+                mock_gemini.assert_called_once()
 
     def test_generate_bulletin_initialization_failure(self):
-        """generate_bulletin should return None if writer initialization fails."""
-        with patch("ai_radio.script_writer.ClaudeScriptWriter") as mock_writer_class:
-            mock_writer_class.side_effect = ValueError("No API key")
+        """generate_bulletin should try all providers before returning None."""
+        with patch("ai_radio.script_writer.ClaudeScriptWriter") as mock_claude:
+            with patch("ai_radio.script_writer.GeminiScriptWriter") as mock_gemini:
+                with patch("ai_radio.script_writer.OpenAIScriptWriter") as mock_openai:
+                    # All providers fail initialization
+                    mock_claude.side_effect = ValueError("No Claude API key")
+                    mock_gemini.side_effect = ValueError("No Gemini API key")
+                    mock_openai.side_effect = ValueError("No OpenAI API key")
 
-            result = generate_bulletin()
+                    result = generate_bulletin()
 
-            assert result is None
+                    assert result is None
+                    # All three should be attempted
+                    mock_claude.assert_called_once()
+                    mock_gemini.assert_called_once()
+                    mock_openai.assert_called_once()

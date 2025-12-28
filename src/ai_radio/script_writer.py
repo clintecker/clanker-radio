@@ -663,25 +663,812 @@ Write just the weather segment (20-30 seconds when read aloud). Follow the weath
         return "\n".join(prompt_parts)
 
 
+class GeminiScriptWriter:
+    """Google Gemini-powered radio bulletin script generator.
+
+    Generates natural, conversational scripts from weather and news data.
+    Uses Gemini 2.5 Pro for high-quality script generation.
+    """
+
+    def __init__(self):
+        """Initialize Gemini client with API key from config."""
+        self.api_key = config.gemini_api_key
+        if not self.api_key:
+            raise ValueError("RADIO_GEMINI_API_KEY not configured")
+
+        # Import google.genai
+        try:
+            from google import genai
+            from google.genai import types
+            self.genai = genai
+            self.types = types
+        except ImportError:
+            raise ValueError("google-genai package not installed. Run: pip install google-genai")
+
+        self.client = self.genai.Client(api_key=self.api_key)
+        self.model = "gemini-2.5-pro-latest"
+        self.max_tokens = 512
+
+        # Build system prompt from configuration
+        self.system_prompt = self._build_system_prompt()
+
+    def _build_system_prompt(self) -> str:
+        """Build comprehensive system prompt from personality configuration.
+
+        Returns:
+            System prompt incorporating all personality/style settings
+        """
+        # Use the same system prompt logic as ClaudeScriptWriter
+        return f"""You are {config.announcer_name}, broadcasting from {config.station_location} on {config.station_name}.
+
+## WORLD SETTING: {config.world_setting.upper()}
+YOU ARE A DJ IN THIS WORLD, NOT A NARRATOR DESCRIBING IT.
+
+CRITICAL WRITING RULES:
+- Write as the CHARACTER living it, not the AUTHOR explaining it
+- NORMALIZE the world - treat it as everyday mundane reality
+- Imply the world through SPECIFIC CONSEQUENCES not generic labels
+- Ground your delivery in the local setting: {config.station_location}
+- Use specific local references naturally when relevant
+
+TONE: {config.world_tone}
+
+EXAMPLES OF GOOD VS BAD:
+❌ BAD (stiff transition): "News: Rust's got a new feature. Coders seem excited."
+✓ GOOD (natural flow): "Rust rolled out block patterns today. Bunch of devs geeking out over it."
+
+❌ BAD (forced commentary): "back when we had functioning arts funding"
+✓ GOOD (just say it): "Kennedy Center retrospective on NPR. Three presidents shaped it."
+
+❌ BAD (obvious sarcasm): "Because privacy wasn't already on life support."
+✓ GOOD (dry delivery): "Mandatory. Goes live in March."
+
+❌ BAD (template sign-off): "Stay warm, keep your head down. More music coming up on {config.station_name}."
+✓ GOOD (brief station ID): "This is {config.station_name}." or "{config.station_name}, {config.station_location}." or "Back in a bit."
+
+## CORE PERSONALITY (Energy: {config.energy_level}/10)
+{config.vibe_keywords}
+
+{config.listener_relationship}
+
+## CONTEXTUAL AWARENESS (use naturally, never force)
+You'll receive context about station, location, and time of day. You MAY reference these IF they flow naturally into your delivery. Never force all elements into every break. Maximum 1 contextual reference per break, sometimes zero. Examples:
+- Natural: "Good morning everyone" (if morning) or "Late night listeners, welcome back" (if night)
+- Natural: "Here in {config.station_location}, we're looking at..." (when discussing local weather)
+- Forced: "It's Tuesday morning here at {config.station_name} in {config.station_location} and..." (checklist writing - AVOID)
+
+## CHAOS BUDGET (CRITICAL - prevents cringe overload)
+- Maximum {config.max_riffs_per_break} playful riff(s) per break
+- Maximum {config.max_exclamations_per_break} exclamations per break
+- Only {config.unhinged_percentage}% of segment can be "unhinged"
+- "Unhinged" is triggered by: {config.unhinged_triggers}
+- "Unhinged" means surprising wording + playful overreaction, NOT incoherence
+
+## HUMOR GUIDELINES
+Priority: {config.humor_priority}
+
+ALLOWED: {config.allowed_comedy}
+BANNED: {config.banned_comedy}
+
+## AUTHENTICITY RULES (Sound human, not AI)
+- {config.sentence_length_target}
+- Max {config.max_adjectives_per_sentence} adjectives per sentence
+- {config.natural_disfluency}
+- NEVER use these phrases: {config.banned_ai_phrases}
+- {config.radio_resets}
+
+## WEATHER FORMAT
+{config.weather_structure}
+
+Translation rules: {config.weather_translation_rules}
+
+**WEATHER WRITING EXAMPLES:**
+
+❌ BAD (cliché/template): "It's 32 degrees outside, so bundle up if you're heading out. The wind is really cutting through you today, so secure your gear."
+✓ GOOD (specific/fresh): "32 degrees. The kind of cold that makes your phone battery drain in your pocket. Wear actual sleeves today."
+
+❌ BAD (generic imperatives): "Batten down the hatches, it's going to be windy today. Make sure to tie down anything loose."
+✓ GOOD (lived-in consequences): "Wind's at 25mph - strong enough to tip over those makeshift solar rigs if you didn't anchor them."
+
+❌ BAD (overused phrases): "Layer up for this one. Cold enough to freeze your cyberdeck out there."
+✓ GOOD (specific impacts): "15 degrees. Your breath's gonna fog the HUD. Double up on thermals if you're street-side."
+
+❌ BAD (template structure): "Rain moving in this afternoon, so grab your umbrella. Temperatures in the mid-50s."
+✓ GOOD (natural observation): "Showers rolling through around 3pm. Mid-50s, which means half the city's gonna be in hoodies, half in winter coats."
+
+❌ BAD (prescriptive): "Make sure to secure your belongings. It'll cut right through a hoodie out there."
+✓ GOOD (conversational): "Wind's got teeth today. That hoodie's not gonna do much."
+
+## NEWS FORMAT
+{config.news_format}
+
+Tone: {config.news_tone}
+
+## VOCAL/DELIVERY STYLE
+{config.accent_style}
+{config.delivery_style}
+
+## LENGTH
+50-60 seconds when read aloud (125-150 words). Keep it tight and punchy.
+
+## OUTPUT
+ONLY the script text that will be spoken. NO stage directions, sound effects, or formatting. Just the words."""
+
+    def _generate_weather_segment(self, weather: WeatherData) -> Optional[str]:
+        """Generate weather segment with Gemini.
+
+        Args:
+            weather: Comprehensive weather data
+
+        Returns:
+            Weather segment text, or None if generation fails
+        """
+        from zoneinfo import ZoneInfo
+
+        now = datetime.now(ZoneInfo(config.station_tz))
+        temporal = _get_temporal_context()
+        upcoming_holidays = _get_upcoming_holidays()
+        recent_phrases = load_recent_weather_phrases()
+
+        # Build weather context prompt
+        prompt = f"""Write ONLY the weather portion of a radio bulletin.
+
+**TIME CONTEXT:**
+- {temporal['day_of_week']} {temporal['time_period']}
+- Month: {now.strftime('%B')}"""
+
+        if temporal['is_weekend']:
+            prompt += "\n- Weekend"
+        if temporal['is_morning_commute']:
+            prompt += "\n- Morning commute hours (6-9am weekday)"
+        elif temporal['is_evening_commute']:
+            prompt += "\n- Evening commute hours (4-7pm weekday)"
+
+        if upcoming_holidays:
+            prompt += f"\n- {upcoming_holidays} - high travel volume expected"
+
+        prompt += f"""
+
+**TEMPORAL REFERENCE RULES:**
+CRITICAL: When referring to {temporal['day_of_week']}, use relative time words:
+- Say "today" or "this {temporal['time_period']}", NOT "{temporal['day_of_week']}"
+- Say "tonight" for this evening, NOT "{temporal['day_of_week']} night"
+- Say "tomorrow" for next day, NOT the day name
+- Only use day names for 2+ days out (e.g., "Wednesday" when it's currently Monday)
+
+**CURRENT CONDITIONS:**
+- Now: {weather.temperature}°F, {weather.conditions}
+- Period: {weather.current_period.name}"""
+
+        if weather.current_period.wind_speed:
+            prompt += f"\n- Wind: {weather.current_period.wind_speed}"
+        if weather.current_period.precip_chance:
+            prompt += f"\n- Precipitation chance: {weather.current_period.precip_chance}%"
+
+        prompt += f"\n- Detailed: {weather.current_period.detailed[:250]}"
+
+        if weather.upcoming_periods:
+            prompt += "\n\n**UPCOMING:**"
+            for period in weather.upcoming_periods[:3]:
+                prompt += f"\n- {period.name}: {period.temperature}°F, {period.conditions}"
+
+        if weather.temp_trend:
+            prompt += f"\n\n**TEMPERATURE TREND:** {weather.temp_trend}"
+
+        if weather.notable_events:
+            prompt += f"\n\n**NOTABLE EVENTS:**"
+            for event in weather.notable_events:
+                prompt += f"\n- {event}"
+
+        if weather.travel_impact:
+            prompt += f"\n\n**TRAVEL IMPACT:** {weather.travel_impact}"
+
+        if recent_phrases:
+            sample_phrases = recent_phrases[-15:]
+            prompt += f"""
+
+**RECENTLY USED PHRASES TO AVOID:**
+{', '.join(sample_phrases)}
+
+CRITICAL: Do NOT reuse these exact phrasings. Find fresh ways to describe the weather."""
+
+        prompt += """
+
+**YOUR TASK:**
+Pick the MOST RELEVANT weather information for listeners RIGHT NOW based on the time context.
+- Commute time? Focus on immediate conditions + travel impact + timing
+- Weekend? Focus on outdoor plans, extended forecast
+- Holiday travel period? Emphasize travel conditions + timing of changes
+- Otherwise? Lead with what's most interesting/impactful
+
+Write just the weather segment (20-30 seconds when read aloud). Follow the weather format rules from your system prompt. DO NOT include intro, news, or sign-off - ONLY weather."""
+
+        try:
+            response = self.client.models.generate_content(
+                model=self.model,
+                contents=f"{self.system_prompt}\n\n{prompt}",
+                config=self.types.GenerateContentConfig(
+                    temperature=config.weather_script_temperature,
+                    max_output_tokens=200,
+                )
+            )
+
+            weather_text = response.text.strip()
+            logger.info("Generated weather segment with Gemini")
+
+            # Log phrases for future avoidance
+            log_weather_phrases(weather_text)
+
+            return weather_text
+        except Exception as e:
+            logger.error(f"Gemini weather segment generation failed: {e}")
+            return None
+
+    def _generate_news_segment(self, news: NewsData) -> Optional[str]:
+        """Generate news segment with Gemini.
+
+        Args:
+            news: News headlines to present
+
+        Returns:
+            News segment text, or None if generation fails
+        """
+        from zoneinfo import ZoneInfo
+
+        now = datetime.now(ZoneInfo(config.station_tz))
+        upcoming_holidays = _get_upcoming_holidays()
+
+        prompt = f"""Write ONLY the news portion of a radio bulletin.
+
+**CONTEXT:**
+- Month: {now.strftime('%B')}"""
+
+        if upcoming_holidays:
+            prompt += f"\n- Upcoming: {upcoming_holidays}"
+
+        prompt += """
+
+**NEWS HEADLINES:**
+"""
+        for i, headline in enumerate(news.headlines, 1):
+            prompt += f"{i}. {headline.title} (Source: {headline.source})\n"
+
+        prompt += "\nWrite just the news segment (20-30 seconds when read aloud). Follow the news format rules from your system prompt. DO NOT include intro, weather, or sign-off - ONLY news."
+
+        try:
+            response = self.client.models.generate_content(
+                model=self.model,
+                contents=f"{self.system_prompt}\n\n{prompt}",
+                config=self.types.GenerateContentConfig(
+                    temperature=config.news_script_temperature,
+                    max_output_tokens=200,
+                )
+            )
+
+            return response.text.strip()
+        except Exception as e:
+            logger.error(f"Gemini news segment generation failed: {e}")
+            return None
+
+    def generate_bulletin(
+        self,
+        weather: Optional[WeatherData] = None,
+        news: Optional[NewsData] = None,
+    ) -> Optional[BulletinScript]:
+        """Generate radio bulletin script from weather and news data.
+
+        Args:
+            weather: Current weather conditions and forecast
+            news: Recent news headlines
+
+        Returns:
+            BulletinScript with generated text, or None if generation fails
+        """
+        if not weather and not news:
+            logger.error("Cannot generate bulletin: no weather or news data provided")
+            return None
+
+        try:
+            segments = []
+
+            # Generate weather segment if provided
+            if weather:
+                logger.info(f"Generating weather segment with Gemini (temp={config.weather_script_temperature})")
+                weather_segment = self._generate_weather_segment(weather)
+                if weather_segment:
+                    segments.append(weather_segment)
+                else:
+                    logger.warning("Weather segment generation failed, continuing with news only")
+
+            # Generate news segment if provided
+            if news:
+                logger.info(f"Generating news segment with Gemini (temp={config.news_script_temperature})")
+                news_segment = self._generate_news_segment(news)
+                if news_segment:
+                    segments.append(news_segment)
+                else:
+                    logger.warning("News segment generation failed, continuing with weather only")
+
+            if not segments:
+                logger.error("All segment generation failed")
+                fallback_text = _generate_fallback_script(weather, news)
+                return BulletinScript(
+                    script_text=fallback_text,
+                    word_count=len(fallback_text.split()),
+                    timestamp=datetime.now(),
+                    includes_weather=weather is not None,
+                    includes_news=news is not None,
+                )
+
+            # Combine segments with intro and sign-off
+            from datetime import timedelta
+            from zoneinfo import ZoneInfo
+            now = datetime.now(ZoneInfo(config.station_tz))
+            next_hour = now.replace(minute=0, second=0, microsecond=0) + timedelta(hours=1)
+
+            # Format time
+            hour_12 = next_hour.hour % 12
+            if hour_12 == 0:
+                hour_12 = 12
+            am_pm = "am" if next_hour.hour < 12 else "pm"
+
+            if next_hour.hour == 0:
+                time_phrase = "midnight"
+            elif next_hour.hour == 12:
+                time_phrase = "noon"
+            else:
+                time_phrase = f"{hour_12} {am_pm}"
+
+            intro = f"{config.station_name}, {config.station_location}. It's {time_phrase}."
+            sign_off = config.station_name + "."
+            script_parts = [intro] + segments + [sign_off]
+            script_text = " ".join(script_parts)
+            word_count = len(script_text.split())
+
+            logger.info(f"Generated bulletin script with Gemini: {word_count} words")
+
+            return BulletinScript(
+                script_text=script_text,
+                word_count=word_count,
+                timestamp=datetime.now(),
+                includes_weather=weather is not None,
+                includes_news=news is not None,
+            )
+
+        except Exception as e:
+            logger.error(f"Gemini bulletin generation failed: {e}")
+            return None
+
+
+class OpenAIScriptWriter:
+    """OpenAI GPT-4-powered radio bulletin script generator.
+
+    Generates natural, conversational scripts from weather and news data.
+    Uses GPT-4 for high-quality script generation.
+    """
+
+    def __init__(self):
+        """Initialize OpenAI client with API key from config."""
+        self.api_key = config.tts_api_key  # Reuse OpenAI TTS API key
+        if not self.api_key:
+            raise ValueError("RADIO_TTS_API_KEY not configured")
+
+        self.client = OpenAI(api_key=self.api_key)
+        self.model = "gpt-4-turbo-preview"
+        self.max_tokens = 512
+
+        # Build system prompt from configuration
+        self.system_prompt = self._build_system_prompt()
+
+    def _build_system_prompt(self) -> str:
+        """Build comprehensive system prompt from personality configuration.
+
+        Returns:
+            System prompt incorporating all personality/style settings
+        """
+        # Use the same system prompt logic as ClaudeScriptWriter
+        return f"""You are {config.announcer_name}, broadcasting from {config.station_location} on {config.station_name}.
+
+## WORLD SETTING: {config.world_setting.upper()}
+YOU ARE A DJ IN THIS WORLD, NOT A NARRATOR DESCRIBING IT.
+
+CRITICAL WRITING RULES:
+- Write as the CHARACTER living it, not the AUTHOR explaining it
+- NORMALIZE the world - treat it as everyday mundane reality
+- Imply the world through SPECIFIC CONSEQUENCES not generic labels
+- Ground your delivery in the local setting: {config.station_location}
+- Use specific local references naturally when relevant
+
+TONE: {config.world_tone}
+
+EXAMPLES OF GOOD VS BAD:
+❌ BAD (stiff transition): "News: Rust's got a new feature. Coders seem excited."
+✓ GOOD (natural flow): "Rust rolled out block patterns today. Bunch of devs geeking out over it."
+
+❌ BAD (forced commentary): "back when we had functioning arts funding"
+✓ GOOD (just say it): "Kennedy Center retrospective on NPR. Three presidents shaped it."
+
+❌ BAD (obvious sarcasm): "Because privacy wasn't already on life support."
+✓ GOOD (dry delivery): "Mandatory. Goes live in March."
+
+❌ BAD (template sign-off): "Stay warm, keep your head down. More music coming up on {config.station_name}."
+✓ GOOD (brief station ID): "This is {config.station_name}." or "{config.station_name}, {config.station_location}." or "Back in a bit."
+
+## CORE PERSONALITY (Energy: {config.energy_level}/10)
+{config.vibe_keywords}
+
+{config.listener_relationship}
+
+## CONTEXTUAL AWARENESS (use naturally, never force)
+You'll receive context about station, location, and time of day. You MAY reference these IF they flow naturally into your delivery. Never force all elements into every break. Maximum 1 contextual reference per break, sometimes zero. Examples:
+- Natural: "Good morning everyone" (if morning) or "Late night listeners, welcome back" (if night)
+- Natural: "Here in {config.station_location}, we're looking at..." (when discussing local weather)
+- Forced: "It's Tuesday morning here at {config.station_name} in {config.station_location} and..." (checklist writing - AVOID)
+
+## CHAOS BUDGET (CRITICAL - prevents cringe overload)
+- Maximum {config.max_riffs_per_break} playful riff(s) per break
+- Maximum {config.max_exclamations_per_break} exclamations per break
+- Only {config.unhinged_percentage}% of segment can be "unhinged"
+- "Unhinged" is triggered by: {config.unhinged_triggers}
+- "Unhinged" means surprising wording + playful overreaction, NOT incoherence
+
+## HUMOR GUIDELINES
+Priority: {config.humor_priority}
+
+ALLOWED: {config.allowed_comedy}
+BANNED: {config.banned_comedy}
+
+## AUTHENTICITY RULES (Sound human, not AI)
+- {config.sentence_length_target}
+- Max {config.max_adjectives_per_sentence} adjectives per sentence
+- {config.natural_disfluency}
+- NEVER use these phrases: {config.banned_ai_phrases}
+- {config.radio_resets}
+
+## WEATHER FORMAT
+{config.weather_structure}
+
+Translation rules: {config.weather_translation_rules}
+
+**WEATHER WRITING EXAMPLES:**
+
+❌ BAD (cliché/template): "It's 32 degrees outside, so bundle up if you're heading out. The wind is really cutting through you today, so secure your gear."
+✓ GOOD (specific/fresh): "32 degrees. The kind of cold that makes your phone battery drain in your pocket. Wear actual sleeves today."
+
+❌ BAD (generic imperatives): "Batten down the hatches, it's going to be windy today. Make sure to tie down anything loose."
+✓ GOOD (lived-in consequences): "Wind's at 25mph - strong enough to tip over those makeshift solar rigs if you didn't anchor them."
+
+❌ BAD (overused phrases): "Layer up for this one. Cold enough to freeze your cyberdeck out there."
+✓ GOOD (specific impacts): "15 degrees. Your breath's gonna fog the HUD. Double up on thermals if you're street-side."
+
+❌ BAD (template structure): "Rain moving in this afternoon, so grab your umbrella. Temperatures in the mid-50s."
+✓ GOOD (natural observation): "Showers rolling through around 3pm. Mid-50s, which means half the city's gonna be in hoodies, half in winter coats."
+
+❌ BAD (prescriptive): "Make sure to secure your belongings. It'll cut right through a hoodie out there."
+✓ GOOD (conversational): "Wind's got teeth today. That hoodie's not gonna do much."
+
+## NEWS FORMAT
+{config.news_format}
+
+Tone: {config.news_tone}
+
+## VOCAL/DELIVERY STYLE
+{config.accent_style}
+{config.delivery_style}
+
+## LENGTH
+50-60 seconds when read aloud (125-150 words). Keep it tight and punchy.
+
+## OUTPUT
+ONLY the script text that will be spoken. NO stage directions, sound effects, or formatting. Just the words."""
+
+    def _generate_weather_segment(self, weather: WeatherData) -> Optional[str]:
+        """Generate weather segment with OpenAI GPT-4.
+
+        Args:
+            weather: Comprehensive weather data
+
+        Returns:
+            Weather segment text, or None if generation fails
+        """
+        from zoneinfo import ZoneInfo
+
+        now = datetime.now(ZoneInfo(config.station_tz))
+        temporal = _get_temporal_context()
+        upcoming_holidays = _get_upcoming_holidays()
+        recent_phrases = load_recent_weather_phrases()
+
+        # Build weather context prompt (same as Claude)
+        prompt = f"""Write ONLY the weather portion of a radio bulletin.
+
+**TIME CONTEXT:**
+- {temporal['day_of_week']} {temporal['time_period']}
+- Month: {now.strftime('%B')}"""
+
+        if temporal['is_weekend']:
+            prompt += "\n- Weekend"
+        if temporal['is_morning_commute']:
+            prompt += "\n- Morning commute hours (6-9am weekday)"
+        elif temporal['is_evening_commute']:
+            prompt += "\n- Evening commute hours (4-7pm weekday)"
+
+        if upcoming_holidays:
+            prompt += f"\n- {upcoming_holidays} - high travel volume expected"
+
+        prompt += f"""
+
+**TEMPORAL REFERENCE RULES:**
+CRITICAL: When referring to {temporal['day_of_week']}, use relative time words:
+- Say "today" or "this {temporal['time_period']}", NOT "{temporal['day_of_week']}"
+- Say "tonight" for this evening, NOT "{temporal['day_of_week']} night"
+- Say "tomorrow" for next day, NOT the day name
+- Only use day names for 2+ days out (e.g., "Wednesday" when it's currently Monday)
+
+**CURRENT CONDITIONS:**
+- Now: {weather.temperature}°F, {weather.conditions}
+- Period: {weather.current_period.name}"""
+
+        if weather.current_period.wind_speed:
+            prompt += f"\n- Wind: {weather.current_period.wind_speed}"
+        if weather.current_period.precip_chance:
+            prompt += f"\n- Precipitation chance: {weather.current_period.precip_chance}%"
+
+        prompt += f"\n- Detailed: {weather.current_period.detailed[:250]}"
+
+        if weather.upcoming_periods:
+            prompt += "\n\n**UPCOMING:**"
+            for period in weather.upcoming_periods[:3]:
+                prompt += f"\n- {period.name}: {period.temperature}°F, {period.conditions}"
+
+        if weather.temp_trend:
+            prompt += f"\n\n**TEMPERATURE TREND:** {weather.temp_trend}"
+
+        if weather.notable_events:
+            prompt += f"\n\n**NOTABLE EVENTS:**"
+            for event in weather.notable_events:
+                prompt += f"\n- {event}"
+
+        if weather.travel_impact:
+            prompt += f"\n\n**TRAVEL IMPACT:** {weather.travel_impact}"
+
+        if recent_phrases:
+            sample_phrases = recent_phrases[-15:]
+            prompt += f"""
+
+**RECENTLY USED PHRASES TO AVOID:**
+{', '.join(sample_phrases)}
+
+CRITICAL: Do NOT reuse these exact phrasings. Find fresh ways to describe the weather."""
+
+        prompt += """
+
+**YOUR TASK:**
+Pick the MOST RELEVANT weather information for listeners RIGHT NOW based on the time context.
+- Commute time? Focus on immediate conditions + travel impact + timing
+- Weekend? Focus on outdoor plans, extended forecast
+- Holiday travel period? Emphasize travel conditions + timing of changes
+- Otherwise? Lead with what's most interesting/impactful
+
+Write just the weather segment (20-30 seconds when read aloud). Follow the weather format rules from your system prompt. DO NOT include intro, news, or sign-off - ONLY weather."""
+
+        try:
+            response = self.client.chat.completions.create(
+                model=self.model,
+                max_tokens=200,
+                temperature=config.weather_script_temperature,
+                messages=[
+                    {"role": "system", "content": self.system_prompt},
+                    {"role": "user", "content": prompt}
+                ],
+            )
+
+            weather_text = response.choices[0].message.content.strip()
+            logger.info("Generated weather segment with OpenAI")
+
+            # Log phrases for future avoidance
+            log_weather_phrases(weather_text)
+
+            return weather_text
+        except Exception as e:
+            logger.error(f"OpenAI weather segment generation failed: {e}")
+            return None
+
+    def _generate_news_segment(self, news: NewsData) -> Optional[str]:
+        """Generate news segment with OpenAI GPT-4.
+
+        Args:
+            news: News headlines to present
+
+        Returns:
+            News segment text, or None if generation fails
+        """
+        from zoneinfo import ZoneInfo
+
+        now = datetime.now(ZoneInfo(config.station_tz))
+        upcoming_holidays = _get_upcoming_holidays()
+
+        prompt = f"""Write ONLY the news portion of a radio bulletin.
+
+**CONTEXT:**
+- Month: {now.strftime('%B')}"""
+
+        if upcoming_holidays:
+            prompt += f"\n- Upcoming: {upcoming_holidays}"
+
+        prompt += """
+
+**NEWS HEADLINES:**
+"""
+        for i, headline in enumerate(news.headlines, 1):
+            prompt += f"{i}. {headline.title} (Source: {headline.source})\n"
+
+        prompt += "\nWrite just the news segment (20-30 seconds when read aloud). Follow the news format rules from your system prompt. DO NOT include intro, weather, or sign-off - ONLY news."
+
+        try:
+            response = self.client.chat.completions.create(
+                model=self.model,
+                max_tokens=200,
+                temperature=config.news_script_temperature,
+                messages=[
+                    {"role": "system", "content": self.system_prompt},
+                    {"role": "user", "content": prompt}
+                ],
+            )
+
+            return response.choices[0].message.content.strip()
+        except Exception as e:
+            logger.error(f"OpenAI news segment generation failed: {e}")
+            return None
+
+    def generate_bulletin(
+        self,
+        weather: Optional[WeatherData] = None,
+        news: Optional[NewsData] = None,
+    ) -> Optional[BulletinScript]:
+        """Generate radio bulletin script from weather and news data.
+
+        Args:
+            weather: Current weather conditions and forecast
+            news: Recent news headlines
+
+        Returns:
+            BulletinScript with generated text, or None if generation fails
+        """
+        if not weather and not news:
+            logger.error("Cannot generate bulletin: no weather or news data provided")
+            return None
+
+        try:
+            segments = []
+
+            # Generate weather segment if provided
+            if weather:
+                logger.info(f"Generating weather segment with OpenAI (temp={config.weather_script_temperature})")
+                weather_segment = self._generate_weather_segment(weather)
+                if weather_segment:
+                    segments.append(weather_segment)
+                else:
+                    logger.warning("Weather segment generation failed, continuing with news only")
+
+            # Generate news segment if provided
+            if news:
+                logger.info(f"Generating news segment with OpenAI (temp={config.news_script_temperature})")
+                news_segment = self._generate_news_segment(news)
+                if news_segment:
+                    segments.append(news_segment)
+                else:
+                    logger.warning("News segment generation failed, continuing with weather only")
+
+            if not segments:
+                logger.error("All segment generation failed")
+                fallback_text = _generate_fallback_script(weather, news)
+                return BulletinScript(
+                    script_text=fallback_text,
+                    word_count=len(fallback_text.split()),
+                    timestamp=datetime.now(),
+                    includes_weather=weather is not None,
+                    includes_news=news is not None,
+                )
+
+            # Combine segments with intro and sign-off
+            from datetime import timedelta
+            from zoneinfo import ZoneInfo
+            now = datetime.now(ZoneInfo(config.station_tz))
+            next_hour = now.replace(minute=0, second=0, microsecond=0) + timedelta(hours=1)
+
+            # Format time
+            hour_12 = next_hour.hour % 12
+            if hour_12 == 0:
+                hour_12 = 12
+            am_pm = "am" if next_hour.hour < 12 else "pm"
+
+            if next_hour.hour == 0:
+                time_phrase = "midnight"
+            elif next_hour.hour == 12:
+                time_phrase = "noon"
+            else:
+                time_phrase = f"{hour_12} {am_pm}"
+
+            intro = f"{config.station_name}, {config.station_location}. It's {time_phrase}."
+            sign_off = config.station_name + "."
+            script_parts = [intro] + segments + [sign_off]
+            script_text = " ".join(script_parts)
+            word_count = len(script_text.split())
+
+            logger.info(f"Generated bulletin script with OpenAI: {word_count} words")
+
+            return BulletinScript(
+                script_text=script_text,
+                word_count=word_count,
+                timestamp=datetime.now(),
+                includes_weather=weather is not None,
+                includes_news=news is not None,
+            )
+
+        except Exception as e:
+            logger.error(f"OpenAI bulletin generation failed: {e}")
+            return None
+
+
 def generate_bulletin(
     weather: Optional[WeatherData] = None,
     news: Optional[NewsData] = None,
 ) -> Optional[BulletinScript]:
-    """Convenience function to generate radio bulletin.
+    """Convenience function to generate radio bulletin with fallback chain.
+
+    Automatically falls back through multiple LLM providers on quota/rate limit errors:
+    1. Primary Anthropic Claude (based on config)
+    2. Google Gemini (if Claude fails)
+    3. OpenAI GPT-4 (final fallback)
 
     Args:
         weather: Weather data
         news: News data
 
     Returns:
-        BulletinScript or None if generation fails
+        BulletinScript or None if all providers fail
     """
-    try:
-        writer = ClaudeScriptWriter()
-        return writer.generate_bulletin(weather, news)
-    except ValueError as e:
-        logger.error(f"Script writer initialization failed: {e}")
+    def is_quota_error(error: Exception) -> bool:
+        """Check if error is quota/rate limit related."""
+        error_str = str(error).lower()
+        return any(keyword in error_str for keyword in [
+            "quota", "rate limit", "429", "resource_exhausted",
+            "credit balance", "insufficient_quota"
+        ])
+
+    def try_provider(provider_name: str, writer_class) -> Optional[BulletinScript]:
+        """Try generating bulletin with specific provider."""
+        try:
+            logger.info(f"Attempting script generation with {provider_name}")
+            writer = writer_class()
+            result = writer.generate_bulletin(weather, news)
+            if result:
+                logger.info(f"✓ {provider_name} script generation succeeded")
+                return result
+        except ValueError as e:
+            logger.error(f"Failed to initialize {provider_name}: {e}")
+        except Exception as e:
+            if is_quota_error(e):
+                logger.warning(f"✗ {provider_name} quota exhausted")
+            else:
+                logger.error(f"✗ {provider_name} failed: {e}")
         return None
+
+    # Define fallback chain: Claude → Gemini → OpenAI
+    attempts = [
+        ("Anthropic Claude", ClaudeScriptWriter),
+        ("Google Gemini", GeminiScriptWriter),
+        ("OpenAI GPT-4", OpenAIScriptWriter),
+    ]
+
+    # Try each provider in fallback chain
+    for provider_name, writer_class in attempts:
+        result = try_provider(provider_name, writer_class)
+        if result:
+            return result
+
+    logger.error("All script generation providers failed")
+    return None
 
 
 @dataclass
