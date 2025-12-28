@@ -15,6 +15,7 @@ Exit codes:
 import logging
 import random
 import socket
+import sqlite3
 import sys
 from pathlib import Path
 
@@ -36,7 +37,6 @@ logger = logging.getLogger(__name__)
 
 # Use configuration paths
 SOCKET_PATH = str(config.liquidsoap_sock_path)
-BUMPERS_DIR = config.bumpers_path
 
 
 def query_socket(sock: socket.socket, command: str) -> str:
@@ -62,30 +62,50 @@ def query_socket(sock: socket.socket, command: str) -> str:
         return ""
 
 
-def select_station_id() -> Path:
-    """Select a random station ID from available files.
+def select_station_id() -> tuple[str, Path]:
+    """Select a random station ID from database with anti-repeat logic.
 
     Returns:
-        Path to selected station ID file
+        Tuple of (asset_id, path) for selected station ID
 
-    Note: Currently uses simple random selection. Future enhancement could
-    track play history to avoid repeats within a time window.
+    Raises:
+        RuntimeError: If no station IDs found in database
     """
-    # Get all station ID files (both WAV and MP3)
-    all_station_ids = sorted(BUMPERS_DIR.glob("station_id_*.*"))
+    # Query database for station IDs (with anti-repeat logic)
+    conn = sqlite3.connect(config.db_path)
+    cursor = conn.cursor()
+
+    cursor.execute("""
+        SELECT id, path FROM assets
+        WHERE kind = 'bumper'
+        AND id NOT IN (
+            SELECT asset_id FROM play_history
+            WHERE played_at > datetime('now', '-1 hour')
+        )
+    """)
+
+    all_station_ids = cursor.fetchall()
+    conn.close()
 
     if not all_station_ids:
-        raise FileNotFoundError(f"No station IDs found in {BUMPERS_DIR}")
+        logger.warning("No station IDs available (all played within 1 hour)")
+        # Fall back to any station ID
+        conn = sqlite3.connect(config.db_path)
+        cursor = conn.cursor()
+        cursor.execute("SELECT id, path FROM assets WHERE kind = 'bumper'")
+        all_station_ids = cursor.fetchall()
+        conn.close()
 
-    logger.info(f"Found {len(all_station_ids)} station ID files")
+    if not all_station_ids:
+        raise RuntimeError("No station IDs found in database")
 
-    # Randomly select one
-    # TODO: Check play history to avoid recent repeats once station IDs
-    # are properly tracked as assets in the database
-    selected = random.choice(all_station_ids)
-    logger.info(f"Selected station ID: {selected.name}")
+    # Select random station ID
+    selected_id, selected_path = random.choice(all_station_ids)
+    logger.info(f"Found {len(all_station_ids)} available station ID(s)")
+    logger.info(f"Selected station ID: {selected_id[:16]}...")
+    logger.info(f"Path: {selected_path}")
 
-    return selected
+    return selected_id, Path(selected_path)
 
 
 def push_to_queue(file_path: Path) -> bool:
@@ -145,17 +165,17 @@ def main() -> int:
 
     try:
         # Select station ID
-        station_id = select_station_id()
+        asset_id, station_id_path = select_station_id()
 
         # Push to queue
-        if push_to_queue(station_id):
-            logger.info(f"Successfully enqueued station ID: {station_id.name}")
+        if push_to_queue(station_id_path):
+            logger.info(f"Successfully enqueued station ID: {station_id_path.name}")
             return 0
         else:
             logger.error("Failed to enqueue station ID")
             return 1
 
-    except FileNotFoundError as e:
+    except RuntimeError as e:
         logger.error(str(e))
         return 1
     except Exception as e:
