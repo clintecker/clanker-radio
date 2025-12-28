@@ -14,7 +14,6 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 from ai_radio.config import config
-from ai_radio.play_history import record_play
 
 logging.basicConfig(
     level=logging.INFO,
@@ -51,73 +50,46 @@ def trigger_export():
 def main():
     """Entry point for script."""
     if len(sys.argv) < 2:
-        logger.error("Usage: record_play.py <file_path> [source]")
+        logger.error("Usage: record_play.py <file_path>")
         sys.exit(1)
 
     file_path = sys.argv[1]
-    source = sys.argv[2] if len(sys.argv) > 2 else "music"
 
-    # Detect station IDs and override source type
-    # Station IDs come through breaks queue but should be tagged as "bumper"
-    if source == "break" and ("/bumpers/" in file_path or "station_id" in file_path):
-        source = "bumper"
-        logger.info(f"Detected station ID, changing source from 'break' to 'bumper'")
-
-    # Look up asset by path to get its ID (sha256 hash)
+    # Look up asset by path to get SHA256 ID
     import sqlite3
-    import subprocess
     from datetime import datetime, timezone
-    try:
-        conn = sqlite3.connect(config.db_path)
-        cursor = conn.cursor()
-        cursor.execute("SELECT id FROM assets WHERE path = ?", (file_path,))
-        row = cursor.fetchone()
 
-        if not row:
-            # Asset not in database (breaks, bumpers, beds)
-            # Use filename as asset_id for tracking
-            asset_id = Path(file_path).stem  # e.g., "break_20251222_025240" or "station_id_11"
+    conn = sqlite3.connect(config.db_path)
+    cursor = conn.cursor()
 
-            # Duration should be calculated during ingestion, not here
-            # Removed expensive ffprobe call that was causing CPU contention
-            duration_sec = None
+    cursor.execute("SELECT id, kind FROM assets WHERE path = ?", (file_path,))
+    row = cursor.fetchone()
 
-            # Record play directly to play_history (not in assets table)
-            # Use Python datetime for consistent ISO format with timezone (matches music tracks)
-            now = datetime.now(timezone.utc)
-            played_at = now.isoformat()
-            hour_bucket = now.replace(minute=0, second=0, microsecond=0).isoformat()
-
-            cursor.execute(
-                """INSERT INTO play_history (asset_id, played_at, source, hour_bucket)
-                   VALUES (?, ?, ?, ?)""",
-                (asset_id, played_at, source, hour_bucket)
-            )
-            conn.commit()
-            conn.close()
-
-            logger.info(f"Recorded non-asset play: {asset_id} ({source}) duration={duration_sec}s")
-
-            # Trigger immediate now_playing.json export
-            trigger_export()
-            sys.exit(0)
-        else:
-            asset_id = row[0]
-            conn.close()
-
-    except Exception as e:
-        logger.error(f"Failed to lookup/record asset: {e}")
+    if not row:
+        logger.error(f"Asset not found in database: {file_path}")
+        logger.error("Make sure all assets are ingested before playback")
+        conn.close()
         sys.exit(1)
 
-    if record_play(config.db_path, asset_id, source):
-        logger.info(f"Recorded play: {asset_id} from {source}")
+    asset_id, asset_kind = row
 
-        # Trigger immediate now_playing.json export
-        trigger_export()
-        sys.exit(0)
-    else:
-        logger.error(f"Failed to record play: {asset_id}")
-        sys.exit(1)
+    # Write to play_history with SHA256 ID
+    now = datetime.now(timezone.utc)
+    played_at = now.isoformat()
+    hour_bucket = now.replace(minute=0, second=0, microsecond=0).isoformat()
+
+    cursor.execute(
+        "INSERT INTO play_history (asset_id, source, played_at, hour_bucket) VALUES (?, ?, ?, ?)",
+        (asset_id, asset_kind, played_at, hour_bucket)
+    )
+    conn.commit()
+    conn.close()
+
+    logger.info(f"Recorded play: {asset_id[:16]}... (kind={asset_kind})")
+
+    # Trigger immediate now_playing.json export
+    trigger_export()
+    sys.exit(0)
 
 
 if __name__ == "__main__":
