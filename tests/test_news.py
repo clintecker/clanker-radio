@@ -152,88 +152,102 @@ class TestRSSNewsClient:
 
     def test_fetch_headlines_parsing_error(self):
         """fetch_headlines should skip feeds with parsing errors."""
-        client = RSSNewsClient()
+        # Mock config with multiple feeds so that one can fail and others succeed
+        with patch("ai_radio.news.config") as mock_config:
+            mock_config.news_rss_feeds = {
+                "news": [
+                    "https://bad-feed.example.com/rss",
+                    "https://good-feed.example.com/rss",
+                ],
+            }
+            mock_config.hallucinate_news = False
 
-        # Use today's date
-        from datetime import datetime
-        now = datetime.now()
-        today_str = now.strftime("%Y-%m-%dT%H:00:00Z")
+            client = RSSNewsClient()
 
-        call_count = [0]
+            # Use today's date
+            from datetime import datetime
+            now = datetime.now()
+            today_str = now.strftime("%Y-%m-%dT%H:00:00Z")
 
-        def mock_get_side_effect(url, headers):
-            call_count[0] += 1
-            # First call returns invalid XML, rest return valid
-            if call_count[0] == 1:
+            call_count = [0]
+
+            def mock_get_side_effect(url, headers):
+                call_count[0] += 1
                 mock_response = Mock()
-                mock_response.raise_for_status = Mock()
-                mock_response.content = b"<invalid xml>"
+                mock_response.raise_for_status = Mock(return_value=None)
+                # First call returns invalid XML, rest return valid
+                if call_count[0] == 1:
+                    mock_response.content = b"<invalid xml>"
+                else:
+                    mock_response.content = f"""<?xml version="1.0"?>
+                        <rss><channel><title>Working Feed</title>
+                        <item>
+                            <title>Valid Story</title>
+                            <link>https://example.com/1</link>
+                            <pubDate>{today_str}</pubDate>
+                        </item>
+                        </channel></rss>""".encode()
                 return mock_response
-            else:
-                mock_response = Mock()
-                mock_response.raise_for_status = Mock()
-                mock_response.content = f"""<?xml version="1.0"?>
-                    <rss><channel><title>Working Feed</title>
-                    <item>
-                        <title>Valid Story</title>
-                        <link>https://example.com/1</link>
-                        <pubDate>{today_str}</pubDate>
-                    </item>
-                    </channel></rss>""".encode()
-                return mock_response
 
-        with patch("httpx.Client") as mock_client_class:
-            mock_client = Mock()
-            mock_client.get = Mock(side_effect=mock_get_side_effect)
-            mock_client_class.return_value.__enter__.return_value = mock_client
+            with patch("httpx.Client") as mock_client_class:
+                mock_client = Mock()
+                mock_client.get = Mock(side_effect=mock_get_side_effect)
+                mock_client_class.return_value.__enter__.return_value = mock_client
 
-            news = client.fetch_headlines()
+                news = client.fetch_headlines()
 
-            assert news is not None
-            assert len(news.headlines) >= 1
+                assert news is not None
+                assert len(news.headlines) >= 1
 
     def test_fetch_headlines_empty_feed(self):
         """fetch_headlines should skip feeds with no entries."""
-        client = RSSNewsClient()
+        # Mock config with multiple feeds
+        with patch("ai_radio.news.config") as mock_config:
+            mock_config.news_rss_feeds = {
+                "news": [
+                    "https://empty-feed.example.com/rss",
+                    "https://good-feed.example.com/rss",
+                ],
+            }
+            mock_config.hallucinate_news = False
 
-        # Use today's date
-        from datetime import datetime
-        now = datetime.now()
-        today_str = now.strftime("%Y-%m-%dT%H:00:00Z")
+            client = RSSNewsClient()
 
-        call_count = [0]
+            # Use today's date
+            from datetime import datetime
+            now = datetime.now()
+            today_str = now.strftime("%Y-%m-%dT%H:00:00Z")
 
-        def mock_get_side_effect(url, headers):
-            call_count[0] += 1
-            # First call returns empty feed, rest return valid
-            if call_count[0] == 1:
+            call_count = [0]
+
+            def mock_get_side_effect(url, headers):
+                call_count[0] += 1
                 mock_response = Mock()
-                mock_response.raise_for_status = Mock()
-                mock_response.content = b"""<?xml version="1.0"?>
-                    <rss><channel><title>Empty Feed</title></channel></rss>"""
+                mock_response.raise_for_status = Mock(return_value=None)
+                # First call returns empty feed, rest return valid
+                if call_count[0] == 1:
+                    mock_response.content = b"""<?xml version="1.0"?>
+                        <rss><channel><title>Empty Feed</title></channel></rss>"""
+                else:
+                    mock_response.content = f"""<?xml version="1.0"?>
+                        <rss><channel><title>Working Feed</title>
+                        <item>
+                            <title>Valid Story</title>
+                            <link>https://example.com/1</link>
+                            <pubDate>{today_str}</pubDate>
+                        </item>
+                        </channel></rss>""".encode()
                 return mock_response
-            else:
-                mock_response = Mock()
-                mock_response.raise_for_status = Mock()
-                mock_response.content = f"""<?xml version="1.0"?>
-                    <rss><channel><title>Working Feed</title>
-                    <item>
-                        <title>Valid Story</title>
-                        <link>https://example.com/1</link>
-                        <pubDate>{today_str}</pubDate>
-                    </item>
-                    </channel></rss>""".encode()
-                return mock_response
 
-        with patch("httpx.Client") as mock_client_class:
-            mock_client = Mock()
-            mock_client.get = Mock(side_effect=mock_get_side_effect)
-            mock_client_class.return_value.__enter__.return_value = mock_client
+            with patch("httpx.Client") as mock_client_class:
+                mock_client = Mock()
+                mock_client.get = Mock(side_effect=mock_get_side_effect)
+                mock_client_class.return_value.__enter__.return_value = mock_client
 
-            news = client.fetch_headlines()
+                news = client.fetch_headlines()
 
-            assert news is not None
-            assert len(news.headlines) >= 1
+                assert news is not None
+                assert len(news.headlines) >= 1
 
     def test_fetch_headlines_all_feeds_fail(self):
         """fetch_headlines should return None when all feeds fail."""
@@ -314,43 +328,53 @@ class TestRSSNewsClient:
 
     def test_fetch_headlines_network_timeout(self):
         """fetch_headlines should handle network timeouts gracefully."""
-        client = RSSNewsClient()
+        # Mock config with multiple feeds
+        with patch("ai_radio.news.config") as mock_config:
+            mock_config.news_rss_feeds = {
+                "news": [
+                    "https://timeout-feed.example.com/rss",
+                    "https://good-feed.example.com/rss",
+                ],
+            }
+            mock_config.hallucinate_news = False
 
-        # Use today's date
-        from datetime import datetime
-        now = datetime.now()
-        today_str = now.strftime("%Y-%m-%dT%H:00:00Z")
+            client = RSSNewsClient()
 
-        call_count = [0]
+            # Use today's date
+            from datetime import datetime
+            now = datetime.now()
+            today_str = now.strftime("%Y-%m-%dT%H:00:00Z")
 
-        # Mock httpx to simulate timeout on first feed, success on others
-        def mock_get_side_effect(url, headers):
-            call_count[0] += 1
-            if call_count[0] == 1:
-                raise httpx.TimeoutException("Request timed out")
-            # Other feeds return valid RSS XML
-            mock_response = Mock()
-            mock_response.raise_for_status = Mock()
-            mock_response.content = f"""<?xml version="1.0"?>
-                <rss><channel><title>Working Feed</title>
-                <item>
-                    <title>Valid Story</title>
-                    <link>https://example.com/1</link>
-                    <pubDate>{today_str}</pubDate>
-                </item>
-                </channel></rss>""".encode()
-            return mock_response
+            call_count = [0]
 
-        with patch("httpx.Client") as mock_client_class:
-            mock_client = Mock()
-            mock_client.get = Mock(side_effect=mock_get_side_effect)
-            mock_client_class.return_value.__enter__.return_value = mock_client
+            # Mock httpx to simulate timeout on first feed, success on others
+            def mock_get_side_effect(url, headers):
+                call_count[0] += 1
+                if call_count[0] == 1:
+                    raise httpx.TimeoutException("Request timed out")
+                # Other feeds return valid RSS XML
+                mock_response = Mock()
+                mock_response.raise_for_status = Mock(return_value=None)
+                mock_response.content = f"""<?xml version="1.0"?>
+                    <rss><channel><title>Working Feed</title>
+                    <item>
+                        <title>Valid Story</title>
+                        <link>https://example.com/1</link>
+                        <pubDate>{today_str}</pubDate>
+                    </item>
+                    </channel></rss>""".encode()
+                return mock_response
 
-            news = client.fetch_headlines()
+            with patch("httpx.Client") as mock_client_class:
+                mock_client = Mock()
+                mock_client.get = Mock(side_effect=mock_get_side_effect)
+                mock_client_class.return_value.__enter__.return_value = mock_client
 
-            # Should still succeed with data from the other feeds
-            assert news is not None
-            assert len(news.headlines) >= 1
+                news = client.fetch_headlines()
+
+                # Should still succeed with data from the other feeds
+                assert news is not None
+                assert len(news.headlines) >= 1
 
 
 class TestGetNewsConvenience:
