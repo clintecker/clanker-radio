@@ -26,6 +26,8 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 from ai_radio.break_generator import generate_break
+from ai_radio.config import config
+from ai_radio.ingest import ingest_audio_file
 
 # Configure logging
 logging.basicConfig(
@@ -57,6 +59,21 @@ def main() -> int:
                 f"weather={result.includes_weather}, "
                 f"news={result.includes_news})"
             )
+
+            # Auto-ingest break immediately
+            try:
+                logger.info("📥 Auto-ingesting break into assets table...")
+                ingest_audio_file(
+                    source_path=result.file_path,
+                    kind="break",
+                    db_path=config.db_path,
+                    ingest_existing=True,
+                )
+                logger.info("✅ Break ingested successfully")
+            except Exception as e:
+                logger.error(f"❌ Failed to ingest break: {e}")
+                return 1  # Fail loudly for systemd alerting
+
             return 0
         else:
             logger.error("Break generation failed")
