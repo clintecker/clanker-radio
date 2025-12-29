@@ -91,3 +91,31 @@ class TestAPIKeysConfig:
         assert api_keys.llm_api_key.get_secret_value() == "llm-key"
         assert api_keys.tts_api_key.get_secret_value() == "tts-key"
         assert api_keys.gemini_api_key.get_secret_value() == "gemini-key"
+
+    def test_validate_production_fails_without_llm_key(self, monkeypatch):
+        """validate_production should raise ValueError if llm_api_key is None."""
+        monkeypatch.setenv("RADIO_TTS_API_KEY", "tts-key")
+        monkeypatch.setenv("RADIO_GEMINI_API_KEY", "gemini-key")
+        api_keys = APIKeysConfig()
+
+        with pytest.raises(ValueError, match="RADIO_LLM_API_KEY is required"):
+            api_keys.validate_production()
+
+    def test_validate_production_fails_without_tts_key(self, monkeypatch):
+        """validate_production should raise ValueError if tts_api_key is None."""
+        monkeypatch.setenv("RADIO_LLM_API_KEY", "llm-key")
+        monkeypatch.setenv("RADIO_GEMINI_API_KEY", "gemini-key")
+        api_keys = APIKeysConfig()
+
+        with pytest.raises(ValueError, match="RADIO_TTS_API_KEY is required"):
+            api_keys.validate_production()
+
+    def test_validate_production_succeeds_with_all_keys(self, monkeypatch):
+        """validate_production should succeed when all keys are present."""
+        monkeypatch.setenv("RADIO_LLM_API_KEY", "llm-key")
+        monkeypatch.setenv("RADIO_TTS_API_KEY", "tts-key")
+        monkeypatch.setenv("RADIO_GEMINI_API_KEY", "gemini-key")
+        api_keys = APIKeysConfig()
+
+        # Should not raise
+        api_keys.validate_production()

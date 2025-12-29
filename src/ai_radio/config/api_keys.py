@@ -30,3 +30,21 @@ class APIKeysConfig(BaseSettings):
     llm_api_key: Optional[SecretStr] = Field(default=None, description="LLM provider API key")
     tts_api_key: Optional[SecretStr] = Field(default=None, description="OpenAI TTS API key")
     gemini_api_key: Optional[SecretStr] = Field(default=None, description="Google Gemini API key")
+
+    def validate_production(self) -> None:
+        """Validate that required production API keys are set.
+
+        Raises:
+            ValueError: If required API keys are missing
+        """
+        errors = []
+        if self.llm_api_key is None:
+            errors.append("RADIO_LLM_API_KEY is required for content generation")
+        if self.tts_api_key is None:
+            errors.append("RADIO_TTS_API_KEY is required for voice synthesis")
+        # Note: gemini_api_key is optional (only needed if tts_provider="gemini")
+
+        if errors:
+            raise ValueError(
+                "Production configuration incomplete:\n  - " + "\n  - ".join(errors)
+            )
