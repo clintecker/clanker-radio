@@ -76,8 +76,13 @@ def record_play_callback(m) =
         source_type = "music"
         cmd = "#{python_bin} #{scripts_path}/record_play.py #{string.quote(filename)} #{source_type}"
         log("Executing: #{cmd}")
-        # Use system() for fire-and-forget instead of process.run()
-        ignore(system(cmd))
+        # Use thread.run with process.run to capture output
+        _ = thread.run(fun () -> begin
+            let result = process.run(cmd)
+            log("Process exit code: #{result.status}")
+            log("Process stdout: #{result.stdout}")
+            log("Process stderr: #{result.stderr}")
+        end)
         log("Callback completed for #{filename}")
     end
 end
@@ -261,13 +266,23 @@ radio.on_track(synchronous=false, fun(m) -> begin
             log("BREAK CALLBACK: #{filename}")
             cmd = "#{python_bin} #{scripts_path}/record_play.py #{string.quote(filename)} break"
             log("Executing: #{cmd}")
-            ignore(system(cmd))
+            _ = thread.run(fun () -> begin
+                let result = process.run(cmd)
+                log("Process exit code: #{result.status}")
+                log("Process stdout: #{result.stdout}")
+                log("Process stderr: #{result.stderr}")
+            end)
             log("Break callback completed")
         elsif string.contains(substring="/bumpers/", filename) then
             log("BUMPER CALLBACK: #{filename}")
             cmd = "#{python_bin} #{scripts_path}/record_play.py #{string.quote(filename)} bumper"
             log("Executing: #{cmd}")
-            ignore(system(cmd))
+            _ = thread.run(fun () -> begin
+                let result = process.run(cmd)
+                log("Process exit code: #{result.status}")
+                log("Process stdout: #{result.stdout}")
+                log("Process stderr: #{result.stderr}")
+            end)
             log("Bumper callback completed")
         elsif string.contains(substring="/beds/", filename) then
             # Beds aren't in database, just log
