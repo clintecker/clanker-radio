@@ -195,14 +195,20 @@ class BreakGenerator:
             # Ensure breaks directory exists
             self.breaks_path.mkdir(parents=True, exist_ok=True)
 
-            # Generate unique output filename
-            output_filename = f"break_{datetime.now().strftime('%Y%m%d_%H%M%S')}.mp3"
+            # Generate unique output filename and metadata
+            now = datetime.now()
+            output_filename = f"break_{now.strftime('%Y%m%d_%H%M%S')}.mp3"
             output_path = self.breaks_path / output_filename
+
+            # Format title as "Mon Dec 29, 2025 20:00 News Break"
+            metadata_title = now.strftime("%a %b %d, %Y %H:%M News Break")
 
             mixed_audio = mix_voice_with_bed(
                 voice_path=voice_path,
                 bed_path=bed_path,
                 output_path=output_path,
+                metadata_title=metadata_title,
+                metadata_artist=config.station_identity.artist_name,
             )
 
             if not mixed_audio:

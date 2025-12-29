@@ -195,6 +195,7 @@ class DJTagGenerator:
             try:
                 # Convert PCM to MP3 using ffmpeg
                 # Gemini TTS outputs 24kHz 16-bit mono PCM
+                # Set ID3 tags with the text content as title
                 result = subprocess.run(
                     [
                         "ffmpeg",
@@ -203,6 +204,8 @@ class DJTagGenerator:
                         "-ar", "24000",  # Sample rate: 24kHz
                         "-ac", "1",  # Audio channels: mono
                         "-i", pcm_path,  # Input PCM file
+                        "-metadata", f"title={text[:100]}",  # Use first 100 chars as title
+                        "-metadata", f"artist={config.station_identity.artist_name}",
                         "-c:a", "libmp3lame",
                         "-q:a", "2",  # High quality MP3
                         str(output_path),

@@ -92,6 +92,8 @@ class AudioMixer:
         bed_path: Path,
         output_path: Path,
         bed_volume_db: Optional[float] = None,
+        metadata_title: Optional[str] = None,
+        metadata_artist: Optional[str] = None,
     ) -> Optional[MixedAudio]:
         """Mix voice audio with background bed using ducking.
 
@@ -170,10 +172,20 @@ class AudioMixer:
                 "-i", str(bed_path),  # Input 1: bed
                 "-filter_complex", filter_complex,
                 "-map", "[normalized]",
+                "-map_metadata", "-1",  # Strip all metadata (prevents copying bed's ID3 tags)
+            ]
+
+            # Add custom metadata if provided
+            if metadata_title:
+                cmd.extend(["-metadata", f"title={metadata_title}"])
+            if metadata_artist:
+                cmd.extend(["-metadata", f"artist={metadata_artist}"])
+
+            cmd.extend([
                 "-c:a", "libmp3lame",
                 "-q:a", "2",  # High quality MP3
                 str(output_path),
-            ]
+            ])
 
             logger.info(f"Mixing audio: {voice_path.name} + {bed_path.name}")
 
@@ -210,6 +222,8 @@ def mix_voice_with_bed(
     bed_path: Path,
     output_path: Path,
     bed_volume_db: Optional[float] = None,
+    metadata_title: Optional[str] = None,
+    metadata_artist: Optional[str] = None,
 ) -> Optional[MixedAudio]:
     """Convenience function to mix voice with background bed.
 
@@ -218,9 +232,13 @@ def mix_voice_with_bed(
         bed_path: Path to background bed
         output_path: Path for output
         bed_volume_db: Optional bed volume override
+        metadata_title: Optional ID3 title tag
+        metadata_artist: Optional ID3 artist tag
 
     Returns:
         MixedAudio or None if mixing fails
     """
     mixer = AudioMixer()
-    return mixer.mix_with_bed(voice_path, bed_path, output_path, bed_volume_db)
+    return mixer.mix_with_bed(
+        voice_path, bed_path, output_path, bed_volume_db, metadata_title, metadata_artist
+    )
