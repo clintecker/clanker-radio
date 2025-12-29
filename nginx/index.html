@@ -730,6 +730,11 @@
 
                     if (inCrossfadeWindow && !inCrossfade) {
                         // Start crossfade
+                        console.log('🎵 CROSSFADE START:', {
+                            timeRemaining,
+                            crossfadeDuration,
+                            nextTrack: nextTrack.title
+                        });
                         inCrossfade = true;
                         document.querySelector('.now-playing').classList.add('crossfading');
                         document.getElementById('crossfade-incoming').style.display = 'block';
@@ -737,6 +742,7 @@
                         document.getElementById('incoming-artist').textContent = nextTrack.artist || 'Unknown Artist';
                     } else if (!inCrossfadeWindow && inCrossfade) {
                         // End crossfade
+                        console.log('🎵 CROSSFADE END');
                         inCrossfade = false;
                         document.querySelector('.now-playing').classList.remove('crossfading');
                         document.getElementById('crossfade-incoming').style.display = 'none';
