@@ -589,8 +589,8 @@ def main():
     """Entry point with lock to prevent simultaneous exports."""
     import fcntl
 
-    # Use /var/tmp (not /tmp) because systemd PrivateTmp=yes isolates /tmp
-    lock_file_path = "/var/tmp/export_now_playing.lock"
+    # Use /srv/ai_radio/logs because systemd PrivateTmp=yes isolates both /tmp and /var/tmp
+    lock_file_path = "/srv/ai_radio/logs/export_now_playing.lock"
 
     try:
         # Try to acquire exclusive lock (non-blocking)

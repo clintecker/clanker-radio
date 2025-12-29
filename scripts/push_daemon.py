@@ -124,10 +124,25 @@ async def watch_file():
             logger.error(f"Error reading/broadcasting file: {e}")
 
 
+async def notify_handler(request: web.Request) -> web.Response:
+    """HTTP POST endpoint for manual notifications."""
+    try:
+        if NOW_PLAYING_PATH.exists():
+            data = NOW_PLAYING_PATH.read_text()
+            await broadcast_update(data)
+            return web.Response(text="OK")
+        else:
+            return web.Response(text="File not found", status=404)
+    except Exception as e:
+        logger.error(f"Error handling notify: {e}")
+        return web.Response(text=f"Error: {e}", status=500)
+
+
 async def init_app() -> web.Application:
     """Initialize the web application."""
     app = web.Application()
     app.router.add_get("/stream", sse_handler)
+    app.router.add_post("/notify", notify_handler)
     app.router.add_get("/health", lambda r: web.Response(text="OK"))
 
     # Start file watcher as background task

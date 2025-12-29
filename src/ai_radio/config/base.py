@@ -330,6 +330,66 @@ class RadioConfig(BaseSettings):
         return self.announcer.listener_relationship
 
     @property
+    def weather_structure(self) -> str:
+        """DEPRECATED: Use config.announcer.weather_structure instead."""
+        warnings.warn(
+            "'config.weather_structure' is deprecated. Use 'config.announcer.weather_structure' instead.",
+            DeprecationWarning,
+            stacklevel=2
+        )
+        return self.announcer.weather_structure
+
+    @property
+    def weather_translation_rules(self) -> str:
+        """DEPRECATED: Use config.announcer.weather_translation_rules instead."""
+        warnings.warn(
+            "'config.weather_translation_rules' is deprecated. Use 'config.announcer.weather_translation_rules' instead.",
+            DeprecationWarning,
+            stacklevel=2
+        )
+        return self.announcer.weather_translation_rules
+
+    @property
+    def news_format(self) -> str:
+        """DEPRECATED: Use config.announcer.news_format instead."""
+        warnings.warn(
+            "'config.news_format' is deprecated. Use 'config.announcer.news_format' instead.",
+            DeprecationWarning,
+            stacklevel=2
+        )
+        return self.announcer.news_format
+
+    @property
+    def news_tone(self) -> str:
+        """DEPRECATED: Use config.announcer.news_tone instead."""
+        warnings.warn(
+            "'config.news_tone' is deprecated. Use 'config.announcer.news_tone' instead.",
+            DeprecationWarning,
+            stacklevel=2
+        )
+        return self.announcer.news_tone
+
+    @property
+    def accent_style(self) -> str:
+        """DEPRECATED: Use config.announcer.accent_style instead."""
+        warnings.warn(
+            "'config.accent_style' is deprecated. Use 'config.announcer.accent_style' instead.",
+            DeprecationWarning,
+            stacklevel=2
+        )
+        return self.announcer.accent_style
+
+    @property
+    def delivery_style(self) -> str:
+        """DEPRECATED: Use config.announcer.delivery_style instead."""
+        warnings.warn(
+            "'config.delivery_style' is deprecated. Use 'config.announcer.delivery_style' instead.",
+            DeprecationWarning,
+            stacklevel=2
+        )
+        return self.announcer.delivery_style
+
+    @property
     def music_artist(self) -> str:
         """DEPRECATED: Use config.audio.music_artist instead."""
         warnings.warn(
@@ -613,6 +673,26 @@ class RadioConfig(BaseSettings):
         )
         return self.content.hallucinate_news
 
+    @property
+    def hallucination_chance(self) -> float:
+        """DEPRECATED: Use config.content.hallucination_chance instead."""
+        warnings.warn(
+            "'config.hallucination_chance' is deprecated. Use 'config.content.hallucination_chance' instead.",
+            DeprecationWarning,
+            stacklevel=2
+        )
+        return self.content.hallucination_chance
+
+    @property
+    def hallucination_kernels(self) -> list[str]:
+        """DEPRECATED: Use config.content.hallucination_kernels instead."""
+        warnings.warn(
+            "'config.hallucination_kernels' is deprecated. Use 'config.content.hallucination_kernels' instead.",
+            DeprecationWarning,
+            stacklevel=2
+        )
+        return self.content.hallucination_kernels
+
     # TTS configuration shims
     @property
     def tts_provider(self) -> str:
@@ -644,6 +724,16 @@ class RadioConfig(BaseSettings):
         )
         return self.tts.gemini_tts_model
 
+    @gemini_tts_model.setter
+    def gemini_tts_model(self, value: str):
+        """DEPRECATED setter: Use config.tts.gemini_tts_model instead."""
+        warnings.warn(
+            "'config.gemini_tts_model' is deprecated. Use 'config.tts.gemini_tts_model' instead.",
+            DeprecationWarning,
+            stacklevel=2
+        )
+        self.tts.gemini_tts_model = value
+
     @property
     def gemini_tts_voice(self) -> str:
         """DEPRECATED: Use config.tts.gemini_tts_voice instead."""
@@ -653,6 +743,16 @@ class RadioConfig(BaseSettings):
             stacklevel=2
         )
         return self.tts.gemini_tts_voice
+
+    @gemini_tts_voice.setter
+    def gemini_tts_voice(self, value: str):
+        """DEPRECATED setter: Use config.tts.gemini_tts_voice instead."""
+        warnings.warn(
+            "'config.gemini_tts_voice' is deprecated. Use 'config.tts.gemini_tts_voice' instead.",
+            DeprecationWarning,
+            stacklevel=2
+        )
+        self.tts.gemini_tts_voice = value
 
     # TODO: Add shims for all commonly accessed fields
     # Run `grep -r "config\." src/ scripts/` to find usages
