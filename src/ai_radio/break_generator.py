@@ -196,7 +196,9 @@ class BreakGenerator:
             self.breaks_path.mkdir(parents=True, exist_ok=True)
 
             # Generate unique output filename and metadata
-            now = datetime.now()
+            # Use station timezone for metadata title (Chicago time)
+            from zoneinfo import ZoneInfo
+            now = datetime.now(ZoneInfo(config.station_tz))
             output_filename = f"break_{now.strftime('%Y%m%d_%H%M%S')}.mp3"
             output_path = self.breaks_path / output_filename
 
