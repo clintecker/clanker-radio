@@ -76,3 +76,37 @@ class TestRadioConfigComposition:
         config = RadioConfig()
         assert config.icecast_url == "http://localhost:8000"
         assert isinstance(config.icecast_admin_password, str)
+
+
+class TestConfigPackageExports:
+    """Tests for config package __init__.py exports."""
+
+    def test_config_singleton_exists(self):
+        """config package should export config singleton."""
+        from ai_radio.config import config
+        assert config is not None
+        assert isinstance(config, RadioConfig)
+
+    def test_radioconfig_class_exported(self):
+        """config package should export RadioConfig class."""
+        from ai_radio.config import RadioConfig as ExportedRadioConfig
+        assert ExportedRadioConfig is RadioConfig
+
+    def test_all_domain_configs_exported(self):
+        """config package should export all domain config classes."""
+        from ai_radio.config import (
+            PathsConfig,
+            APIKeysConfig,
+            StationIdentityConfig,
+            AnnouncerPersonalityConfig,
+            WorldBuildingConfig,
+            ContentSourcesConfig,
+            TTSConfig,
+            AudioMixingConfig,
+            OperationalConfig,
+        )
+
+        # All should be classes
+        assert PathsConfig is not None
+        assert APIKeysConfig is not None
+        assert StationIdentityConfig is not None
