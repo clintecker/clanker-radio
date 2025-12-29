@@ -102,15 +102,16 @@ class TestStationIdentityProductionValidation:
 
     def test_validate_production_fails_without_coordinates(self):
         """validate_production should fail when coordinates missing."""
-        config = StationIdentityConfig()
-        with pytest.raises(ValueError, match="STATION_LAT"):
+        # Create config with explicitly None coordinates to override .env file
+        config = StationIdentityConfig(station_lat=None, station_lon=None)
+        with pytest.raises(ValueError, match="RADIO_STATION_LAT"):
             config.validate_production()
 
-    def test_validate_production_fails_without_lon(self, monkeypatch):
+    def test_validate_production_fails_without_lon(self):
         """validate_production should fail when longitude missing."""
-        monkeypatch.setenv("RADIO_STATION_LAT", "21.3")
-        config = StationIdentityConfig()
-        with pytest.raises(ValueError, match="STATION_LON"):
+        # Create config with explicit LAT but None LON to override .env file
+        config = StationIdentityConfig(station_lat=21.3, station_lon=None)
+        with pytest.raises(ValueError, match="RADIO_STATION_LON"):
             config.validate_production()
 
     def test_validate_production_succeeds_with_coordinates(self, monkeypatch):
