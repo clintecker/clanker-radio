@@ -1,4 +1,5 @@
 """Configuration composition root."""
+import logging
 import os
 import warnings
 from pathlib import Path
@@ -78,7 +79,6 @@ class RadioConfig(BaseSettings):
         # Read from Icecast XML config
         try:
             import defusedxml.ElementTree as ET
-            import logging
             icecast_config = Path("/etc/icecast2/icecast.xml")
             if icecast_config.exists():
                 tree = ET.parse(icecast_config)
