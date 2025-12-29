@@ -133,10 +133,24 @@ async def notify_handler(request: web.Request) -> web.Response:
 
 async def init_app() -> web.Application:
     """Initialize the web application."""
+    global last_state
+
     app = web.Application()
     app.router.add_get("/stream", sse_handler)
     app.router.add_post("/notify", notify_handler)
     app.router.add_get("/health", lambda r: web.Response(text="OK"))
+
+    # Fetch initial state on startup so new clients get current state
+    try:
+        sys.path.insert(0, str(Path(__file__).parent))
+        from export_now_playing import export_now_playing
+
+        logger.info("Fetching initial state...")
+        # Run export to get current state (returns False if it fails, but we still get state via POST)
+        export_now_playing()
+        logger.info("Initial state loaded" if last_state else "Waiting for first track change")
+    except Exception as e:
+        logger.warning(f"Could not fetch initial state: {e}")
 
     return app
 
