@@ -6,8 +6,11 @@ Triggers immediate now_playing.json export for real-time frontend updates.
 """
 
 import logging
+import os
 import subprocess
 import sys
+import time
+import traceback
 from pathlib import Path
 
 # Add src to path for imports
@@ -34,32 +37,48 @@ def trigger_export():
         export_script = "/srv/ai_radio/scripts/export_now_playing.py"
         venv_python = "/srv/ai_radio/.venv/bin/python"
 
+        # Create log directory for diagnostic output
+        log_dir = Path("/tmp/ai_radio_logs")
+        log_dir.mkdir(exist_ok=True)
+        ts = int(time.time())
+        stdout_log = log_dir / f"export_{ts}.out"
+        stderr_log = log_dir / f"export_{ts}.err"
+
+        # CRITICAL FIX: Copy environment and augment it, don't replace it
+        export_env = os.environ.copy()
+
+        # Safely prepend our src path to PYTHONPATH
+        python_path = export_env.get("PYTHONPATH", "")
+        src_path = "/srv/ai_radio/src"
+        if src_path not in python_path.split(os.pathsep):
+            export_env["PYTHONPATH"] = f"{src_path}{os.pathsep}{python_path}".strip(os.pathsep)
+
         # Write trigger marker for debugging
-        import time
-        marker = f"/tmp/export_triggered_{int(time.time())}.marker"
+        marker = f"/tmp/export_triggered_{ts}.marker"
         Path(marker).touch()
 
-        # Start in background
-        subprocess.Popen(
-            [venv_python, export_script],
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-            start_new_session=True,
-            cwd="/srv/ai_radio",
-            env={"PYTHONPATH": "/srv/ai_radio/src"}
-        )
+        # Start in background with proper logging and environment
+        with open(stdout_log, "w") as f_out, open(stderr_log, "w") as f_err:
+            subprocess.Popen(
+                [venv_python, export_script],
+                stdout=f_out,
+                stderr=f_err,
+                start_new_session=True,
+                cwd="/srv/ai_radio",
+                env=export_env,
+            )
 
-        logger.info("Triggered export")
+        logger.info(f"Triggered export. Logs: {stdout_log} {stderr_log}")
+
     except Exception as e:
-        logger.warning(f"Failed to trigger export: {e}")
+        # Add traceback for better context on Popen failures
+        logger.warning(
+            f"Failed to trigger export: {e}\n{traceback.format_exc()}"
+        )
 
 
 def main():
     """Entry point for script."""
-    # Debug marker - script started
-    import time
-    Path(f"/tmp/record_play_started_{int(time.time())}.marker").touch()
-
     if len(sys.argv) < 2:
         logger.error("Usage: record_play.py <file_path>")
         sys.exit(1)
@@ -98,15 +117,8 @@ def main():
 
     logger.info(f"Recorded play: {asset_id[:16]}... (kind={asset_kind})")
 
-    # Debug marker - before trigger_export
-    Path(f"/tmp/before_trigger_{int(time.time())}.marker").touch()
-
     # Trigger immediate now_playing.json export
     trigger_export()
-
-    # Debug marker - after trigger_export
-    Path(f"/tmp/after_trigger_{int(time.time())}.marker").touch()
-
     sys.exit(0)
 
 
