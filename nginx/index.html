@@ -329,6 +329,20 @@
             border-bottom: none;
         }
 
+        /* Station ID (bumper) styling */
+        .track-bumper {
+            opacity: 0.6;
+        }
+
+        .track-bumper .track-title {
+            color: var(--cyan);
+            font-style: italic;
+        }
+
+        .track-bumper .track-artist {
+            color: var(--phosphor-dim);
+        }
+
         .track-info {
             flex: 1;
             min-width: 0;
@@ -508,6 +522,7 @@
         let trackStartTime = null;
         let eventSource = null;
         let currentBitrate = 128;  // Track selected bitrate for stats display
+        let lastData = null;  // Store last SSE data for quality switching
 
         function formatTime(seconds) {
             if (!seconds || isNaN(seconds)) return '0:00';
@@ -551,6 +566,9 @@
         }
 
         function updateDisplay(data) {
+            // Store data for quality switching
+            lastData = data;
+
             const current = data.current;
             const next = data.next;
             const history = data.history || [];
@@ -651,9 +669,11 @@
                 historyList.innerHTML = history.slice(0, 6).map(track => {
                     const playedAt = track.played_at ? new Date(track.played_at) : null;
                     const timeAgo = playedAt ? formatTimeAgo(playedAt) : '';
+                    // Add class for bumpers (station IDs)
+                    const trackClass = track.source === 'bumper' ? 'track track-bumper' : 'track';
 
                     return `
-                        <div class="track">
+                        <div class="${trackClass}">
                             <div class="track-info">
                                 <div class="track-title">${track.title || 'Unknown'}</div>
                                 <div class="track-artist">${track.artist || 'Unknown Artist'}</div>
@@ -708,12 +728,14 @@
             eventSource.onmessage = (event) => {
                 try {
                     const data = JSON.parse(event.data);
-                    console.debug('SSE update:', data.current ? {
-                        asset_id: data.current.asset_id,
-                        title: data.current.title,
-                        played_at: data.current.played_at,
-                        duration_sec: data.current.duration_sec
-                    } : 'no current track');
+                    console.log('SSE Update received:', {
+                        updated_at: data.updated_at,
+                        current: data.current,
+                        next: data.next,
+                        history: data.history,
+                        stream: data.stream,
+                        full_payload: data
+                    });
                     updateDisplay(data);
                 } catch (error) {
                     console.error('Failed to parse SSE data:', error);
@@ -785,6 +807,11 @@
             };
             currentBitrate = bitrateMap[this.value] || 128;
             console.log('Selected bitrate:', currentBitrate);
+
+            // Update all stream stats for selected quality
+            if (lastData) {
+                updateDisplay(lastData);
+            }
 
             // Update audio source
             audio.src = this.value;
