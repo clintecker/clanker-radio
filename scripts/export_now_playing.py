@@ -119,13 +119,31 @@ def get_queue_next(limit: int = 1) -> list[dict]:
                         if source_type == "break":
                             if "/bumpers/" in filename or "station_id" in filename:
                                 actual_source = "bumper"
-                                title = "Station Identification"
+                                # Look up title from database for bumpers
+                                try:
+                                    with sqlite3.connect(config.paths.db_path) as conn:
+                                        cursor = conn.cursor()
+                                        cursor.execute(
+                                            "SELECT id, title FROM assets WHERE path = ?",
+                                            (filename,)
+                                        )
+                                        row = cursor.fetchone()
+                                        if row:
+                                            asset_id = row[0]
+                                            title = row[1] or "Station ID"
+                                        else:
+                                            asset_id = None
+                                            title = "Station ID"
+                                except Exception as e:
+                                    logger.debug(f"Could not look up bumper metadata for {filename}: {e}")
+                                    asset_id = None
+                                    title = "Station ID"
                                 artist = config.station.station_name
                             else:
                                 actual_source = "break"
                                 title = "News Break"
                                 artist = config.station.station_name
-                            asset_id = None
+                                asset_id = None
                             album = None
                         else:
                             # Music tracks - look up full metadata from database
