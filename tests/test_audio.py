@@ -140,3 +140,40 @@ def test_normalize_audio_creates_output_directory():
             output_file.unlink()
         if output_file.parent.exists():
             output_file.parent.rmdir()
+
+
+def test_measure_loudness_returns_stats(tmp_path):
+    """Verify measure_loudness returns loudness stats without creating output."""
+    from ai_radio.audio import measure_loudness
+
+    # Use existing test track
+    test_track = Path("/srv/ai_radio/assets/source_music/test_track.mp3")
+    if not test_track.exists():
+        pytest.skip("Test track not available")
+
+    result = measure_loudness(test_track)
+
+    assert "loudness_lufs" in result
+    assert "true_peak_dbtp" in result
+    assert isinstance(result["loudness_lufs"], float)
+    assert isinstance(result["true_peak_dbtp"], float)
+    assert result["loudness_lufs"] < 0  # LUFS is typically negative
+
+
+def test_measure_loudness_nonexistent_file():
+    """Verify measure_loudness raises ValueError for missing file."""
+    from ai_radio.audio import measure_loudness
+
+    with pytest.raises(ValueError, match="File not found"):
+        measure_loudness(Path("/nonexistent/file.mp3"))
+
+
+def test_measure_loudness_invalid_audio(tmp_path):
+    """Verify measure_loudness raises ValueError for invalid audio."""
+    from ai_radio.audio import measure_loudness
+
+    invalid_file = tmp_path / "invalid.mp3"
+    invalid_file.write_text("not an audio file")
+
+    with pytest.raises(ValueError, match="Failed to measure loudness"):
+        measure_loudness(invalid_file)

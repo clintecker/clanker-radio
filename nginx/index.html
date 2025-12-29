@@ -515,16 +515,27 @@
         }
 
         function calculateProgress() {
-            if (!currentTrack || !trackStartTime) return;
+            if (!currentTrack || !trackStartTime) {
+                console.debug('calculateProgress: no track or start time');
+                return;
+            }
 
             const now = new Date();
             const elapsed = (now - trackStartTime) / 1000; // seconds
             const duration = currentTrack.duration_sec || 0;
 
-            if (duration > 0 && elapsed <= duration) {
-                const percent = (elapsed / duration) * 100;
+            // Always update current time, even if duration is unknown or track exceeded duration
+            document.getElementById('current-time').textContent = formatTime(elapsed);
+
+            // Update progress bar if we have a valid duration
+            if (duration > 0) {
+                // Clamp elapsed to duration to prevent bar from exceeding 100%
+                const clampedElapsed = Math.min(elapsed, duration);
+                const percent = (clampedElapsed / duration) * 100;
                 document.getElementById('progress-fill').style.width = `${percent}%`;
-                document.getElementById('current-time').textContent = formatTime(elapsed);
+            } else {
+                // No duration available - show indeterminate state
+                document.getElementById('progress-fill').style.width = '0%';
             }
         }
 
@@ -581,8 +592,18 @@
             // Calculate start time from played_at timestamp
             if (current.played_at) {
                 const newStartTime = new Date(current.played_at);
-                // Only update if this is a different track
-                if (!currentTrack || currentTrack.asset_id !== current.asset_id) {
+                const isNewTrack = !currentTrack || currentTrack.asset_id !== current.asset_id;
+                const playedAtChanged = currentTrack && currentTrack.played_at !== current.played_at;
+
+                // Update if this is a different track OR if played_at changed (new play of same track)
+                if (isNewTrack || playedAtChanged) {
+                    console.log('Track update:', {
+                        isNewTrack,
+                        playedAtChanged,
+                        asset_id: current.asset_id,
+                        played_at: current.played_at,
+                        duration: current.duration_sec
+                    });
                     trackStartTime = newStartTime;
                     currentTrack = current;
                 }
@@ -644,11 +665,20 @@
         async function fetchData() {
             try {
                 const response = await fetch(API_URL + '?' + new Date().getTime());
-                if (!response.ok) throw new Error('Failed to fetch');
+                if (!response.ok) throw new Error(`HTTP ${response.status}: ${response.statusText}`);
                 const data = await response.json();
+                console.debug('Fetched data:', data.current ? {
+                    asset_id: data.current.asset_id,
+                    title: data.current.title,
+                    played_at: data.current.played_at,
+                    duration_sec: data.current.duration_sec
+                } : 'no current track');
                 updateDisplay(data);
             } catch (error) {
                 console.error('Failed to fetch now playing data:', error);
+                // Show error state in UI
+                document.getElementById('current-title').textContent = 'ERROR LOADING DATA';
+                document.getElementById('current-artist').textContent = error.message;
             }
         }
 

@@ -327,28 +327,109 @@ sudo chown ai-radio:ai-radio /srv/ai_radio/scripts/*.py
 **Problem**: Station IDs showed `duration_sec: null`, causing frontend playhead to display "00:00 / 00:00".
 
 **Root Cause**: When fallback timer runs ~50 seconds after station ID starts:
-1. SQL query finds station ID in play_history (within 30-second window initially)
+1. SQL query finds station ID in play_history (within 30-second window)
 2. But Liquidsoap has moved to next music track
-3. Code checked `source_type` from NEW Liquidsoap metadata (music)
-4. Didn't call ffprobe because source_type != "bumper"
+3. Initial fix used `row_source` from database (correct) but still used `filename` from current Liquidsoap stream (WRONG)
+4. This caused code to probe the MUSIC track file instead of the station ID file
+5. Result: music track duration assigned to station ID record
 
-**Fix Applied** (scripts/export_now_playing.py:630-637):
-- Use `row_source` from database instead of `source_type` from Liquidsoap
-- This ensures duration is calculated based on the ACTUAL play record, not current stream state
+**Complete Fix Applied** (scripts/export_now_playing.py:591-663):
+
+1. **Added `a.path` to SQL SELECT** (line 612):
+   - Query now returns file path from database when available
+   - Provides correct path for tracks in assets table
+
+2. **Construct Correct File Path** (lines 637-659):
+   - Use `row_path` from database if available
+   - Otherwise construct path from `asset_id` + `config.assets_path` + subdirectory
+   - Try common extensions (.wav, .mp3, .ogg)
+   - Only call ffprobe on the CORRECT file
 
 ```python
-row_source = row[6]  # Source from database (accurate for this play record)
+row_source = row[6]  # Source from database
+row_path = row[7]    # Path from database (may be None for bumpers/breaks)
 
-if duration_sec is None and row_source in ("break", "bumper") and filename:
-    logger.info(f"Getting duration for {row_source} from file: {filename}")
-    duration_sec = get_duration_from_file(filename)
+if duration_sec is None and row_source in ("break", "bumper"):
+    if row_path and os.path.exists(row_path):
+        file_to_probe = row_path
+    else:
+        # Construct from asset_id for bumpers/breaks not in assets
+        asset_id = row[0]
+        base_dir = config.assets_path
+        subdir = "bumpers" if row_source == "bumper" else "breaks"
+
+        for ext in [".wav", ".mp3", ".ogg"]:
+            candidate_path = base_dir / subdir / f"{asset_id}{ext}"
+            if candidate_path.exists():
+                file_to_probe = str(candidate_path)
+                break
+
+    if file_to_probe:
+        duration_sec = get_duration_from_file(file_to_probe)
 ```
 
-**Impact**: Station IDs and breaks now show correct duration and playhead progress.
+**Impact**: Station IDs and breaks now show correct duration based on their ACTUAL file, not the current stream's file.
+
+### Issue 6: Frontend Not Rendering Track Position (2025-12-28)
+
+**Problem**: Despite correct JSON data, web frontend wasn't rendering track position or updating playhead.
+
+**Root Causes**:
+1. Progress bar update logic (line 524) had overly restrictive condition: `if (duration > 0 && elapsed <= duration)`
+   - If duration was null/0, progress never updated
+   - If elapsed exceeded duration, progress stopped updating
+2. Track update logic (line 585) only updated `trackStartTime` on asset_id change, not on `played_at` change
+   - If same track played twice in a row, start time wouldn't update
+   - This could cause progress calculation to use stale timestamps
+3. Insufficient error logging made diagnosis difficult
+
+**Fixes Applied** (nginx/index.html):
+
+1. **Improved Progress Calculation (lines 517-540)**:
+   - Always update current-time display, regardless of duration
+   - Clamp elapsed time to duration to prevent progress bar exceeding 100%
+   - Show 0% progress bar if duration is unavailable (instead of not updating)
+   - Added debug logging when track/start time missing
+
+```javascript
+// Always update current time
+document.getElementById('current-time').textContent = formatTime(elapsed);
+
+// Update progress bar if we have valid duration
+if (duration > 0) {
+    const clampedElapsed = Math.min(elapsed, duration);
+    const percent = (clampedElapsed / duration) * 100;
+    document.getElementById('progress-fill').style.width = `${percent}%`;
+}
+```
+
+2. **Fixed Track Update Logic (lines 593-610)**:
+   - Update trackStartTime if asset_id changes OR played_at changes
+   - Handles case where same track plays again with new timestamp
+   - Added console logging to track updates for debugging
+
+```javascript
+const isNewTrack = !currentTrack || currentTrack.asset_id !== current.asset_id;
+const playedAtChanged = currentTrack && currentTrack.played_at !== current.played_at;
+
+if (isNewTrack || playedAtChanged) {
+    console.log('Track update:', {...});
+    trackStartTime = newStartTime;
+    currentTrack = current;
+}
+```
+
+3. **Enhanced Error Handling (lines 665-683)**:
+   - Better HTTP error messages
+   - Debug logging of fetched track data
+   - Display error state in UI instead of silent failure
+
+**Impact**: Progress bar and playhead now update correctly for all track types, even when duration changes or tracks repeat.
 
 ## Related Issues
 
 - Issue #1: Station ID playback causes queue rewind and stuck now_playing metadata ✅
 - Issue #5: now_playing.json causes display issues after station IDs and breaks ✅
+- Issue #6: Frontend not rendering track position despite correct JSON data ✅
 
-Both issues should be resolved by these fixes.
+All issues should be resolved by these fixes.

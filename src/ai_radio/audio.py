@@ -222,3 +222,87 @@ def normalize_audio(
         raise ValueError(
             f"Audio normalization failed for {input_path}: {e.stderr}"
         )
+
+
+def measure_loudness(input_path: Path) -> dict:
+    """Measure audio loudness without creating an output file.
+
+    Uses ffmpeg-normalize in dry-run mode to get EBU R128 stats.
+
+    Args:
+        input_path: Source audio file
+
+    Returns:
+        dict with loudness_lufs and true_peak_dbtp values
+
+    Raises:
+        ValueError: If measurement fails or stats cannot be parsed
+    """
+    if not input_path.exists():
+        raise ValueError(f"File not found: {input_path}")
+
+    try:
+        cmd = [
+            "ffmpeg-normalize",
+            str(input_path),
+            "-n",  # No-op / dry-run mode
+            "-f",  # Force overwrite
+            "--normalization-type", "ebu",
+            "--print-stats",
+        ]
+
+        result = subprocess.run(
+            cmd,
+            capture_output=True,
+            text=True,
+            timeout=120,
+            check=True,
+        )
+
+        # Parse the output to extract INPUT loudness measurements
+        # ffmpeg-normalize prints JSON-like stats with --print-stats
+        # Check both stdout and stderr as output location varies
+        input_i = None
+        input_tp = None
+
+        # Combine stdout and stderr for parsing
+        combined_output = result.stdout + "\n" + result.stderr
+
+        # Find all JSON-like blocks in output
+        for line in combined_output.split("\n"):
+            # Look for input measurements in JSON format
+            if '"input_i":' in line:
+                match = re.search(r'"input_i":\s*(-?\d+\.?\d*)', line)
+                if match:
+                    input_i = float(match.group(1))
+            if '"input_tp":' in line:
+                match = re.search(r'"input_tp":\s*(-?\d+\.?\d*)', line)
+                if match:
+                    input_tp = float(match.group(1))
+
+        if input_i is None or input_tp is None:
+            missing_fields = []
+            if input_i is None:
+                missing_fields.append("input_i")
+            if input_tp is None:
+                missing_fields.append("input_tp")
+
+            debug_message = (
+                "Failed to parse loudness stats from ffmpeg-normalize output. "
+                f"Regex-based parsing for fields {', '.join(missing_fields)} did not find any matches. "
+                "This may indicate that ffmpeg-normalize changed its output format.\n"
+                "Full combined stdout/stderr from ffmpeg-normalize:\n"
+                f"{combined_output}"
+            )
+
+            raise ValueError(debug_message)
+
+        return {
+            "loudness_lufs": input_i,
+            "true_peak_dbtp": input_tp,
+        }
+
+    except subprocess.CalledProcessError as e:
+        raise ValueError(f"Failed to measure loudness: {e.stderr}")
+    except subprocess.TimeoutExpired:
+        raise ValueError(f"Loudness measurement timed out for {input_path}")
