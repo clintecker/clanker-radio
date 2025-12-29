@@ -118,6 +118,52 @@
             50% { opacity: 0.5; }
         }
 
+        /* Crossfade incoming track display */
+        .crossfade-incoming {
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 1px solid rgba(127, 255, 127, 0.2);
+            animation: fadeIn 1s ease-in;
+        }
+
+        .crossfade-label {
+            font-size: 0.6rem;
+            letter-spacing: 0.25em;
+            color: var(--yellow);
+            margin-bottom: 8px;
+        }
+
+        .crossfade-title {
+            font-size: 1.5rem;
+            color: var(--phosphor);
+            margin-bottom: 6px;
+            opacity: 0;
+            animation: fadeIn 2s ease-in forwards;
+        }
+
+        .crossfade-artist {
+            font-size: 0.9rem;
+            color: var(--phosphor-dim);
+            opacity: 0;
+            animation: fadeIn 2s ease-in 0.5s forwards;
+        }
+
+        .crossfading .np-title,
+        .crossfading .np-artist,
+        .crossfading .np-meta {
+            animation: fadeOut 2s ease-out forwards;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        @keyframes fadeOut {
+            from { opacity: 1; }
+            to { opacity: 0.3; }
+        }
+
         .np-title {
             font-size: 2rem;
             color: var(--phosphor-bright);
@@ -475,6 +521,13 @@
             <div class="np-artist" id="current-artist"></div>
             <div class="np-meta" id="current-meta"></div>
 
+            <!-- Incoming track during crossfade -->
+            <div class="crossfade-incoming" id="crossfade-incoming" style="display: none;">
+                <div class="crossfade-label">↓ FADING IN</div>
+                <div class="crossfade-title" id="incoming-title"></div>
+                <div class="crossfade-artist" id="incoming-artist"></div>
+            </div>
+
             <div class="progress-container">
                 <div class="progress-bar">
                     <div class="progress-fill" id="progress-fill"></div>
@@ -566,6 +619,8 @@
         let eventSource = null;
         let currentBitrate = 128;  // Track selected bitrate for stats display
         let lastData = null;  // Store last SSE data for quality switching
+        let crossfadeSettings = { music_sec: 4.0, breaks_sec: 0.0 };  // Crossfade durations
+        let inCrossfade = false;  // Track if we're currently in crossfade
 
         function formatTime(seconds) {
             if (!seconds || isNaN(seconds)) return '0:00';
@@ -596,6 +651,48 @@
                 // No duration available - show indeterminate state
                 document.getElementById('progress-fill').style.width = '0%';
             }
+
+            // Check if we're in crossfade window
+            if (lastData && duration > 0) {
+                const breaksQueue = lastData.breaks_queue || [];
+                const musicQueue = lastData.music_queue || [];
+
+                // Determine next track and crossfade duration
+                let nextTrack = null;
+                let crossfadeDuration = 0;
+
+                if (breaksQueue.length > 0) {
+                    nextTrack = breaksQueue[0];
+                    crossfadeDuration = crossfadeSettings.breaks_sec;
+                } else if (musicQueue.length > 0) {
+                    nextTrack = musicQueue[0];
+                    crossfadeDuration = crossfadeSettings.music_sec;
+                }
+
+                if (nextTrack && crossfadeDuration > 0) {
+                    const timeRemaining = duration - elapsed;
+                    const inCrossfadeWindow = timeRemaining <= crossfadeDuration && timeRemaining > 0;
+
+                    if (inCrossfadeWindow && !inCrossfade) {
+                        // Start crossfade
+                        inCrossfade = true;
+                        document.querySelector('.now-playing').classList.add('crossfading');
+                        document.getElementById('crossfade-incoming').style.display = 'block';
+                        document.getElementById('incoming-title').textContent = nextTrack.title || 'Unknown';
+                        document.getElementById('incoming-artist').textContent = nextTrack.artist || 'Unknown Artist';
+                    } else if (!inCrossfadeWindow && inCrossfade) {
+                        // End crossfade
+                        inCrossfade = false;
+                        document.querySelector('.now-playing').classList.remove('crossfading');
+                        document.getElementById('crossfade-incoming').style.display = 'none';
+                    }
+                } else if (inCrossfade) {
+                    // No crossfade for this track (breaks), hide incoming
+                    inCrossfade = false;
+                    document.querySelector('.now-playing').classList.remove('crossfading');
+                    document.getElementById('crossfade-incoming').style.display = 'none';
+                }
+            }
         }
 
         function formatUptime(streamStart) {
@@ -623,6 +720,11 @@
                     statusEl.className = 'status status-online';
                     statusText.textContent = 'LIVE';
                 }
+            }
+
+            // Store crossfade settings
+            if (data.crossfade) {
+                crossfadeSettings = data.crossfade;
             }
 
             const current = data.current;

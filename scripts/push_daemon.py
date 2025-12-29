@@ -162,6 +162,10 @@ async def fetch_initial_state():
         output = {
             "updated_at": datetime.now(timezone.utc).isoformat(),
             "system_status": "online",
+            "crossfade": {
+                "music_sec": 4.0,    # Music tracks: 4s crossfade (2s fade-out + 2s fade-in)
+                "breaks_sec": 0.0    # Breaks/station IDs: hard cut, no crossfade
+            },
             "stream": stream_info if stream_info else {},
             "current": current,
             "breaks_queue": queues["breaks_queue"],
