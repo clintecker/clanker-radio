@@ -1,8 +1,20 @@
 """Configuration management for AI Radio Station.
 
-Uses pydantic-settings for environment-based configuration with sensible defaults.
-All paths and secrets can be overridden via environment variables.
+DEPRECATED: This module is deprecated in favor of the ai_radio.config package.
+Use `from ai_radio.config import config, RadioConfig` instead.
+
+This file will be removed in a future release.
+Migration guide: docs/plans/2025-12-28-config-refactor-design.md
 """
+import warnings
+
+warnings.warn(
+    "Importing from 'ai_radio.config_legacy' is deprecated. "
+    "Use 'from ai_radio.config import config, RadioConfig' instead. "
+    "See docs/plans/2025-12-28-config-refactor-design.md for migration guide.",
+    DeprecationWarning,
+    stacklevel=2
+)
 
 import os
 from pathlib import Path
