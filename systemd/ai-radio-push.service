@@ -1,0 +1,32 @@
+[Unit]
+Description=AI Radio SSE Push Daemon
+Documentation=https://github.com/clintecker/clanker-radio
+After=network.target
+
+[Service]
+Type=simple
+User=ai-radio
+Group=ai-radio
+WorkingDirectory=/srv/ai_radio
+
+# Run the push daemon
+ExecStart=/srv/ai_radio/.venv/bin/python /srv/ai_radio/scripts/push_daemon.py
+
+# Restart on failure
+Restart=always
+RestartSec=5
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=ai-radio-push
+
+# Security hardening
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/srv/ai_radio/public
+
+[Install]
+WantedBy=multi-user.target
