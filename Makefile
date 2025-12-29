@@ -7,6 +7,7 @@ REMOTE_BASE = /srv/ai_radio
 .PHONY: status logs-liquidsoap logs-push logs-break-gen logs-station-id
 .PHONY: check-exports test-sse check-db check-callbacks now-playing
 .PHONY: restart-liquidsoap restart-push restart-all tail-all
+.PHONY: check-station-ids status-station-id logs-station-id-timer check-last-station-id
 
 help: ## Show this help message
 	@echo "LAST BYTE RADIO - Development Commands"
@@ -110,5 +111,17 @@ check-sse-broadcasts: ## Check recent SSE broadcast times
 
 watch-callbacks: ## Monitor for next track change and export (live tail)
 	@ssh $(SERVER) "tail -f $(REMOTE_BASE)/logs/liquidsoap.log | grep --line-buffered -E '(CALLBACK FIRED|Calling export_now_playing|Export and SSE notification)'"
+
+check-station-ids: ## Show station IDs in database
+	@ssh $(SERVER) "sqlite3 $(REMOTE_BASE)/db/radio.sqlite3 'SELECT COUNT(*) as count FROM assets WHERE kind=\"bumper\"; SELECT id, title, artist, path FROM assets WHERE kind=\"bumper\" LIMIT 5;'"
+
+status-station-id: ## Show station-id service and timer status
+	@ssh $(SERVER) "systemctl status ai-radio-station-id.service ai-radio-station-id.timer --no-pager"
+
+logs-station-id-timer: ## Show recent station-id timer activations
+	@ssh $(SERVER) "sudo journalctl -u ai-radio-station-id.timer -n 20 --no-pager"
+
+check-last-station-id: ## Show last 10 station IDs played
+	@ssh $(SERVER) "sqlite3 $(REMOTE_BASE)/db/radio.sqlite3 'SELECT datetime(ph.played_at, \"localtime\") as played, a.title, a.artist FROM play_history ph JOIN assets a ON ph.asset_id = a.id WHERE a.kind=\"bumper\" ORDER BY ph.played_at DESC LIMIT 10;'"
 
 .DEFAULT_GOAL := help
