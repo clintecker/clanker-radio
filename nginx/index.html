@@ -501,11 +501,13 @@
     </div>
 
     <script>
-        const API_URL = '/api/now_playing.json';
-        const UPDATE_INTERVAL = 2000;  // 2 seconds for more responsive updates
+        const SSE_URL = '/api/stream';  // Server-Sent Events endpoint
+        const API_URL = '/api/now_playing.json';  // Fallback for non-SSE browsers
 
         let currentTrack = null;
         let trackStartTime = null;
+        let eventSource = null;
+        let currentBitrate = 128;  // Track selected bitrate for stats display
 
         function formatTime(seconds) {
             if (!seconds || isNaN(seconds)) return '0:00';
@@ -554,8 +556,18 @@
             const history = data.history || [];
             const stream = data.stream || {};
 
-            // Extract main stream info from source array (if present)
-            const mainStream = (stream.source && stream.source[0]) || stream;
+            // Find the stream matching the selected bitrate
+            let selectedStream = null;
+            if (stream.source && stream.source.length > 0) {
+                // Find stream by bitrate
+                selectedStream = stream.source.find(s => s.bitrate === currentBitrate);
+                // Fallback to first stream if not found
+                if (!selectedStream) selectedStream = stream.source[0];
+            } else {
+                // Legacy format
+                selectedStream = stream;
+            }
+            const mainStream = selectedStream || {};
 
             if (!current) {
                 document.getElementById('current-title').textContent = 'NO SIGNAL';
@@ -684,6 +696,42 @@
             }
         }
 
+        function connectSSE() {
+            console.log('Connecting to SSE endpoint...');
+
+            eventSource = new EventSource(SSE_URL);
+
+            eventSource.onopen = () => {
+                console.log('SSE connection established');
+            };
+
+            eventSource.onmessage = (event) => {
+                try {
+                    const data = JSON.parse(event.data);
+                    console.debug('SSE update:', data.current ? {
+                        asset_id: data.current.asset_id,
+                        title: data.current.title,
+                        played_at: data.current.played_at,
+                        duration_sec: data.current.duration_sec
+                    } : 'no current track');
+                    updateDisplay(data);
+                } catch (error) {
+                    console.error('Failed to parse SSE data:', error);
+                }
+            };
+
+            eventSource.onerror = (error) => {
+                console.error('SSE connection error:', error);
+                eventSource.close();
+
+                // Reconnect after 5 seconds
+                setTimeout(() => {
+                    console.log('Reconnecting to SSE...');
+                    connectSSE();
+                }, 5000);
+            };
+        }
+
         // Player controls
         const audio = document.getElementById('radio-stream');
         const playButton = document.getElementById('play-button');
@@ -729,6 +777,15 @@
             const wasPlaying = !audio.paused;
             const wasMuted = audio.muted;
 
+            // Update current bitrate for stats display
+            const bitrateMap = {
+                '/radio-96': 96,
+                '/radio-128': 128,
+                '/radio': 192
+            };
+            currentBitrate = bitrateMap[this.value] || 128;
+            console.log('Selected bitrate:', currentBitrate);
+
             // Update audio source
             audio.src = this.value;
 
@@ -747,9 +804,15 @@
         // Update progress bar continuously
         setInterval(calculateProgress, 500);
 
-        // Fetch data periodically
-        fetchData();
-        setInterval(fetchData, UPDATE_INTERVAL);
+        // Try SSE first, fallback to polling if not available
+        if (typeof EventSource !== 'undefined') {
+            console.log('Using SSE for real-time updates');
+            connectSSE();
+        } else {
+            console.log('SSE not supported, falling back to polling');
+            fetchData();  // Initial fetch
+            setInterval(fetchData, 2000);  // Poll every 2 seconds
+        }
     </script>
 </body>
 </html>
