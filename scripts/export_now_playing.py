@@ -499,8 +499,9 @@ def get_current_playing() -> tuple[dict | None, dict | None]:
             "source": row[6]
         }
 
-    # Stream info from Icecast (keep existing logic)
-    stream_info = get_stream_info()
+    # FAST PATH: Skip Icecast HTTP request for speed
+    # Stream info can be fetched by separate background job
+    stream_info = None
 
     return current, stream_info
 
@@ -508,10 +509,11 @@ def get_current_playing() -> tuple[dict | None, dict | None]:
 def export_now_playing():
     """Export current stream status to JSON file with atomic write."""
     try:
-        # Get current track from Icecast (source of truth) + stream metrics
+        # FAST PATH: Only get essential data to minimize latency
+        # Get current track from database (fast)
         current, stream_info = get_current_playing()
 
-        # Get recent plays for history (excluding current if present)
+        # Get recent plays for history (fast database query)
         history = get_recent_plays(6)  # Get 6 to ensure we have 5 after filtering
 
         # If we have a current track, filter it out of history
@@ -521,9 +523,9 @@ def export_now_playing():
         # Limit history to 5 items
         history = history[:5]
 
-        # Get next track from queue
-        queue = get_queue_next(1)
-        next_track = queue[0] if queue else None
+        # SKIP SLOW QUEUE QUERY: Next track not critical for real-time display
+        # TODO: Re-enable in background job for "coming up next" feature
+        next_track = None
 
         # Build output with stream info
         output = {
