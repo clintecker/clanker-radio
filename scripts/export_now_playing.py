@@ -537,48 +537,30 @@ def export_now_playing():
             "history": history
         }
 
-        # Ensure output directory exists
-        OUTPUT_PATH.parent.mkdir(parents=True, exist_ok=True)
+        logger.info(f"Broadcasting state: current={current['title'] if current else 'None'}")
 
-        # Atomic write: create temp file in same directory, then rename
-        # This prevents concurrent writes and partial reads
-        temp_dir = str(OUTPUT_PATH.parent)
-        fd, temp_path = tempfile.mkstemp(dir=temp_dir, suffix='.json', text=True)
-
+        # Send full state directly to SSE daemon (no file I/O)
         try:
-            with os.fdopen(fd, 'w') as f:
-                json.dump(output, f, indent=2)
-
-            # Atomic rename (POSIX systems)
-            os.rename(temp_path, str(OUTPUT_PATH))
-
-            # Set permissions so nginx can read the file
-            os.chmod(str(OUTPUT_PATH), 0o644)
-
-            logger.info(f"Exported now_playing.json: current={current['title'] if current else 'None'}")
-
-            # Notify SSE daemon to broadcast update
-            try:
-                req = urllib_request.Request(
-                    "http://127.0.0.1:8001/notify",
-                    method="POST"
-                )
-                with urllib_request.urlopen(req, timeout=1) as response:
-                    if response.status == 200:
-                        logger.info("SSE daemon notified successfully")
-                    else:
-                        logger.warning(f"SSE daemon notify returned {response.status}")
-            except URLError as e:
-                logger.warning(f"Failed to notify SSE daemon: {e}")
-            except Exception as e:
-                logger.warning(f"Unexpected error notifying SSE daemon: {e}")
-
-            return True
-
+            output_json = json.dumps(output).encode('utf-8')
+            req = urllib_request.Request(
+                "http://127.0.0.1:8001/notify",
+                data=output_json,
+                headers={'Content-Type': 'application/json'},
+                method="POST"
+            )
+            with urllib_request.urlopen(req, timeout=1) as response:
+                if response.status == 200:
+                    logger.info("SSE broadcast successful")
+                    return True
+                else:
+                    logger.warning(f"SSE daemon returned {response.status}")
+                    return False
+        except URLError as e:
+            logger.warning(f"Failed to notify SSE daemon: {e}")
+            return False
         except Exception as e:
-            # Clean up temp file on error
-            os.unlink(temp_path)
-            raise
+            logger.warning(f"Unexpected error notifying SSE daemon: {e}")
+            return False
 
     except Exception as e:
         logger.error(f"Failed to export now_playing: {e}")
