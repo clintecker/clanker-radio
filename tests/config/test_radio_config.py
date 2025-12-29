@@ -17,7 +17,7 @@ class TestRadioConfigComposition:
 
     def test_composes_all_domains(self):
         """RadioConfig should compose all 9 domain configs."""
-        config = RadioConfig()
+        config = RadioConfig(_env_file=None)
 
         assert isinstance(config.paths, PathsConfig)
         assert isinstance(config.api_keys, APIKeysConfig)
@@ -44,7 +44,7 @@ class TestRadioConfigComposition:
         monkeypatch.delenv("RADIO_LLM_API_KEY", raising=False)
         monkeypatch.delenv("RADIO_TTS_API_KEY", raising=False)
 
-        config = RadioConfig()
+        config = RadioConfig(_env_file=None)
 
         with pytest.raises(ValueError) as exc_info:
             config.validate_production_config()
@@ -60,23 +60,23 @@ class TestRadioConfigComposition:
         monkeypatch.setenv("RADIO_STATION_LAT", "21.3")
         monkeypatch.setenv("RADIO_STATION_LON", "-157.8")
 
-        config = RadioConfig()
+        config = RadioConfig(_env_file=None)
         config.validate_production_config()  # Should not raise
 
     def test_llm_model_field_exists(self):
         """RadioConfig should have llm_model field (doesn't fit domain model)."""
-        config = RadioConfig()
+        config = RadioConfig(_env_file=None)
         assert config.llm_model == "claude-3-5-sonnet-latest"
 
     def test_script_temperature_fields_exist(self):
         """RadioConfig should have temperature fields."""
-        config = RadioConfig()
+        config = RadioConfig(_env_file=None)
         assert config.weather_script_temperature == 0.8
         assert config.news_script_temperature == 0.6
 
     def test_icecast_properties_exist(self):
         """RadioConfig should have icecast properties."""
-        config = RadioConfig()
+        config = RadioConfig(_env_file=None)
         assert config.icecast_url == "http://localhost:8000"
         assert isinstance(config.icecast_admin_password, str)
 

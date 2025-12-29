@@ -15,41 +15,41 @@ class TestContentSourcesConfig:
     # NWS Weather Configuration Tests
     def test_default_nws_office(self):
         """Test default NWS office code."""
-        config = ContentSourcesConfig()
+        config = ContentSourcesConfig(_env_file=None)
         assert config.nws_office is None
 
     def test_nws_office_from_env(self):
         """Test NWS office code from environment."""
         with patch.dict(os.environ, {"RADIO_NWS_OFFICE": "LOX"}):
-            config = ContentSourcesConfig()
+            config = ContentSourcesConfig(_env_file=None)
             assert config.nws_office == "LOX"
 
     def test_default_nws_grid_x(self):
         """Test default NWS grid X coordinate."""
-        config = ContentSourcesConfig()
+        config = ContentSourcesConfig(_env_file=None)
         assert config.nws_grid_x is None
 
     def test_nws_grid_x_from_env(self):
         """Test NWS grid X coordinate from environment."""
         with patch.dict(os.environ, {"RADIO_NWS_GRID_X": "42"}):
-            config = ContentSourcesConfig()
+            config = ContentSourcesConfig(_env_file=None)
             assert config.nws_grid_x == 42
 
     def test_default_nws_grid_y(self):
         """Test default NWS grid Y coordinate."""
-        config = ContentSourcesConfig()
+        config = ContentSourcesConfig(_env_file=None)
         assert config.nws_grid_y is None
 
     def test_nws_grid_y_from_env(self):
         """Test NWS grid Y coordinate from environment."""
         with patch.dict(os.environ, {"RADIO_NWS_GRID_Y": "73"}):
-            config = ContentSourcesConfig()
+            config = ContentSourcesConfig(_env_file=None)
             assert config.nws_grid_y == 73
 
     # News RSS Feeds Tests
     def test_default_news_rss_feeds(self):
         """Test default news RSS feeds."""
-        config = ContentSourcesConfig()
+        config = ContentSourcesConfig(_env_file=None)
         assert config.news_rss_feeds == {
             "news": [
                 "https://feeds.npr.org/1001/rss.xml",
@@ -61,37 +61,37 @@ class TestContentSourcesConfig:
         feeds = {"tech": ["https://example.com/tech.xml"], "sports": ["https://example.com/sports.xml"]}
         import json
         with patch.dict(os.environ, {"RADIO_NEWS_RSS_FEEDS": json.dumps(feeds)}):
-            config = ContentSourcesConfig()
+            config = ContentSourcesConfig(_env_file=None)
             assert config.news_rss_feeds == feeds
 
     def test_news_rss_feeds_immutable_default(self):
         """Test that news_rss_feeds default is not shared between instances."""
-        config1 = ContentSourcesConfig()
-        config2 = ContentSourcesConfig()
+        config1 = ContentSourcesConfig(_env_file=None)
+        config2 = ContentSourcesConfig(_env_file=None)
         config1.news_rss_feeds["test"] = ["https://example.com/test.xml"]
         assert "test" not in config2.news_rss_feeds
 
     # Hallucinated News Tests
     def test_default_hallucinate_news(self):
         """Test default hallucinate_news setting."""
-        config = ContentSourcesConfig()
+        config = ContentSourcesConfig(_env_file=None)
         assert config.hallucinate_news is False
 
     def test_hallucinate_news_from_env(self):
         """Test hallucinate_news from environment."""
         with patch.dict(os.environ, {"RADIO_HALLUCINATE_NEWS": "true"}):
-            config = ContentSourcesConfig()
+            config = ContentSourcesConfig(_env_file=None)
             assert config.hallucinate_news is True
 
     def test_default_hallucination_chance(self):
         """Test default hallucination_chance."""
-        config = ContentSourcesConfig()
+        config = ContentSourcesConfig(_env_file=None)
         assert config.hallucination_chance == 0.0
 
     def test_hallucination_chance_from_env(self):
         """Test hallucination_chance from environment."""
         with patch.dict(os.environ, {"RADIO_HALLUCINATION_CHANCE": "0.25"}):
-            config = ContentSourcesConfig()
+            config = ContentSourcesConfig(_env_file=None)
             assert config.hallucination_chance == 0.25
 
     def test_hallucination_chance_validation_too_low(self):
@@ -116,7 +116,7 @@ class TestContentSourcesConfig:
 
     def test_default_hallucination_kernels(self):
         """Test default hallucination_kernels."""
-        config = ContentSourcesConfig()
+        config = ContentSourcesConfig(_env_file=None)
         assert config.hallucination_kernels == []
 
     def test_hallucination_kernels_from_env(self):
@@ -124,12 +124,12 @@ class TestContentSourcesConfig:
         kernels = ["technology", "science", "politics"]
         import json
         with patch.dict(os.environ, {"RADIO_HALLUCINATION_KERNELS": json.dumps(kernels)}):
-            config = ContentSourcesConfig()
+            config = ContentSourcesConfig(_env_file=None)
             assert config.hallucination_kernels == kernels
 
     def test_hallucination_kernels_immutable_default(self):
         """Test that hallucination_kernels default is not shared between instances."""
-        config1 = ContentSourcesConfig()
-        config2 = ContentSourcesConfig()
+        config1 = ContentSourcesConfig(_env_file=None)
+        config2 = ContentSourcesConfig(_env_file=None)
         config1.hallucination_kernels.append("test")
         assert "test" not in config2.hallucination_kernels
