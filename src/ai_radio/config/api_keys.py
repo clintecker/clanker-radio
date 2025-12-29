@@ -38,9 +38,9 @@ class APIKeysConfig(BaseSettings):
             ValueError: If required API keys are missing
         """
         errors = []
-        if self.llm_api_key is None:
+        if self.llm_api_key is None or self.llm_api_key.get_secret_value().strip() == "":
             errors.append("RADIO_LLM_API_KEY is required for content generation")
-        if self.tts_api_key is None:
+        if self.tts_api_key is None or self.tts_api_key.get_secret_value().strip() == "":
             errors.append("RADIO_TTS_API_KEY is required for voice synthesis")
         # Note: gemini_api_key is optional (only needed if tts_provider="gemini")
 

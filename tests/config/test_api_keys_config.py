@@ -119,3 +119,30 @@ class TestAPIKeysConfig:
 
         # Should not raise
         api_keys.validate_production()
+
+    def test_validate_production_fails_with_empty_llm_key(self, monkeypatch):
+        """validate_production should reject empty string API keys."""
+        monkeypatch.setenv("RADIO_LLM_API_KEY", "")
+        monkeypatch.setenv("RADIO_TTS_API_KEY", "valid-key")
+        api_keys = APIKeysConfig()
+
+        with pytest.raises(ValueError, match="RADIO_LLM_API_KEY is required"):
+            api_keys.validate_production()
+
+    def test_validate_production_fails_with_empty_tts_key(self, monkeypatch):
+        """validate_production should reject empty string API keys."""
+        monkeypatch.setenv("RADIO_LLM_API_KEY", "valid-key")
+        monkeypatch.setenv("RADIO_TTS_API_KEY", "")
+        api_keys = APIKeysConfig()
+
+        with pytest.raises(ValueError, match="RADIO_TTS_API_KEY is required"):
+            api_keys.validate_production()
+
+    def test_validate_production_fails_with_whitespace_only_keys(self, monkeypatch):
+        """validate_production should reject whitespace-only API keys."""
+        monkeypatch.setenv("RADIO_LLM_API_KEY", "   ")
+        monkeypatch.setenv("RADIO_TTS_API_KEY", "valid-key")
+        api_keys = APIKeysConfig()
+
+        with pytest.raises(ValueError, match="RADIO_LLM_API_KEY is required"):
+            api_keys.validate_production()
