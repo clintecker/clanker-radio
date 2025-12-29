@@ -193,11 +193,35 @@ async def init_app() -> web.Application:
     return app
 
 
+async def shutdown(app: web.Application):
+    """Notify clients before shutdown - runs while event loop is still active."""
+    if not clients:
+        return
+
+    logger.info(f"Notifying {len(clients)} clients of restart...")
+
+    # Build shutdown message
+    shutdown_msg = json.dumps({
+        "system_status": "restarting",
+        "message": "Push service restarting - reconnecting shortly..."
+    }, separators=(',', ':'))
+    data = f"data: {shutdown_msg}\n\n".encode()
+
+    # Send to each client sequentially, with short timeout per client
+    for client in list(clients):
+        try:
+            await asyncio.wait_for(client.write(data), timeout=0.5)
+        except asyncio.TimeoutError:
+            logger.debug("Client write timed out")
+        except Exception as e:
+            logger.debug(f"Failed to notify client: {e}")
+
+    logger.info("Shutdown notifications sent")
+
+
 async def cleanup(app: web.Application):
-    """Cleanup on shutdown."""
-    logger.info("Shutting down...")
-    # Just clear clients - they'll reconnect automatically when connection drops
-    # Trying to send messages during shutdown causes hangs
+    """Final cleanup after shutdown."""
+    logger.info("Cleaning up...")
     clients.clear()
 
 
@@ -206,7 +230,8 @@ def main():
 
     # Create app
     app = asyncio.run(init_app())
-    app.on_cleanup.append(cleanup)
+    app.on_shutdown.append(shutdown)  # Notify clients before shutdown
+    app.on_cleanup.append(cleanup)    # Final cleanup after shutdown
 
     # Handle signals for graceful shutdown
     def signal_handler(signum, frame):

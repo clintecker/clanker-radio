@@ -12,6 +12,7 @@ User=ai-radio
 Group=ai-radio
 WorkingDirectory=/srv/ai_radio
 ExecStart=/srv/ai_radio/bin/liquidsoap-wrapper.sh
+ExecStop=/srv/ai_radio/scripts/notify_restart.sh liquidsoap
 Restart=always
 RestartSec=10
 
