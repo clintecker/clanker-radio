@@ -1,0 +1,103 @@
+digraph SystemArchitecture {
+    // Graph settings
+    rankdir=LR;
+    node [shape=box, style=rounded, fontname="Arial", fontsize=11];
+    edge [fontname="Arial", fontsize=9];
+
+    // Color scheme
+    bgcolor="transparent";
+
+    // Clusters for grouping
+    subgraph cluster_ai {
+        label="AI Generation Service";
+        style=filled;
+        fillcolor="#E6E6FA";
+        node [fillcolor="#DDA0DD", style="rounded,filled"];
+
+        claude [label="Claude\n(Primary)"];
+        gemini [label="Gemini\n(Fallback)"];
+        openai [label="OpenAI\n(Final Fallback)"];
+
+        claude -> gemini [style=dashed, label="quota\nexhausted"];
+        gemini -> openai [style=dashed, label="quota\nexhausted"];
+    }
+
+    subgraph cluster_scheduler {
+        label="Scheduler (systemd)";
+        style=filled;
+        fillcolor="#E0FFE0";
+        node [fillcolor="#90EE90", style="rounded,filled"];
+
+        timer_music [label="Music Enqueue\n(every 5min)"];
+        timer_breaks [label="Break Scheduler\n(top of hour)"];
+        timer_station_id [label="Station ID\n(:15/:30/:45)"];
+        timer_export [label="Now Playing Export\n(every 10sec)"];
+    }
+
+    subgraph cluster_streaming {
+        label="Streaming Engine";
+        style=filled;
+        fillcolor="#FFE6E6";
+        node [fillcolor="#FFB6C1", style="rounded,filled"];
+
+        liquidsoap [label="Liquidsoap\n(3 queues)"];
+        icecast [label="Icecast\n(multi-mount)"];
+
+        liquidsoap -> icecast [label="streams audio"];
+    }
+
+    // Core data layer
+    node [fillcolor="#87CEEB", style="rounded,filled"];
+    database [label="SQLite Database\n(assets, play_history,\nscheduler_state)"];
+    assets [label="Asset Storage\n(SHA256-based)"];
+
+    // External
+    node [fillcolor="#FFFACD", style="rounded,filled"];
+    listeners [label="Listeners\n(HTTP stream)"];
+    nws [label="NWS Weather API"];
+    rss [label="RSS News Feeds"];
+
+    // AI Generation flows
+    nws -> claude [label="fetch weather"];
+    rss -> claude [label="fetch news"];
+    claude -> assets [label="generate\n& store breaks"];
+
+    // Scheduler flows
+    timer_breaks -> database [label="check state"];
+    database -> timer_breaks [label="prevent\nduplicates"];
+    timer_breaks -> assets [label="find latest\nbreak"];
+    assets -> liquidsoap [label="queue break"];
+
+    timer_station_id -> database [label="check state"];
+    timer_station_id -> assets [label="select random\nbumper"];
+    assets -> liquidsoap [label="queue station ID"];
+
+    timer_music -> database [label="query tracks +\nplay history"];
+    database -> timer_music [label="anti-repetition"];
+    timer_music -> liquidsoap [label="enqueue tracks"];
+
+    timer_export -> liquidsoap [label="query current\ntrack"];
+    timer_export -> database [label="JOIN for\nmetadata"];
+    timer_export -> icecast [label="check fallback\nstatus"];
+
+    // Asset ingestion
+    assets -> database [label="store metadata\n(SHA256 ID)"];
+
+    // Streaming
+    icecast -> listeners [label="MP3 stream\n192/128/96kbps"];
+
+    // Legend
+    {
+        rank=sink;
+        node [shape=plaintext, fillcolor=transparent];
+        legend [label=<
+            <table border="0" cellborder="1" cellspacing="0" cellpadding="4">
+                <tr><td bgcolor="#E6E6FA">AI Services</td></tr>
+                <tr><td bgcolor="#E0FFE0">Scheduling</td></tr>
+                <tr><td bgcolor="#FFE6E6">Streaming</td></tr>
+                <tr><td bgcolor="#87CEEB">Data Layer</td></tr>
+                <tr><td bgcolor="#FFFACD">External</td></tr>
+            </table>
+        >];
+    }
+}

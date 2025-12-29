@@ -493,6 +493,36 @@ class RadioConfig(BaseSettings):
         return self.paths.beds_path
 
     @property
+    def bumpers_path(self) -> Path:
+        """DEPRECATED: Use config.paths.bumpers_path instead."""
+        warnings.warn(
+            "'config.bumpers_path' is deprecated. Use 'config.paths.bumpers_path' instead.",
+            DeprecationWarning,
+            stacklevel=2
+        )
+        return self.paths.bumpers_path
+
+    @property
+    def safety_path(self) -> Path:
+        """DEPRECATED: Use config.paths.safety_path instead."""
+        warnings.warn(
+            "'config.safety_path' is deprecated. Use 'config.paths.safety_path' instead.",
+            DeprecationWarning,
+            stacklevel=2
+        )
+        return self.paths.safety_path
+
+    @property
+    def drops_path(self) -> Path:
+        """DEPRECATED: Use config.paths.drops_path instead."""
+        warnings.warn(
+            "'config.drops_path' is deprecated. Use 'config.paths.drops_path' instead.",
+            DeprecationWarning,
+            stacklevel=2
+        )
+        return self.paths.drops_path
+
+    @property
     def tmp_path(self) -> Path:
         """DEPRECATED: Use config.paths.tmp_path instead."""
         warnings.warn(

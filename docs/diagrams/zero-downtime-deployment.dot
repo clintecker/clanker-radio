@@ -1,0 +1,103 @@
+digraph ZeroDowntime {
+    // Graph settings
+    rankdir=TB;
+    node [fontname="Arial", fontsize=11];
+    edge [fontname="Arial", fontsize=10];
+    bgcolor="transparent";
+
+    // States
+    node [shape=box, style="rounded,filled", width=4, height=1.2];
+
+    state1 [fillcolor="#90EE90", label=<
+        <b>State 1: Normal Operation</b><br/>
+        <br/>
+        Listener: Connected to /radio<br/>
+        Liquidsoap v1: Streaming<br/>
+        Fallback: Idle (looping technical difficulties)
+    >];
+
+    state2 [fillcolor="#FFD700", label=<
+        <b>State 2: Fallback Active</b><br/>
+        <br/>
+        Listener: Auto-switched to /radio-fallback<br/>
+        Liquidsoap v1: Stopped<br/>
+        Fallback: Streaming (technical difficulties loop)
+    >];
+
+    state3 [fillcolor="#87CEEB", label=<
+        <b>State 3: New Version Starting</b><br/>
+        <br/>
+        Listener: Still on /radio-fallback<br/>
+        Liquidsoap v2: Starting up...<br/>
+        Fallback: Still streaming
+    >];
+
+    state4 [fillcolor="#90EE90", label=<
+        <b>State 4: Recovery Complete</b><br/>
+        <br/>
+        Listener: Auto-switched back to /radio<br/>
+        Liquidsoap v2: Streaming<br/>
+        Fallback: Back to idle
+    >];
+
+    // Transitions
+    state1 -> state2 [label=<
+        <b>Trigger: deploy.sh</b><br/>
+        <br/>
+        systemctl stop ai-radio-liquidsoap<br/>
+        <br/>
+        Icecast detects /radio disconnect<br/>
+        fallback-mount kicks in
+    >, penwidth=2];
+
+    state2 -> state3 [label=<
+        <b>Deploy Actions</b><br/>
+        <br/>
+        • Update code<br/>
+        • Update config<br/>
+        systemctl start ai-radio-liquidsoap<br/>
+        <br/>
+        Liquidsoap v2 begins connecting
+    >, penwidth=2];
+
+    state3 -> state4 [label=<
+        <b>Automatic Recovery</b><br/>
+        <br/>
+        Liquidsoap v2 connects to /radio<br/>
+        <br/>
+        Icecast detects /radio active<br/>
+        fallback-override=1 redirects listener
+    >, penwidth=2, color="#008000"];
+
+    // Listener experience annotation
+    {
+        rank=same; state1;
+        node [shape=note, fillcolor="#E6E6FA", style=filled, width=2.5];
+        listener_exp [label=<
+            <b>Listener Experience</b><br/>
+            <br/>
+            • 2-3 seconds of<br/>
+              technical difficulties<br/>
+            • Seamless return to<br/>
+              normal programming<br/>
+            • Zero dead air
+        >];
+    }
+
+    state1 -> listener_exp [style=invis];
+
+    // Key insight box
+    {
+        rank=sink;
+        node [shape=box, fillcolor="#FFFACD", style="rounded,filled", width=5];
+        insight [label=<
+            <b>Key Configuration (icecast.xml)</b><br/>
+            <br/>
+            &lt;mount-name&gt;/radio&lt;/mount-name&gt;<br/>
+            &lt;fallback-mount&gt;/radio-fallback&lt;/fallback-mount&gt;<br/>
+            &lt;fallback-override&gt;1&lt;/fallback-override&gt;<br/>
+            <br/>
+            <i>fallback-override=1 makes the return automatic</i>
+        >];
+    }
+}

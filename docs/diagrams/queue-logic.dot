@@ -1,0 +1,57 @@
+digraph QueueLogic {
+    // Graph settings
+    rankdir=TB;
+    node [fontname="Arial", fontsize=11];
+    edge [fontname="Arial", fontsize=9];
+    bgcolor="transparent";
+
+    // Queue sources
+    node [shape=box, style="rounded,filled", fillcolor="#FFD700"];
+    override [label="Override Queue\n(Operator Control)"];
+    breaks [label="Breaks Queue\n(News/Station IDs)"];
+    music [label="Music Queue\n(Songs)"];
+
+    // Switch logic
+    node [shape=diamond, fillcolor="#FFB6C1", width=2.5, height=1.2];
+    switch [label="switch(\n  track_sensitive=true\n)\n\nWaits for track boundary\nbefore switching"];
+
+    // Priority labels
+    override -> switch [label="Priority 1\n(Interrupts All)", color="#DC143C", penwidth=2];
+    breaks -> switch [label="Priority 2\n(Interrupts Music)", color="#FF8C00", penwidth=2];
+    music -> switch [label="Priority 3\n(Default Content)", color="#32CD32", penwidth=2];
+
+    // Transition functions
+    node [shape=box, style="rounded,filled", fillcolor="#87CEEB"];
+    transition [label="Smart Transition\n\nif is_break:\n  hard cut\nelse:\n  4-second crossfade"];
+
+    switch -> transition [label="selected\ntrack"];
+
+    // Output
+    node [shape=box, style="rounded,filled", fillcolor="#90EE90"];
+    output [label="Audio Output\n(to Icecast)"];
+
+    transition -> output;
+
+    // Examples
+    {
+        rank=same;
+        node [shape=note, fillcolor="#FFFACD", style=filled];
+
+        ex1 [label="Example 1:\nMusic playing → Break arrives\n→ Wait for song end\n→ Hard cut to break"];
+
+        ex2 [label="Example 2:\nSong A → Song B\n→ 4-second crossfade\n(2s fade-out, 2s fade-in)"];
+    }
+
+    // Legend
+    {
+        rank=sink;
+        node [shape=plaintext, fillcolor=transparent];
+        legend [label=<
+            <table border="0" cellborder="1" cellspacing="0" cellpadding="4">
+                <tr><td colspan="2"><b>Key Insight</b></td></tr>
+                <tr><td>track_sensitive=true</td><td>Higher priority audio can interrupt<br/>but waits for current track to finish</td></tr>
+                <tr><td>Smart Transition</td><td>Breaks cut cleanly,<br/>music crossfades smoothly</td></tr>
+            </table>
+        >];
+    }
+}
