@@ -297,5 +297,128 @@ class RadioConfig(BaseSettings):
         )
         return self.audio.bed_fadeout_seconds
 
+    # Path configuration shims
+    @property
+    def breaks_path(self) -> Path:
+        """DEPRECATED: Use config.paths.breaks_path instead."""
+        warnings.warn(
+            "'config.breaks_path' is deprecated. Use 'config.paths.breaks_path' instead.",
+            DeprecationWarning,
+            stacklevel=2
+        )
+        return self.paths.breaks_path
+
+    @property
+    def beds_path(self) -> Path:
+        """DEPRECATED: Use config.paths.beds_path instead."""
+        warnings.warn(
+            "'config.beds_path' is deprecated. Use 'config.paths.beds_path' instead.",
+            DeprecationWarning,
+            stacklevel=2
+        )
+        return self.paths.beds_path
+
+    @property
+    def tmp_path(self) -> Path:
+        """DEPRECATED: Use config.paths.tmp_path instead."""
+        warnings.warn(
+            "'config.tmp_path' is deprecated. Use 'config.paths.tmp_path' instead.",
+            DeprecationWarning,
+            stacklevel=2
+        )
+        return self.paths.tmp_path
+
+    # Content sources configuration shims
+    @property
+    def news_rss_feeds(self) -> dict[str, list[str]]:
+        """DEPRECATED: Use config.content.news_rss_feeds instead."""
+        warnings.warn(
+            "'config.news_rss_feeds' is deprecated. Use 'config.content.news_rss_feeds' instead.",
+            DeprecationWarning,
+            stacklevel=2
+        )
+        return self.content.news_rss_feeds
+
+    @property
+    def nws_office(self):
+        """DEPRECATED: Use config.content.nws_office instead."""
+        warnings.warn(
+            "'config.nws_office' is deprecated. Use 'config.content.nws_office' instead.",
+            DeprecationWarning,
+            stacklevel=2
+        )
+        return self.content.nws_office
+
+    @property
+    def nws_grid_x(self):
+        """DEPRECATED: Use config.content.nws_grid_x instead."""
+        warnings.warn(
+            "'config.nws_grid_x' is deprecated. Use 'config.content.nws_grid_x' instead.",
+            DeprecationWarning,
+            stacklevel=2
+        )
+        return self.content.nws_grid_x
+
+    @property
+    def nws_grid_y(self):
+        """DEPRECATED: Use config.content.nws_grid_y instead."""
+        warnings.warn(
+            "'config.nws_grid_y' is deprecated. Use 'config.content.nws_grid_y' instead.",
+            DeprecationWarning,
+            stacklevel=2
+        )
+        return self.content.nws_grid_y
+
+    @property
+    def hallucinate_news(self) -> bool:
+        """DEPRECATED: Use config.content.hallucinate_news instead."""
+        warnings.warn(
+            "'config.hallucinate_news' is deprecated. Use 'config.content.hallucinate_news' instead.",
+            DeprecationWarning,
+            stacklevel=2
+        )
+        return self.content.hallucinate_news
+
+    # TTS configuration shims
+    @property
+    def tts_provider(self) -> str:
+        """DEPRECATED: Use config.tts.tts_provider instead."""
+        warnings.warn(
+            "'config.tts_provider' is deprecated. Use 'config.tts.tts_provider' instead.",
+            DeprecationWarning,
+            stacklevel=2
+        )
+        return self.tts.tts_provider
+
+    @property
+    def tts_voice(self) -> str:
+        """DEPRECATED: Use config.tts.tts_voice instead."""
+        warnings.warn(
+            "'config.tts_voice' is deprecated. Use 'config.tts.tts_voice' instead.",
+            DeprecationWarning,
+            stacklevel=2
+        )
+        return self.tts.tts_voice
+
+    @property
+    def gemini_tts_model(self) -> str:
+        """DEPRECATED: Use config.tts.gemini_tts_model instead."""
+        warnings.warn(
+            "'config.gemini_tts_model' is deprecated. Use 'config.tts.gemini_tts_model' instead.",
+            DeprecationWarning,
+            stacklevel=2
+        )
+        return self.tts.gemini_tts_model
+
+    @property
+    def gemini_tts_voice(self) -> str:
+        """DEPRECATED: Use config.tts.gemini_tts_voice instead."""
+        warnings.warn(
+            "'config.gemini_tts_voice' is deprecated. Use 'config.tts.gemini_tts_voice' instead.",
+            DeprecationWarning,
+            stacklevel=2
+        )
+        return self.tts.gemini_tts_voice
+
     # TODO: Add shims for all commonly accessed fields
     # Run `grep -r "config\." src/ scripts/` to find usages
