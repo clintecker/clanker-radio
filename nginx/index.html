@@ -554,6 +554,9 @@
             const history = data.history || [];
             const stream = data.stream || {};
 
+            // Extract main stream info from source array (if present)
+            const mainStream = (stream.source && stream.source[0]) || stream;
+
             if (!current) {
                 document.getElementById('current-title').textContent = 'NO SIGNAL';
                 document.getElementById('current-artist').textContent = '';
@@ -565,11 +568,11 @@
             // Show progress bar if we have a track
             document.querySelector('.progress-container').style.display = 'block';
 
-            // Update stream stats
-            document.getElementById('listeners').textContent = stream.listeners || '—';
-            document.getElementById('bitrate').textContent = stream.bitrate ? `${stream.bitrate}kbps` : '—';
-            document.getElementById('samplerate').textContent = stream.samplerate ? `${stream.samplerate}Hz` : '—';
-            document.getElementById('uptime').textContent = formatUptime(stream.stream_start);
+            // Update stream stats (read from mainStream which is either source[0] or legacy format)
+            document.getElementById('listeners').textContent = mainStream.listeners || '—';
+            document.getElementById('bitrate').textContent = mainStream.bitrate ? `${mainStream.bitrate}kbps` : '—';
+            document.getElementById('samplerate').textContent = mainStream.samplerate ? `${mainStream.samplerate}Hz` : '—';
+            document.getElementById('uptime').textContent = formatUptime(mainStream.stream_start_iso8601 || mainStream.stream_start);
 
             // Update now playing
             document.getElementById('current-title').textContent = current.title || 'Unknown Track';
