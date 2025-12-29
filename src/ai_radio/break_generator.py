@@ -200,8 +200,9 @@ class BreakGenerator:
             output_filename = f"break_{now.strftime('%Y%m%d_%H%M%S')}.mp3"
             output_path = self.breaks_path / output_filename
 
-            # Format title as "Mon Dec 29, 2025 20:00 News Break"
-            metadata_title = now.strftime("%a %b %d, %Y %H:%M News Break")
+            # Format title as "Mon Dec 29, 2025 3:00 PM News Break"
+            # Use 12-hour format with AM/PM, strip leading zero from hour
+            metadata_title = now.strftime("%a %b %d, %Y %-I:%M %p News Break")
 
             mixed_audio = mix_voice_with_bed(
                 voice_path=voice_path,

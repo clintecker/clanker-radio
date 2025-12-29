@@ -88,6 +88,36 @@
             margin-bottom: 10px;
         }
 
+        .status {
+            margin-left: 15px;
+            font-size: 0.65rem;
+        }
+
+        .status-dot {
+            display: inline-block;
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            margin-right: 6px;
+            animation: pulse 2s infinite;
+        }
+
+        .status-online .status-dot {
+            background: var(--phosphor);
+            box-shadow: 0 0 6px var(--phosphor);
+        }
+
+        .status-restarting .status-dot {
+            background: var(--yellow);
+            box-shadow: 0 0 6px var(--yellow);
+            animation: pulse 0.5s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
         .np-title {
             font-size: 2rem;
             color: var(--phosphor-bright);
@@ -343,6 +373,20 @@
             color: var(--phosphor-dim);
         }
 
+        /* News break styling */
+        .track-break {
+            opacity: 0.6;
+        }
+
+        .track-break .track-title {
+            color: var(--yellow);
+            font-style: italic;
+        }
+
+        .track-break .track-artist {
+            color: var(--phosphor-dim);
+        }
+
         .track-info {
             flex: 1;
             min-width: 0;
@@ -422,9 +466,9 @@
         <section class="now-playing">
             <div class="np-label">
                 NOW TRANSMITTING
-                <span class="status">
+                <span class="status status-online" id="system-status">
                     <span class="status-dot"></span>
-                    LIVE
+                    <span id="status-text">LIVE</span>
                 </span>
             </div>
             <div class="np-title" id="current-title">Loading...</div>
@@ -516,7 +560,6 @@
 
     <script>
         const SSE_URL = '/api/stream';  // Server-Sent Events endpoint
-        const API_URL = '/api/now_playing.json';  // Fallback for non-SSE browsers
 
         let currentTrack = null;
         let trackStartTime = null;
@@ -569,8 +612,22 @@
             // Store data for quality switching
             lastData = data;
 
+            // Update system status indicator
+            const statusEl = document.getElementById('system-status');
+            const statusText = document.getElementById('status-text');
+            if (data.system_status) {
+                if (data.system_status === 'restarting') {
+                    statusEl.className = 'status status-restarting';
+                    statusText.textContent = 'RESTARTING';
+                } else {
+                    statusEl.className = 'status status-online';
+                    statusText.textContent = 'LIVE';
+                }
+            }
+
             const current = data.current;
-            const next = data.next;
+            const breaksQueue = data.breaks_queue || [];
+            const musicQueue = data.music_queue || [];
             const history = data.history || [];
             const stream = data.stream || {};
 
@@ -641,19 +698,49 @@
                 }
             }
 
-            // Update next track
+            // Update next track display based on queue structure
+            // Breaks queue has priority - if it has items, they play first
             const nextContainer = document.getElementById('next-track');
-            if (next) {
+
+            if (breaksQueue.length > 0) {
+                // Break/station ID will play next
+                const nextBreak = breaksQueue[0];
+                const nextMusic = musicQueue[0];
+                const breakClass = nextBreak.source === 'bumper' ? 'track track-bumper' :
+                                  nextBreak.source === 'break' ? 'track track-break' : 'track';
+
+                nextContainer.innerHTML = `
+                    <div class="${breakClass}">
+                        <div class="track-info">
+                            <div class="track-title">${nextBreak.title || 'Unknown'}</div>
+                            <div class="track-artist">${nextBreak.artist || 'Unknown Artist'}</div>
+                        </div>
+                        <div class="track-time">${formatTime(nextBreak.duration_sec)}</div>
+                    </div>
+                    ${nextMusic ? `
+                    <div class="track" style="opacity: 0.5; font-size: 0.9em; margin-top: 0.5rem;">
+                        <div class="track-info">
+                            <div class="track-title">↳ Then: ${nextMusic.title || 'Unknown'}</div>
+                            <div class="track-artist">${nextMusic.artist || 'Unknown Artist'}</div>
+                        </div>
+                        <div class="track-time">${formatTime(nextMusic.duration_sec)}</div>
+                    </div>
+                    ` : ''}
+                `;
+            } else if (musicQueue.length > 0) {
+                // Music plays next (no breaks queued)
+                const nextMusic = musicQueue[0];
                 nextContainer.innerHTML = `
                     <div class="track">
                         <div class="track-info">
-                            <div class="track-title">${next.title || 'Unknown'}</div>
-                            <div class="track-artist">${next.artist || 'Unknown Artist'}</div>
+                            <div class="track-title">${nextMusic.title || 'Unknown'}</div>
+                            <div class="track-artist">${nextMusic.artist || 'Unknown Artist'}</div>
                         </div>
-                        <div class="track-time">${formatTime(next.duration_sec)}</div>
+                        <div class="track-time">${formatTime(nextMusic.duration_sec)}</div>
                     </div>
                 `;
             } else {
+                // No tracks in queue
                 nextContainer.innerHTML = `
                     <div class="track">
                         <div class="track-info">
@@ -669,8 +756,9 @@
                 historyList.innerHTML = history.map(track => {
                     const playedAt = track.played_at ? new Date(track.played_at) : null;
                     const timeAgo = playedAt ? formatTimeAgo(playedAt) : '';
-                    // Add class for bumpers (station IDs)
-                    const trackClass = track.source === 'bumper' ? 'track track-bumper' : 'track';
+                    // Add class for bumpers (station IDs) and breaks (news)
+                    const trackClass = track.source === 'bumper' ? 'track track-bumper' :
+                                      track.source === 'break' ? 'track track-break' : 'track';
 
                     return `
                         <div class="${trackClass}">
@@ -696,26 +784,6 @@
             return `${hours}h ago`;
         }
 
-        async function fetchData() {
-            try {
-                const response = await fetch(API_URL + '?' + new Date().getTime());
-                if (!response.ok) throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-                const data = await response.json();
-                console.debug('Fetched data:', data.current ? {
-                    asset_id: data.current.asset_id,
-                    title: data.current.title,
-                    played_at: data.current.played_at,
-                    duration_sec: data.current.duration_sec
-                } : 'no current track');
-                updateDisplay(data);
-            } catch (error) {
-                console.error('Failed to fetch now playing data:', error);
-                // Show error state in UI
-                document.getElementById('current-title').textContent = 'ERROR LOADING DATA';
-                document.getElementById('current-artist').textContent = error.message;
-            }
-        }
-
         function connectSSE() {
             console.log('Connecting to SSE endpoint...');
 
@@ -731,7 +799,8 @@
                     console.log('SSE Update received:', {
                         updated_at: data.updated_at,
                         current: data.current,
-                        next: data.next,
+                        breaks_queue: data.breaks_queue,
+                        music_queue: data.music_queue,
                         history: data.history,
                         stream: data.stream,
                         full_payload: data
@@ -831,15 +900,9 @@
         // Update progress bar continuously
         setInterval(calculateProgress, 500);
 
-        // Try SSE first, fallback to polling if not available
-        if (typeof EventSource !== 'undefined') {
-            console.log('Using SSE for real-time updates');
-            connectSSE();
-        } else {
-            console.log('SSE not supported, falling back to polling');
-            fetchData();  // Initial fetch
-            setInterval(fetchData, 2000);  // Poll every 2 seconds
-        }
+        // Connect to SSE stream
+        console.log('Connecting to SSE for real-time updates');
+        connectSSE();
     </script>
 </body>
 </html>

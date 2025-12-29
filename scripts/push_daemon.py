@@ -82,7 +82,16 @@ async def broadcast_update(data: str):
     if not clients:
         return
 
-    logger.info(f"Broadcasting update to {len(clients)} clients")
+    # Log summary of what we're broadcasting
+    try:
+        state = json.loads(data)
+        current_title = state.get('current', {}).get('title', 'None') if state.get('current') else 'None'
+        next_title = state.get('next', {}).get('title', 'None') if state.get('next') else 'None'
+        history_count = len(state.get('history', []))
+        stream_info = state.get('stream', {})
+        logger.info(f"Broadcasting to {len(clients)} clients: current={current_title}, next={next_title}, history={history_count} tracks, stream={stream_info.get('bitrate', 'N/A')}kbps")
+    except:
+        logger.info(f"Broadcasting update to {len(clients)} clients")
 
     # Minify JSON (remove newlines) for SSE compatibility
     data_compact = json.loads(data)
@@ -137,25 +146,26 @@ async def fetch_initial_state():
     try:
         # Import the functions we need from export_now_playing
         sys.path.insert(0, str(Path(__file__).parent))
-        from export_now_playing import get_current_playing, get_recent_plays, get_queue_next
+        from export_now_playing import get_current_playing, get_recent_plays, get_both_queues
         from datetime import datetime, timezone
 
         logger.info("Fetching initial state...")
 
         # Build state directly without POSTing to ourselves
         current, stream_info = get_current_playing()
-        history = get_recent_plays(6)
+        history = get_recent_plays(16)
         if current and current.get("asset_id"):
             history = [h for h in history if h.get("asset_id") != current["asset_id"]]
-        history = history[:5]
-        next_tracks = get_queue_next(limit=1)
-        next_track = next_tracks[0] if next_tracks else None
+        history = history[:15]
+        queues = get_both_queues(breaks_limit=3, music_limit=5)
 
         output = {
             "updated_at": datetime.now(timezone.utc).isoformat(),
+            "system_status": "online",
             "stream": stream_info if stream_info else {},
             "current": current,
-            "next": next_track,
+            "breaks_queue": queues["breaks_queue"],
+            "music_queue": queues["music_queue"],
             "history": history
         }
 
@@ -182,9 +192,18 @@ async def init_app() -> web.Application:
 async def cleanup(app: web.Application):
     """Cleanup on shutdown."""
     logger.info("Shutting down...")
-    # Close all client connections
+
+    # Send shutdown notification to all connected clients
+    shutdown_message = {
+        "system_status": "restarting",
+        "message": "Push service restarting - reconnecting shortly..."
+    }
+    message_str = json.dumps(shutdown_message, separators=(',', ':'))
+    shutdown_data = f"data: {message_str}\n\n".encode()
+
     for client in list(clients):
         try:
+            await client.write(shutdown_data)
             await client.write(b"event: close\ndata: Server shutting down\n\n")
             await client.write_eof()
         except:

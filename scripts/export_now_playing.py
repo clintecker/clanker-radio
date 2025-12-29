@@ -45,7 +45,6 @@ logger = logging.getLogger(__name__)
 
 # Use configuration paths
 SOCKET_PATH = str(config.paths.liquidsoap_sock_path)
-OUTPUT_PATH = config.paths.public_path / "now_playing.json"
 DB_PATH = config.paths.db_path
 
 
@@ -113,7 +112,8 @@ def get_queue_next(limit: int = 1) -> list[dict]:
                             meta_dict[key] = value
 
                     if meta_dict:
-                        filename = meta_dict.get("filename", "")
+                        # Get filename from either "filename" (resolved) or "initial_uri" (idle)
+                        filename = meta_dict.get("filename") or meta_dict.get("initial_uri", "")
 
                         # Determine source type and override metadata for consistency
                         if source_type == "break":
@@ -146,26 +146,27 @@ def get_queue_next(limit: int = 1) -> list[dict]:
                                 asset_id = None
                             album = None
                         else:
-                            # Music tracks - look up full metadata from database
+                            # Music tracks - look up metadata from database
+                            # Idle requests won't have title/artist in Liquidsoap metadata
                             actual_source = source_type
-                            title = meta_dict.get("title", "Unknown")
-                            # Always use "Clint Ecker" for music tracks
                             artist = "Clint Ecker"
-
-                            # Look up asset_id and album from database
                             asset_id = None
                             album = None
+                            title = "Unknown"
+
+                            # Look up full metadata from database using filename
                             try:
                                 with sqlite3.connect(config.paths.db_path) as conn:
                                     cursor = conn.cursor()
                                     cursor.execute(
-                                        "SELECT id, album FROM assets WHERE path = ?",
+                                        "SELECT id, title, album FROM assets WHERE path = ?",
                                         (filename,)
                                     )
                                     row = cursor.fetchone()
                                     if row:
                                         asset_id = row[0]
-                                        album = row[1]
+                                        title = row[1] or "Unknown"
+                                        album = row[2]
                             except Exception as e:
                                 logger.debug(f"Could not look up asset metadata for {filename}: {e}")
 
@@ -220,6 +221,146 @@ def get_queue_next(limit: int = 1) -> list[dict]:
         return []
 
 
+def get_both_queues(breaks_limit: int = 3, music_limit: int = 5) -> dict[str, list[dict]]:
+    """Get tracks from both queues separately to expose queue structure to frontend.
+
+    Returns:
+        {
+            "breaks_queue": [...],  # Tracks in breaks queue (station IDs, news)
+            "music_queue": [...]     # Tracks in music queue
+        }
+    """
+    try:
+        with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as sock:
+            sock.settimeout(3.0)
+            sock.connect(SOCKET_PATH)
+
+            result = {
+                "breaks_queue": [],
+                "music_queue": []
+            }
+
+            # Query both queues separately
+            for queue_name, source_type, limit, key in [
+                ("breaks", "break", breaks_limit, "breaks_queue"),
+                ("music", "music", music_limit, "music_queue")
+            ]:
+                queue_ids = query_socket(sock, f"{queue_name}.queue")
+                if not queue_ids:
+                    continue
+
+                # Parse space-separated request IDs
+                rids = queue_ids.split()[:limit]
+
+                tracks = []
+                for rid in rids:
+                    # Get metadata for this request (reusing same socket)
+                    metadata = query_socket(sock, f"request.metadata {rid}")
+                    if not metadata:
+                        continue
+
+                    # Parse metadata lines (key="value" format)
+                    meta_dict = {}
+                    for line in metadata.split('\n'):
+                        if '=' in line:
+                            k, _, v = line.partition('=')
+                            meta_dict[k] = v.strip('"')
+
+                    if meta_dict:
+                        # Get filename from either "filename" (resolved) or "initial_uri" (idle)
+                        filename = meta_dict.get("filename") or meta_dict.get("initial_uri", "")
+
+                        # Determine source type and get metadata
+                        if source_type == "break":
+                            if "/bumpers/" in filename or "station_id" in filename:
+                                actual_source = "bumper"
+                                # Look up title from database for bumpers
+                                try:
+                                    with sqlite3.connect(config.paths.db_path) as conn:
+                                        cursor = conn.cursor()
+                                        cursor.execute(
+                                            "SELECT id, title FROM assets WHERE path = ?",
+                                            (filename,)
+                                        )
+                                        row = cursor.fetchone()
+                                        if row:
+                                            asset_id = row[0]
+                                            title = row[1] or "Station ID"
+                                        else:
+                                            asset_id = None
+                                            title = "Station ID"
+                                except Exception as e:
+                                    logger.debug(f"Could not look up bumper metadata for {filename}: {e}")
+                                    asset_id = None
+                                    title = "Station ID"
+                                artist = config.station.station_name
+                            else:
+                                actual_source = "break"
+                                title = "News Break"
+                                artist = config.station.station_name
+                                asset_id = None
+                            album = None
+                        else:
+                            # Music tracks - look up metadata from database
+                            # Idle requests won't have title/artist in Liquidsoap metadata
+                            actual_source = source_type
+                            artist = "Clint Ecker"
+                            asset_id = None
+                            album = None
+                            title = "Unknown"
+
+                            # Look up full metadata from database using filename
+                            try:
+                                with sqlite3.connect(config.paths.db_path) as conn:
+                                    cursor = conn.cursor()
+                                    cursor.execute(
+                                        "SELECT id, title, album FROM assets WHERE path = ?",
+                                        (filename,)
+                                    )
+                                    row = cursor.fetchone()
+                                    if row:
+                                        asset_id = row[0]
+                                        title = row[1] or "Unknown"
+                                        album = row[2]
+                            except Exception as e:
+                                logger.debug(f"Could not look up asset metadata for {filename}: {e}")
+
+                        # Get duration
+                        duration_sec = None
+                        if "duration" in meta_dict:
+                            try:
+                                duration_sec = float(meta_dict["duration"])
+                            except (ValueError, TypeError):
+                                pass
+
+                        if duration_sec is None and actual_source == "music":
+                            try:
+                                asset_id_lookup = os.path.splitext(os.path.basename(filename))[0]
+                                with sqlite3.connect(config.paths.db_path) as conn:
+                                    cursor = conn.cursor()
+                                    cursor.execute("SELECT duration_sec FROM assets WHERE id = ?", (asset_id_lookup,))
+                                    row = cursor.fetchone()
+                                    if row and row[0]:
+                                        duration_sec = row[0]
+                            except Exception as e:
+                                logger.debug(f"Could not look up duration for {filename}: {e}")
+
+                        tracks.append({
+                            "asset_id": asset_id,
+                            "title": title,
+                            "artist": artist,
+                            "album": album,
+                            "source": actual_source,
+                            "duration_sec": duration_sec
+                        })
+
+                result[key] = tracks
+
+            return result
+
+    except (FileNotFoundError, ConnectionRefusedError, ConnectionError, socket.timeout) as e:
+        logger.warning(f"Failed to get both queues: {e}")
+        return {"breaks_queue": [], "music_queue": []}
 
 
 def get_recent_plays(limit: int = 5) -> list[dict]:
@@ -544,16 +685,17 @@ def export_now_playing():
         # Limit history to 15 items
         history = history[:15]
 
-        # Get next track from queue (fast - socket responds in ~100ms)
-        next_tracks = get_queue_next(limit=1)
-        next_track = next_tracks[0] if next_tracks else None
+        # Get both queues separately to expose queue structure to frontend
+        queues = get_both_queues(breaks_limit=3, music_limit=5)
 
-        # Build output with stream info
+        # Build output with stream info and both queues
         output = {
             "updated_at": datetime.now(timezone.utc).isoformat(),
+            "system_status": "online",
             "stream": stream_info if stream_info else {},
             "current": current,
-            "next": next_track,
+            "breaks_queue": queues["breaks_queue"],
+            "music_queue": queues["music_queue"],
             "history": history
         }
 
