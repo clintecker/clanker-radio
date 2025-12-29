@@ -300,7 +300,9 @@ def get_icecast_status() -> dict | None:
         sources = []
         for source_elem in root.findall('source'):
             mount = source_elem.get('mount')
-            source_dict = {'listenurl': f'{config.icecast_url}{mount}'}
+            # Use relative URL so it works through nginx proxy
+            # Frontend will use same domain/port it's served from
+            source_dict = {'listenurl': mount}
 
             # Extract relevant fields
             audio_info = None
@@ -515,14 +517,14 @@ def export_now_playing():
         current, stream_info = get_current_playing()
 
         # Get recent plays for history (fast database query)
-        history = get_recent_plays(6)  # Get 6 to ensure we have 5 after filtering
+        history = get_recent_plays(16)  # Get 16 to ensure we have 15 after filtering
 
         # If we have a current track, filter it out of history
         if current and current.get("asset_id"):
             history = [h for h in history if h.get("asset_id") != current["asset_id"]]
 
-        # Limit history to 5 items
-        history = history[:5]
+        # Limit history to 15 items
+        history = history[:15]
 
         # Get next track from queue (fast - socket responds in ~100ms)
         next_tracks = get_queue_next(limit=1)

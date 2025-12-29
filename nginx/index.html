@@ -666,7 +666,7 @@
             // Update history
             const historyList = document.getElementById('history-list');
             if (history.length > 0) {
-                historyList.innerHTML = history.slice(0, 6).map(track => {
+                historyList.innerHTML = history.map(track => {
                     const playedAt = track.played_at ? new Date(track.played_at) : null;
                     const timeAgo = playedAt ? formatTimeAgo(playedAt) : '';
                     // Add class for bumpers (station IDs)
