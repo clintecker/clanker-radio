@@ -1,9 +1,5 @@
 """Tests for world-building and setting configuration."""
 
-import os
-
-import pytest
-
 from ai_radio.config.world_building import WorldBuildingConfig
 
 
