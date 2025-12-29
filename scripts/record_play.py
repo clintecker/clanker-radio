@@ -76,9 +76,16 @@ def trigger_export():
         if src_path not in python_path.split(os.pathsep):
             export_env["PYTHONPATH"] = f"{src_path}{os.pathsep}{python_path}".strip(os.pathsep)
 
-        # Write trigger marker for debugging
+        # Write trigger marker for debugging - with comprehensive logging
         marker = f"/tmp/export_triggered_{ts}.marker"
-        Path(marker).touch()
+        try:
+            import pwd
+            current_user = pwd.getpwuid(os.getuid()).pw_name
+            logger.info(f"v2: Attempting to touch marker {marker} as user '{current_user}'")
+            Path(marker).touch()
+            logger.info(f"v2: Successfully touched marker {marker}")
+        except Exception as e:
+            logger.error(f"v2: FAILED to create marker {marker}. Error: {e}", exc_info=True)
 
         # Start in background with proper logging and environment
         # Note: Don't use 'with' context manager - it closes file handles
@@ -95,7 +102,7 @@ def trigger_export():
             close_fds=False,  # Keep file descriptors open for subprocess
         )
 
-        logger.info(f"Triggered export. Logs: {stdout_log} {stderr_log}")
+        logger.info(f"v2: Triggered export. Logs: {stdout_log} {stderr_log}")
 
     except Exception:
         # Use logger.exception for full traceback
