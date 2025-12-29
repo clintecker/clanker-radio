@@ -108,4 +108,7 @@ check-process-output: ## Check recent record_play process outputs from Liquidsoa
 check-sse-broadcasts: ## Check recent SSE broadcast times
 	@ssh $(SERVER) "sudo journalctl -u ai-radio-push.service --since '1 hour ago' --no-pager | grep 'Broadcasting update'"
 
+watch-callbacks: ## Monitor for next track change and export (live tail)
+	@ssh $(SERVER) "tail -f $(REMOTE_BASE)/logs/liquidsoap.log | grep --line-buffered -E '(CALLBACK FIRED|Calling export_now_playing|Export and SSE notification)'"
+
 .DEFAULT_GOAL := help
