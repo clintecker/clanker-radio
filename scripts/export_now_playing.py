@@ -81,7 +81,7 @@ def get_queue_next(limit: int = 1) -> list[dict]:
     try:
         # Use context manager to ensure socket cleanup
         with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as sock:
-            sock.settimeout(15.0)  # Increased timeout for metadata queries
+            sock.settimeout(3.0)  # Reduced timeout for faster failure
             sock.connect(SOCKET_PATH)
 
             # Check queues in priority order (matching radio.liq fallback chain)
@@ -344,7 +344,7 @@ def get_liquidsoap_metadata() -> dict | None:
     """
     try:
         with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as sock:
-            sock.settimeout(5.0)
+            sock.settimeout(3.0)  # Reduced for faster exports
             sock.connect(SOCKET_PATH)
 
             # Query for current playing metadata
