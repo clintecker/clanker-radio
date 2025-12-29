@@ -18,9 +18,18 @@ sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 from ai_radio.config import config
 
+# Configure file-based logging to bypass stdio buffering from daemon
+log_dir = Path("/tmp/ai_radio_logs")
+log_dir.mkdir(exist_ok=True)
+log_file = log_dir / "record_play.log"
+
 logging.basicConfig(
     level=logging.INFO,
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    format="%(asctime)s - PID:%(process)d - %(name)s - %(levelname)s - %(message)s",
+    handlers=[
+        logging.FileHandler(log_file),
+        logging.StreamHandler(sys.stdout)
+    ]
 )
 logger = logging.getLogger(__name__)
 
@@ -70,57 +79,71 @@ def trigger_export():
 
         logger.info(f"Triggered export. Logs: {stdout_log} {stderr_log}")
 
-    except Exception as e:
-        # Add traceback for better context on Popen failures
-        logger.warning(
-            f"Failed to trigger export: {e}\n{traceback.format_exc()}"
-        )
+    except Exception:
+        # Use logger.exception for full traceback
+        logger.exception("Failed to trigger export")
 
 
 def main():
     """Entry point for script."""
-    if len(sys.argv) < 2:
-        logger.error("Usage: record_play.py <file_path>")
-        sys.exit(1)
+    try:
+        if len(sys.argv) < 2:
+            logger.error("Usage: record_play.py <file_path>")
+            sys.exit(1)
 
-    file_path = sys.argv[1]
+        file_path = sys.argv[1]
+        logger.info(f"Processing file: {file_path}")
 
-    # Look up asset by path to get SHA256 ID
-    import sqlite3
-    from datetime import datetime, timezone
+        # Look up asset by path to get SHA256 ID
+        import sqlite3
+        from datetime import datetime, timezone
 
-    conn = sqlite3.connect(config.paths.db_path)
-    cursor = conn.cursor()
+        conn = sqlite3.connect(config.paths.db_path)
+        logger.info("DB connection created")
+        cursor = conn.cursor()
 
-    cursor.execute("SELECT id, kind FROM assets WHERE path = ?", (file_path,))
-    row = cursor.fetchone()
+        cursor.execute("SELECT id, kind FROM assets WHERE path = ?", (file_path,))
+        row = cursor.fetchone()
 
-    if not row:
-        logger.error(f"Asset not found in database: {file_path}")
-        logger.error("Make sure all assets are ingested before playback")
+        if not row:
+            logger.error(f"Asset not found in database: {file_path}")
+            logger.error("Make sure all assets are ingested before playback")
+            conn.close()
+            sys.exit(1)
+
+        asset_id, asset_kind = row
+        logger.info(f"Found asset: {asset_id[:16]}... kind={asset_kind}")
+
+        # Write to play_history with SHA256 ID
+        now = datetime.now(timezone.utc)
+        played_at = now.isoformat()
+        hour_bucket = now.replace(minute=0, second=0, microsecond=0).isoformat()
+
+        cursor.execute(
+            "INSERT INTO play_history (asset_id, source, played_at, hour_bucket) VALUES (?, ?, ?, ?)",
+            (asset_id, asset_kind, played_at, hour_bucket)
+        )
+        logger.info("Play history INSERT executed")
+        conn.commit()
+        logger.info("DB commit successful")
         conn.close()
+        logger.info("DB connection closed")
+
+        logger.info(f"Recorded play: {asset_id[:16]}... (kind={asset_kind})")
+
+        # Trigger immediate now_playing.json export
+        logger.info("Calling trigger_export()...")
+        trigger_export()
+        logger.info("Returned from trigger_export()")
+        sys.exit(0)
+
+    except Exception:
+        logger.exception("An unhandled exception occurred in main()")
         sys.exit(1)
-
-    asset_id, asset_kind = row
-
-    # Write to play_history with SHA256 ID
-    now = datetime.now(timezone.utc)
-    played_at = now.isoformat()
-    hour_bucket = now.replace(minute=0, second=0, microsecond=0).isoformat()
-
-    cursor.execute(
-        "INSERT INTO play_history (asset_id, source, played_at, hour_bucket) VALUES (?, ?, ?, ?)",
-        (asset_id, asset_kind, played_at, hour_bucket)
-    )
-    conn.commit()
-    conn.close()
-
-    logger.info(f"Recorded play: {asset_id[:16]}... (kind={asset_kind})")
-
-    # Trigger immediate now_playing.json export
-    trigger_export()
-    sys.exit(0)
+    finally:
+        logger.info("--- main() function finished ---")
 
 
 if __name__ == "__main__":
+    logger.info(f"--- Script start. ARGV: {sys.argv} ---")
     main()
