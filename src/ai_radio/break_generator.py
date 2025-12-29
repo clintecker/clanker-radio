@@ -52,9 +52,9 @@ class BreakGenerator:
 
     def __init__(self):
         """Initialize break generator with config paths."""
-        self.breaks_path = config.breaks_path
-        self.beds_path = config.beds_path
-        self.tmp_path = config.tmp_path
+        self.breaks_path = config.paths.breaks_path
+        self.beds_path = config.paths.beds_path
+        self.tmp_path = config.paths.tmp_path
         self.freshness_minutes = config.break_freshness_minutes
 
     def _select_random_bed(self) -> Optional[Path]:
@@ -89,7 +89,7 @@ class BreakGenerator:
         """
         try:
             # Ensure archive directory exists
-            archive_path = config.breaks_archive_path
+            archive_path = config.paths.breaks_archive_path
             archive_path.mkdir(parents=True, exist_ok=True)
 
             # Get all breaks, sorted by creation time (newest first)
@@ -241,7 +241,7 @@ def cleanup_old_temp_files(max_age_minutes: int = 60) -> int:
     """
     from time import time
 
-    tmp_path = config.tmp_path
+    tmp_path = config.paths.tmp_path
     if not tmp_path.exists():
         return 0
 

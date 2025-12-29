@@ -59,7 +59,7 @@ def main():
     import sqlite3
     from datetime import datetime, timezone
 
-    conn = sqlite3.connect(config.db_path)
+    conn = sqlite3.connect(config.paths.db_path)
     cursor = conn.cursor()
 
     cursor.execute("SELECT id, kind FROM assets WHERE path = ?", (file_path,))

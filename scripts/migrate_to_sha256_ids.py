@@ -320,20 +320,20 @@ def main():
     parser.add_argument(
         "--db",
         type=Path,
-        default=config.db_path,
-        help=f"Path to database (default: {config.db_path})",
+        default=config.paths.db_path,
+        help=f"Path to database (default: {config.paths.db_path})",
     )
     parser.add_argument(
         "--bumpers-dir",
         type=Path,
-        default=config.bumpers_path,
-        help=f"Path to bumpers directory (default: {config.bumpers_path})",
+        default=config.paths.bumpers_path,
+        help=f"Path to bumpers directory (default: {config.paths.bumpers_path})",
     )
     parser.add_argument(
         "--breaks-dir",
         type=Path,
-        default=config.breaks_path,
-        help=f"Path to breaks directory (default: {config.breaks_path})",
+        default=config.paths.breaks_path,
+        help=f"Path to breaks directory (default: {config.paths.breaks_path})",
     )
     parser.add_argument(
         "--mapping-file",

@@ -271,7 +271,7 @@ class ClaudeScriptWriter:
         Returns:
             System prompt incorporating all personality/style settings
         """
-        return f"""You are {config.announcer_name}, broadcasting from {config.station_location} on {config.station_name}.
+        return f"""You are {config.announcer_name}, broadcasting from {config.station_location} on {config.station.station_name}.
 
 ## WORLD SETTING: {config.world_setting.upper()}
 YOU ARE A DJ IN THIS WORLD, NOT A NARRATOR DESCRIBING IT.
@@ -295,8 +295,8 @@ EXAMPLES OF GOOD VS BAD:
 ❌ BAD (obvious sarcasm): "Because privacy wasn't already on life support."
 ✓ GOOD (dry delivery): "Mandatory. Goes live in March."
 
-❌ BAD (template sign-off): "Stay warm, keep your head down. More music coming up on {config.station_name}."
-✓ GOOD (brief station ID): "This is {config.station_name}." or "{config.station_name}, {config.station_location}." or "Back in a bit."
+❌ BAD (template sign-off): "Stay warm, keep your head down. More music coming up on {config.station.station_name}."
+✓ GOOD (brief station ID): "This is {config.station.station_name}." or "{config.station.station_name}, {config.station_location}." or "Back in a bit."
 
 ## CORE PERSONALITY (Energy: {config.energy_level}/10)
 {config.vibe_keywords}
@@ -307,7 +307,7 @@ EXAMPLES OF GOOD VS BAD:
 You'll receive context about station, location, and time of day. You MAY reference these IF they flow naturally into your delivery. Never force all elements into every break. Maximum 1 contextual reference per break, sometimes zero. Examples:
 - Natural: "Good morning everyone" (if morning) or "Late night listeners, welcome back" (if night)
 - Natural: "Here in {config.station_location}, we're looking at..." (when discussing local weather)
-- Forced: "It's Tuesday morning here at {config.station_name} in {config.station_location} and..." (checklist writing - AVOID)
+- Forced: "It's Tuesday morning here at {config.station.station_name} in {config.station_location} and..." (checklist writing - AVOID)
 
 ## CHAOS BUDGET (CRITICAL - prevents cringe overload)
 - Maximum {config.max_riffs_per_break} playful riff(s) per break
@@ -599,8 +599,8 @@ Write just the weather segment (20-30 seconds when read aloud). Follow the weath
             else:
                 time_phrase = f"{hour_12} {am_pm}"
 
-            intro = f"{config.station_name}, {config.station_location}. It's {time_phrase}."
-            sign_off = config.station_name + "."
+            intro = f"{config.station.station_name}, {config.station_location}. It's {time_phrase}."
+            sign_off = config.station.station_name + "."
             script_parts = [intro] + segments + [sign_off]
             script_text = " ".join(script_parts)
             word_count = len(script_text.split())
@@ -638,7 +638,7 @@ Write just the weather segment (20-30 seconds when read aloud). Follow the weath
         prompt_parts = [
             "Write a radio news and weather bulletin with this information:\n",
             f"\n**CONTEXT:**",
-            f"- Station: {config.station_name}",
+            f"- Station: {config.station.station_name}",
             f"- Location: {config.station_location}",
             f"- Time of day: {time_of_day}",
         ]
@@ -699,7 +699,7 @@ class GeminiScriptWriter:
             System prompt incorporating all personality/style settings
         """
         # Use the same system prompt logic as ClaudeScriptWriter
-        return f"""You are {config.announcer_name}, broadcasting from {config.station_location} on {config.station_name}.
+        return f"""You are {config.announcer_name}, broadcasting from {config.station_location} on {config.station.station_name}.
 
 ## WORLD SETTING: {config.world_setting.upper()}
 YOU ARE A DJ IN THIS WORLD, NOT A NARRATOR DESCRIBING IT.
@@ -723,8 +723,8 @@ EXAMPLES OF GOOD VS BAD:
 ❌ BAD (obvious sarcasm): "Because privacy wasn't already on life support."
 ✓ GOOD (dry delivery): "Mandatory. Goes live in March."
 
-❌ BAD (template sign-off): "Stay warm, keep your head down. More music coming up on {config.station_name}."
-✓ GOOD (brief station ID): "This is {config.station_name}." or "{config.station_name}, {config.station_location}." or "Back in a bit."
+❌ BAD (template sign-off): "Stay warm, keep your head down. More music coming up on {config.station.station_name}."
+✓ GOOD (brief station ID): "This is {config.station.station_name}." or "{config.station.station_name}, {config.station_location}." or "Back in a bit."
 
 ## CORE PERSONALITY (Energy: {config.energy_level}/10)
 {config.vibe_keywords}
@@ -735,7 +735,7 @@ EXAMPLES OF GOOD VS BAD:
 You'll receive context about station, location, and time of day. You MAY reference these IF they flow naturally into your delivery. Never force all elements into every break. Maximum 1 contextual reference per break, sometimes zero. Examples:
 - Natural: "Good morning everyone" (if morning) or "Late night listeners, welcome back" (if night)
 - Natural: "Here in {config.station_location}, we're looking at..." (when discussing local weather)
-- Forced: "It's Tuesday morning here at {config.station_name} in {config.station_location} and..." (checklist writing - AVOID)
+- Forced: "It's Tuesday morning here at {config.station.station_name} in {config.station_location} and..." (checklist writing - AVOID)
 
 ## CHAOS BUDGET (CRITICAL - prevents cringe overload)
 - Maximum {config.max_riffs_per_break} playful riff(s) per break
@@ -1019,8 +1019,8 @@ Write just the weather segment (20-30 seconds when read aloud). Follow the weath
             else:
                 time_phrase = f"{hour_12} {am_pm}"
 
-            intro = f"{config.station_name}, {config.station_location}. It's {time_phrase}."
-            sign_off = config.station_name + "."
+            intro = f"{config.station.station_name}, {config.station_location}. It's {time_phrase}."
+            sign_off = config.station.station_name + "."
             script_parts = [intro] + segments + [sign_off]
             script_text = " ".join(script_parts)
             word_count = len(script_text.split())
@@ -1067,7 +1067,7 @@ class OpenAIScriptWriter:
             System prompt incorporating all personality/style settings
         """
         # Use the same system prompt logic as ClaudeScriptWriter
-        return f"""You are {config.announcer_name}, broadcasting from {config.station_location} on {config.station_name}.
+        return f"""You are {config.announcer_name}, broadcasting from {config.station_location} on {config.station.station_name}.
 
 ## WORLD SETTING: {config.world_setting.upper()}
 YOU ARE A DJ IN THIS WORLD, NOT A NARRATOR DESCRIBING IT.
@@ -1091,8 +1091,8 @@ EXAMPLES OF GOOD VS BAD:
 ❌ BAD (obvious sarcasm): "Because privacy wasn't already on life support."
 ✓ GOOD (dry delivery): "Mandatory. Goes live in March."
 
-❌ BAD (template sign-off): "Stay warm, keep your head down. More music coming up on {config.station_name}."
-✓ GOOD (brief station ID): "This is {config.station_name}." or "{config.station_name}, {config.station_location}." or "Back in a bit."
+❌ BAD (template sign-off): "Stay warm, keep your head down. More music coming up on {config.station.station_name}."
+✓ GOOD (brief station ID): "This is {config.station.station_name}." or "{config.station.station_name}, {config.station_location}." or "Back in a bit."
 
 ## CORE PERSONALITY (Energy: {config.energy_level}/10)
 {config.vibe_keywords}
@@ -1103,7 +1103,7 @@ EXAMPLES OF GOOD VS BAD:
 You'll receive context about station, location, and time of day. You MAY reference these IF they flow naturally into your delivery. Never force all elements into every break. Maximum 1 contextual reference per break, sometimes zero. Examples:
 - Natural: "Good morning everyone" (if morning) or "Late night listeners, welcome back" (if night)
 - Natural: "Here in {config.station_location}, we're looking at..." (when discussing local weather)
-- Forced: "It's Tuesday morning here at {config.station_name} in {config.station_location} and..." (checklist writing - AVOID)
+- Forced: "It's Tuesday morning here at {config.station.station_name} in {config.station_location} and..." (checklist writing - AVOID)
 
 ## CHAOS BUDGET (CRITICAL - prevents cringe overload)
 - Maximum {config.max_riffs_per_break} playful riff(s) per break
@@ -1389,8 +1389,8 @@ Write just the weather segment (20-30 seconds when read aloud). Follow the weath
             else:
                 time_phrase = f"{hour_12} {am_pm}"
 
-            intro = f"{config.station_name}, {config.station_location}. It's {time_phrase}."
-            sign_off = config.station_name + "."
+            intro = f"{config.station.station_name}, {config.station_location}. It's {time_phrase}."
+            sign_off = config.station.station_name + "."
             script_parts = [intro] + segments + [sign_off]
             script_text = " ".join(script_parts)
             word_count = len(script_text.split())
@@ -1522,7 +1522,7 @@ def generate_station_id(target_hour: int) -> Optional[StationIDScript]:
                 descriptor = "night"
 
         # Build system prompt for station ID
-        system_prompt = f"""You are a DJ for {config.station_name}, broadcasting from {config.station_location}.
+        system_prompt = f"""You are a DJ for {config.station.station_name}, broadcasting from {config.station_location}.
 
 WORLD SETTING: {config.world_setting}
 TONE: {config.world_tone}
@@ -1531,7 +1531,7 @@ YOUR TASK: Write a SHORT (5-10 second) station identification announcement for {
 
 REQUIREMENTS:
 - Start with something like "It's {hour_12} {am_pm}" or "{hour_12} o'clock"
-- Include the station name: "{config.station_name}"
+- Include the station name: "{config.station.station_name}"
 - Include the location: "{config.station_location}"
 - Keep it BRIEF - this is just a station ID, not a full segment
 - Match the station's world setting and tone naturally

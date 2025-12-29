@@ -143,7 +143,7 @@ class RSSNewsClient:
                 avoid_section += "\n".join([f"- {h}" for h in recent_headlines[-10:]])  # Last 10
                 avoid_section += "\n\nDO NOT repeat these topics, themes, or similar phrasing."
 
-            prompt = f"""Generate a single, plausible news headline for {config.station_name} broadcasting from {config.station_location}.
+            prompt = f"""Generate a single, plausible news headline for {config.station.station_name} broadcasting from {config.station_location}.
 
 KERNEL/SEED TOPIC: {kernel}
 

@@ -37,7 +37,7 @@ logger = logging.getLogger(__name__)
 
 def select_random_bed() -> Path:
     """Select random background bed file."""
-    beds_path = config.beds_path
+    beds_path = config.paths.beds_path
     bed_files = list(beds_path.glob("*.mp3")) + list(beds_path.glob("*.wav"))
 
     if not bed_files:
@@ -60,7 +60,7 @@ def generate_custom_break(script_text: str) -> Path:
     logger.info("Starting custom break generation")
 
     # Ensure tmp directory exists
-    tmp_path = config.tmp_path
+    tmp_path = config.paths.tmp_path
     tmp_path.mkdir(parents=True, exist_ok=True)
 
     # Generate voice
@@ -80,7 +80,7 @@ def generate_custom_break(script_text: str) -> Path:
         bed_path = select_random_bed()
 
         # Ensure breaks directory exists
-        breaks_path = config.breaks_path
+        breaks_path = config.paths.breaks_path
         breaks_path.mkdir(parents=True, exist_ok=True)
 
         output_path = breaks_path / f"custom_break_{timestamp}.mp3"

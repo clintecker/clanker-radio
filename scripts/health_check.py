@@ -44,8 +44,8 @@ BLUE = '\033[0;34m'
 NC = '\033[0m'  # No Color
 
 # Use configuration paths
-SOCKET_PATH = str(config.liquidsoap_sock_path)
-NOW_PLAYING_PATH = config.public_path / "now_playing.json"
+SOCKET_PATH = str(config.paths.liquidsoap_sock_path)
+NOW_PLAYING_PATH = config.paths.public_path / "now_playing.json"
 
 def print_header(text):
     """Print section header."""
@@ -186,7 +186,7 @@ def check_track_sensitive_config():
     """Verify track_sensitive=true is configured."""
     print_header("4. TRACK BOUNDARY PROTECTION")
 
-    config_path = config.base_path / "config" / "radio.liq"
+    config_path = config.paths.base_path / "config" / "radio.liq"
 
     if not config_path.exists():
         print_status(False, "Config file not found")
@@ -293,7 +293,7 @@ def check_database():
     print_header("7. DATABASE")
 
     try:
-        conn = sqlite3.connect(config.db_path)
+        conn = sqlite3.connect(config.paths.db_path)
         cursor = conn.cursor()
 
         # Check total music tracks
@@ -344,7 +344,7 @@ def check_disk_space():
 
     try:
         # Get disk usage for the ai_radio directory
-        usage = shutil.disk_usage(config.base_path)
+        usage = shutil.disk_usage(config.paths.base_path)
 
         total_gb = usage.total / (1024 ** 3)
         used_gb = usage.used / (1024 ** 3)
@@ -376,7 +376,7 @@ def check_track_selection():
     print_header("9. TRACK SELECTION")
 
     try:
-        conn = sqlite3.connect(config.db_path)
+        conn = sqlite3.connect(config.paths.db_path)
         cursor = conn.cursor()
 
         # Get recently played

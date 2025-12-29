@@ -42,7 +42,7 @@ def main():
         sys.exit(0)
 
     # Find most recent break file dynamically
-    breaks_dir = config.breaks_path
+    breaks_dir = config.paths.breaks_path
 
     # Get all break files sorted by modification time (newest first)
     breaks = sorted(

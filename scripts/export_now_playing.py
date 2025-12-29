@@ -37,9 +37,9 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # Use configuration paths
-SOCKET_PATH = str(config.liquidsoap_sock_path)
-OUTPUT_PATH = config.public_path / "now_playing.json"
-DB_PATH = config.db_path
+SOCKET_PATH = str(config.paths.liquidsoap_sock_path)
+OUTPUT_PATH = config.paths.public_path / "now_playing.json"
+DB_PATH = config.paths.db_path
 
 
 def query_socket(sock: socket.socket, command: str) -> str:
@@ -113,11 +113,11 @@ def get_queue_next(limit: int = 1) -> list[dict]:
                             if "/bumpers/" in filename or "station_id" in filename:
                                 actual_source = "bumper"
                                 title = "Station Identification"
-                                artist = config.station_name
+                                artist = config.station.station_name
                             else:
                                 actual_source = "break"
                                 title = "News Break"
-                                artist = config.station_name
+                                artist = config.station.station_name
                             asset_id = None
                             album = None
                         else:
@@ -131,7 +131,7 @@ def get_queue_next(limit: int = 1) -> list[dict]:
                             asset_id = None
                             album = None
                             try:
-                                with sqlite3.connect(config.db_path) as conn:
+                                with sqlite3.connect(config.paths.db_path) as conn:
                                     cursor = conn.cursor()
                                     cursor.execute(
                                         "SELECT id, album FROM assets WHERE path = ?",
@@ -163,7 +163,7 @@ def get_queue_next(limit: int = 1) -> list[dict]:
                                     asset_id_lookup = os.path.splitext(os.path.basename(filename))[0]
 
                                     # Quick database lookup for duration
-                                    with sqlite3.connect(config.db_path) as conn:
+                                    with sqlite3.connect(config.paths.db_path) as conn:
                                         cursor = conn.cursor()
                                         cursor.execute("SELECT duration_sec FROM assets WHERE id = ?", (asset_id_lookup,))
                                         row = cursor.fetchone()
@@ -226,7 +226,7 @@ def get_recent_plays(limit: int = 5) -> list[dict]:
             ORDER BY ph.played_at DESC
             LIMIT ?
             """,
-            (config.station_name, limit)
+            (config.station.station_name, limit)
         )
 
         rows = cursor.fetchall()
@@ -444,7 +444,7 @@ def get_current_playing() -> tuple[dict | None, dict | None]:
     """
     from datetime import timedelta
 
-    conn = sqlite3.connect(config.db_path)
+    conn = sqlite3.connect(config.paths.db_path)
     cursor = conn.cursor()
 
     # Compute cutoff in Python for timestamp format compatibility

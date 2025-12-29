@@ -94,11 +94,11 @@ def main():
         logger.info(f"Need to add {tracks_needed} tracks")
 
         # Get recently played IDs (for anti-repetition)
-        recently_played = get_recently_played_ids(config.db_path)
+        recently_played = get_recently_played_ids(config.paths.db_path)
 
         # Select tracks randomly without energy filtering
         all_tracks = select_next_tracks(
-            db_path=config.db_path,
+            db_path=config.paths.db_path,
             count=tracks_needed,
             recently_played_ids=recently_played,
             energy_preference=None  # No energy filtering

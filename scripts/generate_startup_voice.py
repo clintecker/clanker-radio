@@ -19,7 +19,7 @@ def main():
     """Generate startup voice sample."""
 
     # Startup message (system voice, not DJ voice)
-    startup_text = f"""{config.station_name.upper()} IS BOOTING UP
+    startup_text = f"""{config.station.station_name.upper()} IS BOOTING UP
 AWAITING SYSOP COMMANDS..."""
 
     # Output path (use config)

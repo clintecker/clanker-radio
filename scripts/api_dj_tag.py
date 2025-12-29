@@ -40,7 +40,7 @@ CORS(app)  # Enable CORS for development
 # Storage configuration
 # Use base_path if writable, otherwise fall back to local tmp
 try:
-    base_tmp = Path(config.base_path) / "tmp" / "dj_tags"
+    base_tmp = Path(config.paths.base_path) / "tmp" / "dj_tags"
     base_tmp.mkdir(parents=True, exist_ok=True)
     TMP_DIR = base_tmp
 except (OSError, PermissionError):

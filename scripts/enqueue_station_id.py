@@ -36,7 +36,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # Use configuration paths
-SOCKET_PATH = str(config.liquidsoap_sock_path)
+SOCKET_PATH = str(config.paths.liquidsoap_sock_path)
 
 
 def query_socket(sock: socket.socket, command: str) -> str:
@@ -72,7 +72,7 @@ def select_station_id() -> tuple[str, Path]:
         RuntimeError: If no station IDs found in database
     """
     # Query database for station IDs (with anti-repeat logic)
-    conn = sqlite3.connect(config.db_path)
+    conn = sqlite3.connect(config.paths.db_path)
     cursor = conn.cursor()
 
     cursor.execute("""
@@ -90,7 +90,7 @@ def select_station_id() -> tuple[str, Path]:
     if not all_station_ids:
         logger.warning("No station IDs available (all played within 1 hour)")
         # Fall back to any station ID
-        conn = sqlite3.connect(config.db_path)
+        conn = sqlite3.connect(config.paths.db_path)
         cursor = conn.cursor()
         cursor.execute("SELECT id, path FROM assets WHERE kind = 'bumper'")
         all_station_ids = cursor.fetchall()

@@ -66,7 +66,7 @@ def main() -> int:
                 ingest_audio_file(
                     source_path=result.file_path,
                     kind="break",
-                    db_path=config.db_path,
+                    db_path=config.paths.db_path,
                     ingest_existing=True,
                 )
                 logger.info("✅ Break ingested successfully")

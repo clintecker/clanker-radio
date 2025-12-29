@@ -108,7 +108,7 @@ def batch_ingest(
 
         # Check if already ingested
         if skip_existing:
-            conn = sqlite3.connect(config.db_path)
+            conn = sqlite3.connect(config.paths.db_path)
             try:
                 existing = get_asset_by_path(conn, file_path)
                 if existing:
@@ -120,11 +120,11 @@ def batch_ingest(
 
         try:
             # Ingest the file
-            output_path = config.bumpers_path if kind == "bumper" else config.breaks_path
+            output_path = config.paths.bumpers_path if kind == "bumper" else config.paths.breaks_path
             result = ingest_audio_file(
                 source_path=file_path,
                 kind=kind,
-                db_path=config.db_path,
+                db_path=config.paths.db_path,
                 output_dir=output_path,
                 target_lufs=-18.0,
                 true_peak=-1.0,
@@ -176,7 +176,7 @@ def main():
         logger.info("INGESTING BUMPERS (Station IDs)")
         logger.info("=" * 60)
         success, skip, error = batch_ingest(
-            directory=config.bumpers_path,
+            directory=config.paths.bumpers_path,
             kind="bumper",
             dry_run=args.dry_run,
             skip_existing=not args.force,
@@ -191,7 +191,7 @@ def main():
         logger.info("INGESTING BREAKS (News Breaks)")
         logger.info("=" * 60)
         success, skip, error = batch_ingest(
-            directory=config.breaks_path,
+            directory=config.paths.breaks_path,
             kind="break",
             dry_run=args.dry_run,
             skip_existing=not args.force,

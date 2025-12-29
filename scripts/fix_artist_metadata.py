@@ -126,7 +126,7 @@ def fix_file_id3_tags(conn):
 
 def main():
     """Fix artist metadata in database and ID3 tags."""
-    db_path = config.db_path
+    db_path = config.paths.db_path
 
     if not db_path.exists():
         print(f"❌ Database not found: {db_path}", file=sys.stderr)

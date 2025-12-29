@@ -210,7 +210,7 @@ Examples:
         logger.info("[DRY-RUN MODE] No files will be deleted")
 
     try:
-        deleted_count = cleanup_old_breaks(config.db_path, args.age_hours, args.dry_run)
+        deleted_count = cleanup_old_breaks(config.paths.db_path, args.age_hours, args.dry_run)
 
         if args.dry_run:
             logger.info(

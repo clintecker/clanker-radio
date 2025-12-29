@@ -188,14 +188,14 @@ def main():
     parser.add_argument(
         "--db",
         type=Path,
-        default=config.db_path,
-        help=f"Path to database (default: {config.db_path})",
+        default=config.paths.db_path,
+        help=f"Path to database (default: {config.paths.db_path})",
     )
     parser.add_argument(
         "--music-dir",
         type=Path,
-        default=config.music_path,
-        help=f"Output directory for normalized files (default: {config.music_path})",
+        default=config.paths.music_path,
+        help=f"Output directory for normalized files (default: {config.paths.music_path})",
     )
     parser.add_argument(
         "--target-lufs",

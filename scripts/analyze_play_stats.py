@@ -19,7 +19,7 @@ from ai_radio.config import config
 
 def get_db_connection():
     """Get database connection."""
-    db_path = config.db_path
+    db_path = config.paths.db_path
     if not db_path.exists():
         raise FileNotFoundError(f"Database not found: {db_path}")
     return sqlite3.connect(str(db_path))

@@ -93,7 +93,7 @@ def get_random_station_id() -> Path | None:
     Returns:
         Path to random station ID file, or None if no files found
     """
-    bumpers_path = config.base_path / "assets" / "bumpers"
+    bumpers_path = config.paths.base_path / "assets" / "bumpers"
 
     if not bumpers_path.exists():
         logger.error(f"Bumpers directory not found: {bumpers_path}")
@@ -116,7 +116,7 @@ def main():
     conn = None
     try:
         # Connect to database
-        conn = sqlite3.connect(config.db_path)
+        conn = sqlite3.connect(config.paths.db_path)
 
         # Check if we should schedule
         should_schedule, target_minute = should_schedule_station_id(conn)
