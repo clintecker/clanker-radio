@@ -53,7 +53,10 @@ async def sse_handler(request: web.Request) -> web.StreamResponse:
         # Send current state immediately
         if NOW_PLAYING_PATH.exists():
             data = NOW_PLAYING_PATH.read_text()
-            await response.write(f"data: {data}\n\n".encode())
+            # Minify JSON (remove newlines) for SSE compatibility
+            data_compact = json.loads(data)
+            data_str = json.dumps(data_compact, separators=(',', ':'))
+            await response.write(f"data: {data_str}\n\n".encode())
 
         # Keep connection alive with periodic pings
         while True:
@@ -75,7 +78,11 @@ async def broadcast_update(data: str):
         return
 
     logger.info(f"Broadcasting update to {len(clients)} clients")
-    message = f"data: {data}\n\n".encode()
+
+    # Minify JSON (remove newlines) for SSE compatibility
+    data_compact = json.loads(data)
+    data_str = json.dumps(data_compact, separators=(',', ':'))
+    message = f"data: {data_str}\n\n".encode()
 
     # Send to all clients, remove disconnected ones
     disconnected = set()
