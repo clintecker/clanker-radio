@@ -87,8 +87,9 @@ def record_play_callback(m) =
     end
 end
 
-# Attach callback to raw queue (async to prevent audio thread blocking)
-music_queue_raw.on_track(synchronous=false, record_play_callback)
+# Attach callback to raw queue (synchronous to guarantee execution)
+# Fast enough (<100ms) to not affect playback
+music_queue_raw.on_track(synchronous=true, record_play_callback)
 log("Music queue initialized with play tracking (Level 3)")
 
 # NOTE: Crossfade is NOT applied here - it's handled by smart_transition function
@@ -256,8 +257,9 @@ log("Volume normalization enabled (gentle settings)")
 # =============================================================================
 
 # Track breaks, bumpers, and beds at the main output level
-# (Music is tracked on the queue before crossfading, async to prevent blocking)
-radio.on_track(synchronous=false, fun(m) -> begin
+# (Music is tracked on the queue before crossfading)
+# Synchronous to guarantee execution - fast enough (<100ms) to not affect playback
+radio.on_track(synchronous=true, fun(m) -> begin
     filename = m["filename"] ?? ""
 
     if filename != "" then
