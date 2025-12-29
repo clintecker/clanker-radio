@@ -100,10 +100,22 @@ async def broadcast_update(data: str):
 
 async def watch_file():
     """Watch now_playing.json and broadcast updates."""
-    logger.info(f"Watching {NOW_PLAYING_PATH} for changes")
+    watch_dir = NOW_PLAYING_PATH.parent
+    target_file = NOW_PLAYING_PATH.name
 
-    async for changes in awatch(NOW_PLAYING_PATH):
-        logger.debug(f"File changed: {changes}")
+    logger.info(f"Watching {watch_dir} for changes to {target_file}")
+
+    async for changes in awatch(watch_dir):
+        # Filter for changes to our specific file
+        relevant_changes = [
+            (change_type, path) for change_type, path in changes
+            if Path(path).name == target_file
+        ]
+
+        if not relevant_changes:
+            continue
+
+        logger.debug(f"File changed: {relevant_changes}")
 
         try:
             data = NOW_PLAYING_PATH.read_text()
