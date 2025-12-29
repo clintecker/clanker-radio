@@ -77,7 +77,8 @@ class RadioConfig(BaseSettings):
 
         # Read from Icecast XML config
         try:
-            import xml.etree.ElementTree as ET
+            import defusedxml.ElementTree as ET
+            import logging
             icecast_config = Path("/etc/icecast2/icecast.xml")
             if icecast_config.exists():
                 tree = ET.parse(icecast_config)
@@ -85,8 +86,8 @@ class RadioConfig(BaseSettings):
                 admin_pass_elem = root.find('.//authentication/admin-password')
                 if admin_pass_elem is not None and admin_pass_elem.text:
                     return admin_pass_elem.text
-        except Exception:
-            pass
+        except Exception as e:
+            logging.warning(f"Failed to read Icecast admin password from XML: {e}")
 
         # Fallback default (for development)
         return ""
@@ -143,7 +144,30 @@ class RadioConfig(BaseSettings):
             DeprecationWarning,
             stacklevel=2
         )
-        return self.api_keys.llm_api_key
+        # Return plain string for backward compatibility (not SecretStr)
+        return self.api_keys.llm_api_key.get_secret_value() if self.api_keys.llm_api_key else None
+
+    @property
+    def tts_api_key(self):
+        """DEPRECATED: Use config.api_keys.tts_api_key instead."""
+        warnings.warn(
+            "'config.tts_api_key' is deprecated. Use 'config.api_keys.tts_api_key' instead.",
+            DeprecationWarning,
+            stacklevel=2
+        )
+        # Return plain string for backward compatibility (not SecretStr)
+        return self.api_keys.tts_api_key.get_secret_value() if self.api_keys.tts_api_key else None
+
+    @property
+    def gemini_api_key(self):
+        """DEPRECATED: Use config.api_keys.gemini_api_key instead."""
+        warnings.warn(
+            "'config.gemini_api_key' is deprecated. Use 'config.api_keys.gemini_api_key' instead.",
+            DeprecationWarning,
+            stacklevel=2
+        )
+        # Return plain string for backward compatibility (not SecretStr)
+        return self.api_keys.gemini_api_key.get_secret_value() if self.api_keys.gemini_api_key else None
 
     @property
     def announcer_name(self) -> str:
@@ -154,6 +178,156 @@ class RadioConfig(BaseSettings):
             stacklevel=2
         )
         return self.announcer.announcer_name
+
+    @property
+    def energy_level(self) -> int:
+        """DEPRECATED: Use config.announcer.energy_level instead."""
+        warnings.warn(
+            "'config.energy_level' is deprecated. Use 'config.announcer.energy_level' instead.",
+            DeprecationWarning,
+            stacklevel=2
+        )
+        return self.announcer.energy_level
+
+    @property
+    def vibe_keywords(self) -> str:
+        """DEPRECATED: Use config.announcer.vibe_keywords instead."""
+        warnings.warn(
+            "'config.vibe_keywords' is deprecated. Use 'config.announcer.vibe_keywords' instead.",
+            DeprecationWarning,
+            stacklevel=2
+        )
+        return self.announcer.vibe_keywords
+
+    @property
+    def max_riffs_per_break(self) -> int:
+        """DEPRECATED: Use config.announcer.max_riffs_per_break instead."""
+        warnings.warn(
+            "'config.max_riffs_per_break' is deprecated. Use 'config.announcer.max_riffs_per_break' instead.",
+            DeprecationWarning,
+            stacklevel=2
+        )
+        return self.announcer.max_riffs_per_break
+
+    @property
+    def max_exclamations_per_break(self) -> int:
+        """DEPRECATED: Use config.announcer.max_exclamations_per_break instead."""
+        warnings.warn(
+            "'config.max_exclamations_per_break' is deprecated. Use 'config.announcer.max_exclamations_per_break' instead.",
+            DeprecationWarning,
+            stacklevel=2
+        )
+        return self.announcer.max_exclamations_per_break
+
+    @property
+    def unhinged_percentage(self) -> int:
+        """DEPRECATED: Use config.announcer.unhinged_percentage instead."""
+        warnings.warn(
+            "'config.unhinged_percentage' is deprecated. Use 'config.announcer.unhinged_percentage' instead.",
+            DeprecationWarning,
+            stacklevel=2
+        )
+        return self.announcer.unhinged_percentage
+
+    @property
+    def unhinged_triggers(self) -> str:
+        """DEPRECATED: Use config.announcer.unhinged_triggers instead."""
+        warnings.warn(
+            "'config.unhinged_triggers' is deprecated. Use 'config.announcer.unhinged_triggers' instead.",
+            DeprecationWarning,
+            stacklevel=2
+        )
+        return self.announcer.unhinged_triggers
+
+    @property
+    def humor_priority(self) -> str:
+        """DEPRECATED: Use config.announcer.humor_priority instead."""
+        warnings.warn(
+            "'config.humor_priority' is deprecated. Use 'config.announcer.humor_priority' instead.",
+            DeprecationWarning,
+            stacklevel=2
+        )
+        return self.announcer.humor_priority
+
+    @property
+    def allowed_comedy(self) -> str:
+        """DEPRECATED: Use config.announcer.allowed_comedy instead."""
+        warnings.warn(
+            "'config.allowed_comedy' is deprecated. Use 'config.announcer.allowed_comedy' instead.",
+            DeprecationWarning,
+            stacklevel=2
+        )
+        return self.announcer.allowed_comedy
+
+    @property
+    def banned_comedy(self) -> str:
+        """DEPRECATED: Use config.announcer.banned_comedy instead."""
+        warnings.warn(
+            "'config.banned_comedy' is deprecated. Use 'config.announcer.banned_comedy' instead.",
+            DeprecationWarning,
+            stacklevel=2
+        )
+        return self.announcer.banned_comedy
+
+    @property
+    def sentence_length_target(self) -> str:
+        """DEPRECATED: Use config.announcer.sentence_length_target instead."""
+        warnings.warn(
+            "'config.sentence_length_target' is deprecated. Use 'config.announcer.sentence_length_target' instead.",
+            DeprecationWarning,
+            stacklevel=2
+        )
+        return self.announcer.sentence_length_target
+
+    @property
+    def max_adjectives_per_sentence(self) -> int:
+        """DEPRECATED: Use config.announcer.max_adjectives_per_sentence instead."""
+        warnings.warn(
+            "'config.max_adjectives_per_sentence' is deprecated. Use 'config.announcer.max_adjectives_per_sentence' instead.",
+            DeprecationWarning,
+            stacklevel=2
+        )
+        return self.announcer.max_adjectives_per_sentence
+
+    @property
+    def natural_disfluency(self) -> str:
+        """DEPRECATED: Use config.announcer.natural_disfluency instead."""
+        warnings.warn(
+            "'config.natural_disfluency' is deprecated. Use 'config.announcer.natural_disfluency' instead.",
+            DeprecationWarning,
+            stacklevel=2
+        )
+        return self.announcer.natural_disfluency
+
+    @property
+    def banned_ai_phrases(self) -> str:
+        """DEPRECATED: Use config.announcer.banned_ai_phrases instead."""
+        warnings.warn(
+            "'config.banned_ai_phrases' is deprecated. Use 'config.announcer.banned_ai_phrases' instead.",
+            DeprecationWarning,
+            stacklevel=2
+        )
+        return self.announcer.banned_ai_phrases
+
+    @property
+    def radio_resets(self) -> str:
+        """DEPRECATED: Use config.announcer.radio_resets instead."""
+        warnings.warn(
+            "'config.radio_resets' is deprecated. Use 'config.announcer.radio_resets' instead.",
+            DeprecationWarning,
+            stacklevel=2
+        )
+        return self.announcer.radio_resets
+
+    @property
+    def listener_relationship(self) -> str:
+        """DEPRECATED: Use config.announcer.listener_relationship instead."""
+        warnings.warn(
+            "'config.listener_relationship' is deprecated. Use 'config.announcer.listener_relationship' instead.",
+            DeprecationWarning,
+            stacklevel=2
+        )
+        return self.announcer.listener_relationship
 
     @property
     def music_artist(self) -> str:
@@ -327,6 +501,36 @@ class RadioConfig(BaseSettings):
             stacklevel=2
         )
         return self.paths.tmp_path
+
+    @property
+    def breaks_archive_path(self) -> Path:
+        """DEPRECATED: Use config.paths.breaks_archive_path instead."""
+        warnings.warn(
+            "'config.breaks_archive_path' is deprecated. Use 'config.paths.breaks_archive_path' instead.",
+            DeprecationWarning,
+            stacklevel=2
+        )
+        return self.paths.breaks_archive_path
+
+    @property
+    def state_path(self) -> Path:
+        """DEPRECATED: Use config.paths.state_path instead."""
+        warnings.warn(
+            "'config.state_path' is deprecated. Use 'config.paths.state_path' instead.",
+            DeprecationWarning,
+            stacklevel=2
+        )
+        return self.paths.state_path
+
+    @property
+    def recent_weather_phrases_path(self) -> Path:
+        """DEPRECATED: Use config.paths.recent_weather_phrases_path instead."""
+        warnings.warn(
+            "'config.recent_weather_phrases_path' is deprecated. Use 'config.paths.recent_weather_phrases_path' instead.",
+            DeprecationWarning,
+            stacklevel=2
+        )
+        return self.paths.recent_weather_phrases_path
 
     # Content sources configuration shims
     @property

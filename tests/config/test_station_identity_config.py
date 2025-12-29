@@ -1,6 +1,5 @@
 """Tests for StationIdentityConfig domain configuration."""
 
-from pathlib import Path
 
 import pytest
 

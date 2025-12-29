@@ -1,6 +1,5 @@
 """Tests for backward compatibility property shims."""
 import warnings
-from pathlib import Path
 import pytest
 from ai_radio.config.base import RadioConfig
 
@@ -42,7 +41,9 @@ class TestBackwardCompatibility:
         with pytest.warns(DeprecationWarning, match="llm_api_key.*deprecated"):
             key = config.llm_api_key
 
-        assert key == config.api_keys.llm_api_key
+        # Shim returns plain string, domain config has SecretStr
+        expected = config.api_keys.llm_api_key.get_secret_value() if config.api_keys.llm_api_key else None
+        assert key == expected
 
     def test_announcer_name_shim_warns(self):
         """config.announcer_name should work with warning."""

@@ -1,6 +1,5 @@
 """Tests for APIKeysConfig domain configuration."""
 
-from typing import Optional
 
 import pytest
 from pydantic import SecretStr

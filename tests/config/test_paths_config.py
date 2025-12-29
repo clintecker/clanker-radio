@@ -2,7 +2,6 @@
 
 from pathlib import Path
 
-import pytest
 
 from ai_radio.config.paths import PathsConfig
 

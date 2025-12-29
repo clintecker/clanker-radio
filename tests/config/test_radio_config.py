@@ -40,7 +40,10 @@ class TestRadioConfigComposition:
 
     def test_validate_production_config_calls_domains(self, monkeypatch):
         """validate_production_config should call all domain validations."""
-        # Missing required fields
+        # Clear environment to ensure missing required fields
+        monkeypatch.delenv("RADIO_LLM_API_KEY", raising=False)
+        monkeypatch.delenv("RADIO_TTS_API_KEY", raising=False)
+
         config = RadioConfig()
 
         with pytest.raises(ValueError) as exc_info:
@@ -110,3 +113,9 @@ class TestConfigPackageExports:
         assert PathsConfig is not None
         assert APIKeysConfig is not None
         assert StationIdentityConfig is not None
+        assert AnnouncerPersonalityConfig is not None
+        assert WorldBuildingConfig is not None
+        assert ContentSourcesConfig is not None
+        assert TTSConfig is not None
+        assert AudioMixingConfig is not None
+        assert OperationalConfig is not None

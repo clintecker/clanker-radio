@@ -1,6 +1,5 @@
 """Tests for audio mixing configuration."""
 
-import pytest
 
 from ai_radio.config.audio_mixing import AudioMixingConfig
 
