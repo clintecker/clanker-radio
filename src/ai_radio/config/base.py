@@ -246,5 +246,56 @@ class RadioConfig(BaseSettings):
         )
         return self.paths.public_path
 
+    # Audio mixing configuration shims
+    @property
+    def bed_volume_db(self) -> float:
+        """DEPRECATED: Use config.audio.bed_volume_db instead."""
+        warnings.warn(
+            "'config.bed_volume_db' is deprecated. Use 'config.audio.bed_volume_db' instead.",
+            DeprecationWarning,
+            stacklevel=2
+        )
+        return self.audio.bed_volume_db
+
+    @property
+    def bed_preroll_seconds(self) -> float:
+        """DEPRECATED: Use config.audio.bed_preroll_seconds instead."""
+        warnings.warn(
+            "'config.bed_preroll_seconds' is deprecated. Use 'config.audio.bed_preroll_seconds' instead.",
+            DeprecationWarning,
+            stacklevel=2
+        )
+        return self.audio.bed_preroll_seconds
+
+    @property
+    def bed_fadein_seconds(self) -> float:
+        """DEPRECATED: Use config.audio.bed_fadein_seconds instead."""
+        warnings.warn(
+            "'config.bed_fadein_seconds' is deprecated. Use 'config.audio.bed_fadein_seconds' instead.",
+            DeprecationWarning,
+            stacklevel=2
+        )
+        return self.audio.bed_fadein_seconds
+
+    @property
+    def bed_postroll_seconds(self) -> float:
+        """DEPRECATED: Use config.audio.bed_postroll_seconds instead."""
+        warnings.warn(
+            "'config.bed_postroll_seconds' is deprecated. Use 'config.audio.bed_postroll_seconds' instead.",
+            DeprecationWarning,
+            stacklevel=2
+        )
+        return self.audio.bed_postroll_seconds
+
+    @property
+    def bed_fadeout_seconds(self) -> float:
+        """DEPRECATED: Use config.audio.bed_fadeout_seconds instead."""
+        warnings.warn(
+            "'config.bed_fadeout_seconds' is deprecated. Use 'config.audio.bed_fadeout_seconds' instead.",
+            DeprecationWarning,
+            stacklevel=2
+        )
+        return self.audio.bed_fadeout_seconds
+
     # TODO: Add shims for all commonly accessed fields
     # Run `grep -r "config\." src/ scripts/` to find usages
