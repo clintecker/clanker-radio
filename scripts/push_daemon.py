@@ -196,22 +196,8 @@ async def init_app() -> web.Application:
 async def cleanup(app: web.Application):
     """Cleanup on shutdown."""
     logger.info("Shutting down...")
-
-    # Send shutdown notification to all connected clients
-    shutdown_message = {
-        "system_status": "restarting",
-        "message": "Push service restarting - reconnecting shortly..."
-    }
-    message_str = json.dumps(shutdown_message, separators=(',', ':'))
-    shutdown_data = f"data: {message_str}\n\n".encode()
-
-    for client in list(clients):
-        try:
-            await client.write(shutdown_data)
-            await client.write(b"event: close\ndata: Server shutting down\n\n")
-            await client.write_eof()
-        except:
-            pass
+    # Just clear clients - they'll reconnect automatically when connection drops
+    # Trying to send messages during shutdown causes hangs
     clients.clear()
 
 
