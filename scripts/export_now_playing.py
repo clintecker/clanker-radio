@@ -21,6 +21,11 @@ from pathlib import Path
 
 # Add parent directory to path for ai_radio imports
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
+
+# CRITICAL: Change to project root so Pydantic can find .env file
+project_root = Path(__file__).parent.parent
+os.chdir(project_root)
+
 from ai_radio.config import config
 
 try:
