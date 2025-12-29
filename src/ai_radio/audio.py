@@ -281,9 +281,21 @@ def measure_loudness(input_path: Path) -> dict:
                     input_tp = float(match.group(1))
 
         if input_i is None or input_tp is None:
-            raise ValueError(
-                f"Failed to parse loudness stats from ffmpeg-normalize output"
+            missing_fields = []
+            if input_i is None:
+                missing_fields.append("input_i")
+            if input_tp is None:
+                missing_fields.append("input_tp")
+
+            debug_message = (
+                "Failed to parse loudness stats from ffmpeg-normalize output. "
+                f"Regex-based parsing for fields {', '.join(missing_fields)} did not find any matches. "
+                "This may indicate that ffmpeg-normalize changed its output format.\n"
+                "Full combined stdout/stderr from ffmpeg-normalize:\n"
+                f"{combined_output}"
             )
+
+            raise ValueError(debug_message)
 
         return {
             "loudness_lufs": input_i,

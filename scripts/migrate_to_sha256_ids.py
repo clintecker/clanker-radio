@@ -214,19 +214,21 @@ def migrate_play_history(
         print("\n🔍 DRY RUN: Would execute UPDATE but not committing")
         return {"updated": update_count, "unmapped": unmapped_count}
 
-    # Use temporary table for safe mapping (prevents SQL injection)
+    # Use a temporary table to hold mappings; SQL injection is prevented by the
+    # parameterized inserts into this table (see executemany() call below).
     cursor.execute(
         "CREATE TEMP TABLE IF NOT EXISTS migration_map (old_id TEXT PRIMARY KEY, new_id TEXT)"
     )
     cursor.execute("DELETE FROM migration_map")  # Clear if exists
 
-    # Insert mappings using parameterized query
+    # Insert mappings using parameterized query (prevents SQL injection for dynamic data)
     cursor.executemany(
         "INSERT INTO migration_map (old_id, new_id) VALUES (?, ?)",
         list(all_mapping.items()),
     )
 
-    # Update play_history using JOIN (safe from SQL injection)
+    # Update play_history using JOIN; all dynamic values come from migration_map,
+    # which is populated via parameterized queries.
     cursor.execute(
         """
         UPDATE play_history

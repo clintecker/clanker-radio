@@ -22,8 +22,6 @@ class TestNWSWeatherClient:
 
     def test_initialization_uses_config(self):
         """NWSWeatherClient should load office and grid from config."""
-        # Mock config to return test values
-        from unittest.mock import patch
         with patch("ai_radio.weather.config") as mock_config:
             mock_config.nws_office = "LOT"
             mock_config.nws_grid_x = 76
@@ -38,8 +36,6 @@ class TestNWSWeatherClient:
 
     def test_fetch_current_weather_success(self):
         """fetch_current_weather should return WeatherData on successful API call."""
-        # Mock config to return test values
-        from unittest.mock import patch
         with patch("ai_radio.weather.config") as mock_config:
             mock_config.nws_office = "LOT"
             mock_config.nws_grid_x = 76
