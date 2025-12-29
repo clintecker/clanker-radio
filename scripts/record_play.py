@@ -81,15 +81,19 @@ def trigger_export():
         Path(marker).touch()
 
         # Start in background with proper logging and environment
-        with open(stdout_log, "w") as f_out, open(stderr_log, "w") as f_err:
-            subprocess.Popen(
-                [venv_python, export_script],
-                stdout=f_out,
-                stderr=f_err,
-                start_new_session=True,
-                cwd="/srv/ai_radio",
-                env=export_env,
-            )
+        # Note: Don't use 'with' context manager - it closes file handles
+        # before subprocess can use them. Open files and let subprocess inherit them.
+        f_out = open(stdout_log, "w")
+        f_err = open(stderr_log, "w")
+        subprocess.Popen(
+            [venv_python, export_script],
+            stdout=f_out,
+            stderr=f_err,
+            start_new_session=True,
+            cwd="/srv/ai_radio",
+            env=export_env,
+            close_fds=False,  # Keep file descriptors open for subprocess
+        )
 
         logger.info(f"Triggered export. Logs: {stdout_log} {stderr_log}")
 
