@@ -140,6 +140,36 @@ deploy_scripts() {
                          sudo chmod 755 ${BASE_REMOTE}/scripts/${script_file}" || { log_error "Failed to install ${script_file}"; exit 1; }
     done
 
+    # Auto-restart services that use deployed scripts
+    local services_to_restart=()
+
+    for script_file in "${script_files[@]}"; do
+        case "$script_file" in
+            push_daemon.py)
+                services_to_restart+=("ai-radio-push.service")
+                ;;
+            export_now_playing.py|record_play.py)
+                # These are called by Liquidsoap, not services
+                ;;
+            generate_break.py)
+                services_to_restart+=("ai-radio-break-gen.service")
+                ;;
+        esac
+    done
+
+    # Remove duplicates
+    services_to_restart=($(echo "${services_to_restart[@]}" | tr ' ' '\n' | sort -u | tr '\n' ' '))
+
+    # Restart services
+    if [ ${#services_to_restart[@]} -gt 0 ]; then
+        log_info "Restarting services: ${services_to_restart[*]}"
+        for service in "${services_to_restart[@]}"; do
+            ssh "${SERVER}" "sudo systemctl restart ${service}" && \
+                log_success "Restarted ${service}" || \
+                log_warn "Failed to restart ${service}"
+        done
+    fi
+
     log_success "Scripts deployed (${#script_files[@]} files)"
 }
 
