@@ -131,26 +131,50 @@ async def notify_handler(request: web.Request) -> web.Response:
         return web.Response(text=f"Error: {e}", status=500)
 
 
+async def fetch_initial_state():
+    """Fetch initial state after server starts."""
+    global last_state
+    try:
+        # Import the functions we need from export_now_playing
+        sys.path.insert(0, str(Path(__file__).parent))
+        from export_now_playing import get_current_playing, get_recent_plays, get_queue_next
+        from datetime import datetime, timezone
+
+        logger.info("Fetching initial state...")
+
+        # Build state directly without POSTing to ourselves
+        current, stream_info = get_current_playing()
+        history = get_recent_plays(6)
+        if current and current.get("asset_id"):
+            history = [h for h in history if h.get("asset_id") != current["asset_id"]]
+        history = history[:5]
+        next_tracks = get_queue_next(limit=1)
+        next_track = next_tracks[0] if next_tracks else None
+
+        output = {
+            "updated_at": datetime.now(timezone.utc).isoformat(),
+            "stream": stream_info if stream_info else {},
+            "current": current,
+            "next": next_track,
+            "history": history
+        }
+
+        # Store as last_state directly
+        last_state = json.dumps(output)
+        logger.info(f"Initial state loaded: current={current['title'] if current else 'None'}")
+    except Exception as e:
+        logger.warning(f"Could not fetch initial state: {e}")
+
+
 async def init_app() -> web.Application:
     """Initialize the web application."""
-    global last_state
-
     app = web.Application()
     app.router.add_get("/stream", sse_handler)
     app.router.add_post("/notify", notify_handler)
     app.router.add_get("/health", lambda r: web.Response(text="OK"))
 
-    # Fetch initial state on startup so new clients get current state
-    try:
-        sys.path.insert(0, str(Path(__file__).parent))
-        from export_now_playing import export_now_playing
-
-        logger.info("Fetching initial state...")
-        # Run export to get current state (returns False if it fails, but we still get state via POST)
-        export_now_playing()
-        logger.info("Initial state loaded" if last_state else "Waiting for first track change")
-    except Exception as e:
-        logger.warning(f"Could not fetch initial state: {e}")
+    # Schedule initial state fetch after server starts
+    app.on_startup.append(lambda app: asyncio.create_task(fetch_initial_state()))
 
     return app
 
