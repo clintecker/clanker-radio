@@ -155,5 +155,96 @@ class RadioConfig(BaseSettings):
         )
         return self.announcer.announcer_name
 
+    @property
+    def music_artist(self) -> str:
+        """DEPRECATED: Use config.audio.music_artist instead."""
+        warnings.warn(
+            "'config.music_artist' is deprecated. Use 'config.audio.music_artist' instead.",
+            DeprecationWarning,
+            stacklevel=2
+        )
+        return self.audio.music_artist
+
+    @property
+    def station_location(self) -> str:
+        """DEPRECATED: Use config.station.station_location instead."""
+        warnings.warn(
+            "'config.station_location' is deprecated. Use 'config.station.station_location' instead.",
+            DeprecationWarning,
+            stacklevel=2
+        )
+        return self.station.station_location
+
+    @property
+    def station_tz(self) -> str:
+        """DEPRECATED: Use config.station.station_tz instead."""
+        warnings.warn(
+            "'config.station_tz' is deprecated. Use 'config.station.station_tz' instead.",
+            DeprecationWarning,
+            stacklevel=2
+        )
+        return self.station.station_tz
+
+    @property
+    def world_setting(self) -> str:
+        """DEPRECATED: Use config.world.world_setting instead."""
+        warnings.warn(
+            "'config.world_setting' is deprecated. Use 'config.world.world_setting' instead.",
+            DeprecationWarning,
+            stacklevel=2
+        )
+        return self.world.world_setting
+
+    @property
+    def world_tone(self) -> str:
+        """DEPRECATED: Use config.world.world_tone instead."""
+        warnings.warn(
+            "'config.world_tone' is deprecated. Use 'config.world.world_tone' instead.",
+            DeprecationWarning,
+            stacklevel=2
+        )
+        return self.world.world_tone
+
+    # Path properties (delegate to paths domain @property methods)
+    @property
+    def liquidsoap_sock_path(self) -> Path:
+        """DEPRECATED: Use config.paths.liquidsoap_sock_path instead."""
+        warnings.warn(
+            "'config.liquidsoap_sock_path' is deprecated. Use 'config.paths.liquidsoap_sock_path' instead.",
+            DeprecationWarning,
+            stacklevel=2
+        )
+        return self.paths.liquidsoap_sock_path
+
+    @property
+    def music_path(self) -> Path:
+        """DEPRECATED: Use config.paths.music_path instead."""
+        warnings.warn(
+            "'config.music_path' is deprecated. Use 'config.paths.music_path' instead.",
+            DeprecationWarning,
+            stacklevel=2
+        )
+        return self.paths.music_path
+
+    @property
+    def db_path(self) -> Path:
+        """DEPRECATED: Use config.paths.db_path instead."""
+        warnings.warn(
+            "'config.db_path' is deprecated. Use 'config.paths.db_path' instead.",
+            DeprecationWarning,
+            stacklevel=2
+        )
+        return self.paths.db_path
+
+    @property
+    def public_path(self) -> Path:
+        """DEPRECATED: Use config.paths.public_path instead."""
+        warnings.warn(
+            "'config.public_path' is deprecated. Use 'config.paths.public_path' instead.",
+            DeprecationWarning,
+            stacklevel=2
+        )
+        return self.paths.public_path
+
     # TODO: Add shims for all commonly accessed fields
     # Run `grep -r "config\." src/ scripts/` to find usages
