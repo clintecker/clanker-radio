@@ -197,14 +197,24 @@ class BreakGenerator:
 
             # Generate unique output filename and metadata
             # Use station timezone for metadata title (Chicago time)
+            from datetime import timedelta
             from zoneinfo import ZoneInfo
             now = datetime.now(ZoneInfo(config.station_tz))
             output_filename = f"break_{now.strftime('%Y%m%d_%H%M%S')}.mp3"
             output_path = self.breaks_path / output_filename
 
-            # Format title as "Mon Dec 29, 2025 3:00 PM News Break"
-            # Use 12-hour format with AM/PM, strip leading zero from hour
-            metadata_title = now.strftime("%a %b %d, %Y %-I:%M %p News Break")
+            # Round up to next hour for air time (matches spoken intro)
+            # If generated at 3:52 PM, will air at 4:00 PM
+            next_hour = now.replace(minute=0, second=0, microsecond=0) + timedelta(hours=1)
+
+            # Format title as "Mon Dec 29, 2025 4 PM News Break"
+            # Show hour only (no minutes) since it airs on the hour
+            hour_12 = next_hour.hour % 12
+            if hour_12 == 0:
+                hour_12 = 12
+            am_pm = "AM" if next_hour.hour < 12 else "PM"
+
+            metadata_title = next_hour.strftime(f"%a %b %d, %Y {hour_12} {am_pm} News Break")
 
             mixed_audio = mix_voice_with_bed(
                 voice_path=voice_path,
