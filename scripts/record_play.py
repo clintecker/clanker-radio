@@ -30,25 +30,36 @@ def trigger_export():
     Failures are logged but don't affect play logging.
     """
     try:
-        export_script = Path(__file__).parent / "export_now_playing.py"
+        # Use absolute paths
+        export_script = "/srv/ai_radio/scripts/export_now_playing.py"
+        venv_python = "/srv/ai_radio/.venv/bin/python"
 
-        # Start in background with LOW priority (nice/ionice)
-        # Export script will handle its own locking
+        # Write trigger marker for debugging
+        import time
+        marker = f"/tmp/export_triggered_{int(time.time())}.marker"
+        Path(marker).touch()
+
+        # Start in background
         subprocess.Popen(
-            ["nice", "-n", "15", "ionice", "-c", "3", sys.executable, str(export_script)],
+            [venv_python, export_script],
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
-            start_new_session=True  # Detach from parent
+            start_new_session=True,
+            cwd="/srv/ai_radio",
+            env={"PYTHONPATH": "/srv/ai_radio/src"}
         )
 
-        logger.debug("Triggered now_playing.json export")
+        logger.info("Triggered export")
     except Exception as e:
-        # Don't fail the play logging if export trigger fails
         logger.warning(f"Failed to trigger export: {e}")
 
 
 def main():
     """Entry point for script."""
+    # Debug marker - script started
+    import time
+    Path(f"/tmp/record_play_started_{int(time.time())}.marker").touch()
+
     if len(sys.argv) < 2:
         logger.error("Usage: record_play.py <file_path>")
         sys.exit(1)
@@ -87,8 +98,15 @@ def main():
 
     logger.info(f"Recorded play: {asset_id[:16]}... (kind={asset_kind})")
 
+    # Debug marker - before trigger_export
+    Path(f"/tmp/before_trigger_{int(time.time())}.marker").touch()
+
     # Trigger immediate now_playing.json export
     trigger_export()
+
+    # Debug marker - after trigger_export
+    Path(f"/tmp/after_trigger_{int(time.time())}.marker").touch()
+
     sys.exit(0)
 
 
