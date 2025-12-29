@@ -61,7 +61,8 @@ def trigger_export():
         venv_python = "/srv/ai_radio/.venv/bin/python"
 
         # Create log directory for diagnostic output
-        log_dir = Path("/tmp/ai_radio_logs")
+        # Use /var/tmp (not /tmp) because systemd PrivateTmp=yes isolates /tmp
+        log_dir = Path("/var/tmp/ai_radio_logs")
         log_dir.mkdir(exist_ok=True)
         ts = int(time.time())
         stdout_log = log_dir / f"export_{ts}.out"
@@ -77,13 +78,14 @@ def trigger_export():
             export_env["PYTHONPATH"] = f"{src_path}{os.pathsep}{python_path}".strip(os.pathsep)
 
         # Write trigger marker for debugging - with comprehensive logging
-        marker = f"/tmp/export_triggered_{ts}.marker"
+        # Use /var/tmp (not /tmp) because systemd PrivateTmp=yes isolates /tmp
+        marker = f"/var/tmp/export_triggered_{ts}.marker"
         try:
             import pwd
             current_user = pwd.getpwuid(os.getuid()).pw_name
-            logger.info(f"v2: Attempting to touch marker {marker} as user '{current_user}'")
+            logger.info(f"v3: Attempting to touch marker {marker} as user '{current_user}'")
             Path(marker).touch()
-            logger.info(f"v2: Successfully touched marker {marker}")
+            logger.info(f"v3: Successfully touched marker {marker}")
         except Exception as e:
             logger.error(f"v2: FAILED to create marker {marker}. Error: {e}", exc_info=True)
 
@@ -102,7 +104,7 @@ def trigger_export():
             close_fds=False,  # Keep file descriptors open for subprocess
         )
 
-        logger.info(f"v2: Triggered export. Logs: {stdout_log} {stderr_log}")
+        logger.info(f"v3: Triggered export. Logs: {stdout_log} {stderr_log}")
 
     except Exception:
         # Use logger.exception for full traceback

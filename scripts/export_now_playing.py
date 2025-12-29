@@ -18,6 +18,8 @@ import sys
 import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
+from urllib import request as urllib_request
+from urllib.error import URLError
 
 # Add parent directory to path for ai_radio imports
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
@@ -554,6 +556,23 @@ def export_now_playing():
             os.chmod(str(OUTPUT_PATH), 0o644)
 
             logger.info(f"Exported now_playing.json: current={current['title'] if current else 'None'}")
+
+            # Notify SSE daemon to broadcast update
+            try:
+                req = urllib_request.Request(
+                    "http://127.0.0.1:8001/notify",
+                    method="POST"
+                )
+                with urllib_request.urlopen(req, timeout=1) as response:
+                    if response.status == 200:
+                        logger.info("SSE daemon notified successfully")
+                    else:
+                        logger.warning(f"SSE daemon notify returned {response.status}")
+            except URLError as e:
+                logger.warning(f"Failed to notify SSE daemon: {e}")
+            except Exception as e:
+                logger.warning(f"Unexpected error notifying SSE daemon: {e}")
+
             return True
 
         except Exception as e:
@@ -570,7 +589,8 @@ def main():
     """Entry point with lock to prevent simultaneous exports."""
     import fcntl
 
-    lock_file_path = "/tmp/export_now_playing.lock"
+    # Use /var/tmp (not /tmp) because systemd PrivateTmp=yes isolates /tmp
+    lock_file_path = "/var/tmp/export_now_playing.lock"
 
     try:
         # Try to acquire exclusive lock (non-blocking)
