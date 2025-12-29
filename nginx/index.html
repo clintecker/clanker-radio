@@ -524,14 +524,13 @@
             const elapsed = (now - trackStartTime) / 1000; // seconds
             const duration = currentTrack.duration_sec || 0;
 
-            // Always update current time, even if duration is unknown or track exceeded duration
-            document.getElementById('current-time').textContent = formatTime(elapsed);
+            // Clamp elapsed time to duration for both display and progress bar
+            const displayElapsed = duration > 0 ? Math.min(elapsed, duration) : elapsed;
+            document.getElementById('current-time').textContent = formatTime(displayElapsed);
 
             // Update progress bar if we have a valid duration
             if (duration > 0) {
-                // Clamp elapsed to duration to prevent bar from exceeding 100%
-                const clampedElapsed = Math.min(elapsed, duration);
-                const percent = (clampedElapsed / duration) * 100;
+                const percent = (displayElapsed / duration) * 100;
                 document.getElementById('progress-fill').style.width = `${percent}%`;
             } else {
                 // No duration available - show indeterminate state
