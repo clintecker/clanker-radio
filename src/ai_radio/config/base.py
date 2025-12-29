@@ -1,5 +1,6 @@
 """Configuration composition root."""
 import os
+import warnings
 from pathlib import Path
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -98,3 +99,61 @@ class RadioConfig(BaseSettings):
         """
         self.api_keys.validate_production()
         self.station.validate_production()
+
+    # ===================================================================
+    # Backward compatibility property shims (DEPRECATED)
+    # Remove after all code migrated to new API
+    # ===================================================================
+
+    @property
+    def station_name(self) -> str:
+        """DEPRECATED: Use config.station.station_name instead."""
+        warnings.warn(
+            "'config.station_name' is deprecated. Use 'config.station.station_name' instead.",
+            DeprecationWarning,
+            stacklevel=2
+        )
+        return self.station.station_name
+
+    @property
+    def base_path(self) -> Path:
+        """DEPRECATED: Use config.paths.base_path instead."""
+        warnings.warn(
+            "'config.base_path' is deprecated. Use 'config.paths.base_path' instead.",
+            DeprecationWarning,
+            stacklevel=2
+        )
+        return self.paths.base_path
+
+    @property
+    def break_freshness_minutes(self) -> int:
+        """DEPRECATED: Use config.operational.break_freshness_minutes instead."""
+        warnings.warn(
+            "'config.break_freshness_minutes' is deprecated. Use 'config.operational.break_freshness_minutes' instead.",
+            DeprecationWarning,
+            stacklevel=2
+        )
+        return self.operational.break_freshness_minutes
+
+    @property
+    def llm_api_key(self):
+        """DEPRECATED: Use config.api_keys.llm_api_key instead."""
+        warnings.warn(
+            "'config.llm_api_key' is deprecated. Use 'config.api_keys.llm_api_key' instead.",
+            DeprecationWarning,
+            stacklevel=2
+        )
+        return self.api_keys.llm_api_key
+
+    @property
+    def announcer_name(self) -> str:
+        """DEPRECATED: Use config.announcer.announcer_name instead."""
+        warnings.warn(
+            "'config.announcer_name' is deprecated. Use 'config.announcer.announcer_name' instead.",
+            DeprecationWarning,
+            stacklevel=2
+        )
+        return self.announcer.announcer_name
+
+    # TODO: Add shims for all commonly accessed fields
+    # Run `grep -r "config\." src/ scripts/` to find usages
