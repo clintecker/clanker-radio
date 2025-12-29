@@ -96,3 +96,27 @@ class TestStationIdentityConfig:
         station = StationIdentityConfig()
         assert station.station_lat == 21.3099
         assert station.station_lon == -157.8581
+
+
+class TestStationIdentityProductionValidation:
+    """Tests for StationIdentityConfig production validation."""
+
+    def test_validate_production_fails_without_coordinates(self):
+        """validate_production should fail when coordinates missing."""
+        config = StationIdentityConfig()
+        with pytest.raises(ValueError, match="STATION_LAT"):
+            config.validate_production()
+
+    def test_validate_production_fails_without_lon(self, monkeypatch):
+        """validate_production should fail when longitude missing."""
+        monkeypatch.setenv("RADIO_STATION_LAT", "21.3")
+        config = StationIdentityConfig()
+        with pytest.raises(ValueError, match="STATION_LON"):
+            config.validate_production()
+
+    def test_validate_production_succeeds_with_coordinates(self, monkeypatch):
+        """validate_production should succeed with both coordinates."""
+        monkeypatch.setenv("RADIO_STATION_LAT", "21.3")
+        monkeypatch.setenv("RADIO_STATION_LON", "-157.8")
+        config = StationIdentityConfig()
+        config.validate_production()  # Should not raise

@@ -49,3 +49,18 @@ class StationIdentityConfig(BaseSettings):
         if v is not None and (v < -180 or v > 180):
             raise ValueError("Longitude must be between -180 and 180")
         return v
+
+    def validate_production(self) -> None:
+        """Validate that required production fields are set.
+
+        Raises:
+            ValueError: If required coordinates are missing
+        """
+        errors = []
+        if self.station_lat is None:
+            errors.append("RADIO_STATION_LAT is required for weather data in production")
+        if self.station_lon is None:
+            errors.append("RADIO_STATION_LON is required for weather data in production")
+
+        if errors:
+            raise ValueError("Station configuration incomplete:\n  - " + "\n  - ".join(errors))
