@@ -49,66 +49,29 @@ logger = logging.getLogger(__name__)
 
 
 def trigger_export():
-    """Trigger export_now_playing.py in background (non-blocking).
+    """Export now_playing.json and notify SSE daemon.
 
-    Export script has its own lock to prevent simultaneous runs.
-    Runs async so we don't block Liquidsoap's on_track callback.
+    Calls export function directly (no subprocess spawning).
+    Fast enough (<100ms) to not block Liquidsoap callback.
     Failures are logged but don't affect play logging.
     """
     try:
-        # Use absolute paths
-        export_script = "/srv/ai_radio/scripts/export_now_playing.py"
-        venv_python = "/srv/ai_radio/.venv/bin/python"
+        # Import and call export function directly
+        import sys
+        sys.path.insert(0, "/srv/ai_radio/scripts")
+        from export_now_playing import export_now_playing
 
-        # Create log directory for diagnostic output
-        # Use /srv/ai_radio/logs because systemd PrivateTmp=yes isolates both /tmp and /var/tmp
-        log_dir = Path("/srv/ai_radio/logs/export_attempts")
-        log_dir.mkdir(exist_ok=True, parents=True)
-        ts = int(time.time())
-        stdout_log = log_dir / f"export_{ts}.out"
-        stderr_log = log_dir / f"export_{ts}.err"
+        logger.info("Calling export_now_playing()...")
+        success = export_now_playing()
 
-        # CRITICAL FIX: Copy environment and augment it, don't replace it
-        export_env = os.environ.copy()
-
-        # Safely prepend our src path to PYTHONPATH
-        python_path = export_env.get("PYTHONPATH", "")
-        src_path = "/srv/ai_radio/src"
-        if src_path not in python_path.split(os.pathsep):
-            export_env["PYTHONPATH"] = f"{src_path}{os.pathsep}{python_path}".strip(os.pathsep)
-
-        # Write trigger marker for debugging - with comprehensive logging
-        # Use /srv/ai_radio/logs because systemd PrivateTmp=yes isolates both /tmp and /var/tmp
-        marker = log_dir / f"export_triggered_{ts}.marker"
-        try:
-            import pwd
-            current_user = pwd.getpwuid(os.getuid()).pw_name
-            logger.info(f"v3: Attempting to touch marker {marker} as user '{current_user}'")
-            Path(marker).touch()
-            logger.info(f"v3: Successfully touched marker {marker}")
-        except Exception as e:
-            logger.error(f"v2: FAILED to create marker {marker}. Error: {e}", exc_info=True)
-
-        # Start in background with proper logging and environment
-        # Note: Don't use 'with' context manager - it closes file handles
-        # before subprocess can use them. Open files and let subprocess inherit them.
-        f_out = open(stdout_log, "w")
-        f_err = open(stderr_log, "w")
-        subprocess.Popen(
-            [venv_python, export_script],
-            stdout=f_out,
-            stderr=f_err,
-            start_new_session=True,
-            cwd="/srv/ai_radio",
-            env=export_env,
-            close_fds=False,  # Keep file descriptors open for subprocess
-        )
-
-        logger.info(f"v3: Triggered export. Logs: {stdout_log} {stderr_log}")
+        if success:
+            logger.info("Export and SSE notification completed successfully")
+        else:
+            logger.warning("Export function returned False")
 
     except Exception:
         # Use logger.exception for full traceback
-        logger.exception("Failed to trigger export")
+        logger.exception("Failed to export now_playing")
 
 
 def main():
