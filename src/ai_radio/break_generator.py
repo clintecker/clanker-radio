@@ -208,7 +208,7 @@ class BreakGenerator:
                 bed_path=bed_path,
                 output_path=output_path,
                 metadata_title=metadata_title,
-                metadata_artist=config.station_identity.artist_name,
+                metadata_artist=config.music_artist,
             )
 
             if not mixed_audio:

@@ -76,7 +76,7 @@ def update_bumper_id3_tags() -> int:
 
             # Set title and artist
             audio.tags["TIT2"] = TIT2(encoding=3, text=title)
-            audio.tags["TPE1"] = TPE1(encoding=3, text=config.station_identity.artist_name)
+            audio.tags["TPE1"] = TPE1(encoding=3, text=config.music_artist)
 
             # Save changes
             audio.save()

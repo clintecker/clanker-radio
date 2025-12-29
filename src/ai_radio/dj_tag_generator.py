@@ -205,7 +205,7 @@ class DJTagGenerator:
                         "-ac", "1",  # Audio channels: mono
                         "-i", pcm_path,  # Input PCM file
                         "-metadata", f"title={text[:100]}",  # Use first 100 chars as title
-                        "-metadata", f"artist={config.station_identity.artist_name}",
+                        "-metadata", f"artist={config.music_artist}",
                         "-c:a", "libmp3lame",
                         "-q:a", "2",  # High quality MP3
                         str(output_path),
