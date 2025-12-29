@@ -5,13 +5,23 @@ Called by Liquidsoap on track transitions to log plays to the database.
 Triggers immediate now_playing.json export for real-time frontend updates.
 """
 
+# DIAGNOSTIC: Write immediately before any imports
+from pathlib import Path
+import sys
+import time
+
+# Ensure log directory exists
+log_dir = Path("/tmp/ai_radio_logs")
+log_dir.mkdir(exist_ok=True)
+
+with open(log_dir / "record_play_called.txt", "a") as f:
+    f.write(f"{time.time()} - Called with: {sys.argv}\n")
+    f.flush()
+
 import logging
 import os
 import subprocess
-import sys
-import time
 import traceback
-from pathlib import Path
 
 # Add src to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
