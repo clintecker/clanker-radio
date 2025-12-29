@@ -16,6 +16,10 @@ from pathlib import Path
 # Add src to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
+# CRITICAL: Change to project root so Pydantic can find .env file
+project_root = Path(__file__).parent.parent
+os.chdir(project_root)
+
 from ai_radio.config import config
 
 # Configure file-based logging to bypass stdio buffering from daemon
