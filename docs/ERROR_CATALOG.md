@@ -2,15 +2,25 @@
 
 ## Critical Issues
 
-### 1. SSE Push Updates Not Broadcasting on Track Changes ✅ RESOLVED
-**Service:** ai-radio-push.service
-**Status:** ✅ RUNNING and broadcasting successfully
+### 1. SSE Push Updates Not Broadcasting on Track Changes ✅ FULLY RESOLVED
+**Service:** ai-radio-push.service + ai-radio-liquidsoap.service
+**Status:** ✅ WORKING - Real-time updates with <1s latency
 **Original Error:** File watch not triggering on atomic renames
 **Impact:** Frontend not receiving real-time updates via SSE
-**Root Cause:** `export_now_playing.py` uses `os.rename()` for atomic writes, which changes file inode. Directory watch approach also failed to detect changes.
-**Fix Applied:** Implemented direct HTTP POST notification from export script to SSE daemon /notify endpoint
-**Verification:** Successfully broadcasting at 17:53:04 after track change at 17:52:33
-**Resolution Time:** ~2 minutes from file write to broadcast (includes export execution)
+
+**Root Causes Identified:**
+1. `PrivateTmp=yes` isolated both /tmp and /var/tmp (subprocess logs invisible)
+2. Subprocess spawning from record_play.py was complex and unreliable
+3. `ProtectSystem=strict` made /srv read-only
+4. `ReadWritePaths` didn't include /srv/ai_radio/public
+
+**Fixes Applied:**
+1. Eliminated subprocess spawning - call export_now_playing() directly from record_play.py
+2. Added /srv/ai_radio/public to ReadWritePaths in liquidsoap service
+3. Simplified architecture: callback → direct function call → JSON write → HTTP POST → SSE broadcast
+
+**Verification:** Track change at 18:49:36 → SSE broadcast at 18:49:37 (<1 second)
+**Resolution Date:** 2025-12-29 18:50
 
 ### 2. ai-radio-break-gen.service - News Break Generation Failed
 **Service:** ai-radio-break-gen.service
