@@ -5,8 +5,10 @@ Energy-aware music selection with anti-repetition rules
 import logging
 import random
 import sqlite3
+from datetime import datetime
 from pathlib import Path
 from typing import Any
+from zoneinfo import ZoneInfo
 
 logger = logging.getLogger(__name__)
 
@@ -58,12 +60,26 @@ def select_next_tracks(
         else:
             energy_clause = ""  # Mixed energy
 
+        # Time-based Malware Groove filtering (1 AM - 8 AM Chicago time only)
+        from ai_radio.config import config
+        now = datetime.now(ZoneInfo(config.station_tz))
+        hour = now.hour
+
+        # Exclude Malware Grooves outside of 1 AM - 8 AM window
+        if hour < 1 or hour >= 8:
+            malware_exclusion = "AND title NOT LIKE 'Malware Groove%'"
+            logger.debug(f"Excluding Malware Grooves (current hour: {hour})")
+        else:
+            malware_exclusion = ""
+            logger.debug(f"Allowing Malware Grooves (current hour: {hour})")
+
         query = f"""
             SELECT id, path, title, artist, album, energy_level, duration_sec
             FROM assets
             WHERE kind = 'music'
             {exclusion_clause}
             {energy_clause}
+            {malware_exclusion}
             ORDER BY RANDOM()
             LIMIT ?
         """
