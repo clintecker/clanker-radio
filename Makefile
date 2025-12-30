@@ -124,4 +124,25 @@ logs-station-id-timer: ## Show recent station-id timer activations
 check-last-station-id: ## Show last 10 station IDs played
 	@ssh $(SERVER) "sqlite3 $(REMOTE_BASE)/db/radio.sqlite3 'SELECT datetime(ph.played_at, \"localtime\") as played, a.title, a.artist FROM play_history ph JOIN assets a ON ph.asset_id = a.id WHERE a.kind=\"bumper\" ORDER BY ph.played_at DESC LIMIT 10;'"
 
+# --- Sacred Callback Debugging Incantations ---
+
+recent-plays: ## Show last 10 plays from database with timestamps
+	@ssh $(SERVER) "sqlite3 $(REMOTE_BASE)/db/radio.sqlite3 'SELECT datetime(ph.played_at, \"localtime\") as time, a.title, a.artist, ph.source FROM play_history ph JOIN assets a ON ph.asset_id = a.id ORDER BY ph.played_at DESC LIMIT 10'"
+
+callback-logs: ## Show recent callback executions
+	@ssh $(SERVER) "sudo journalctl -u ai-radio-liquidsoap.service -n 100 --no-pager | grep -E 'MUSIC QUEUED|BREAK START|BUMPER START|TRACK START|SUCCESS|ERROR|CALLBACK'"
+
+callback-timing: ## Check callback timing accuracy
+	@ssh $(SERVER) "sudo journalctl -u ai-radio-liquidsoap.service -n 200 --no-pager | grep -E 'QUEUED|TRACK START' | tail -20"
+
+watch-callbacks-live: ## Live monitor of callback execution
+	@ssh $(SERVER) "sudo journalctl -u ai-radio-liquidsoap.service -f | grep --line-buffered -E 'MUSIC|BREAK|BUMPER|SUCCESS|ERROR'"
+
+verify-sync: ## Compare database vs Icecast metadata timing
+	@echo "=== Last 5 Database Entries ==="
+	@ssh $(SERVER) "sqlite3 $(REMOTE_BASE)/db/radio.sqlite3 'SELECT datetime(played_at, \"localtime\"), title FROM play_history ph JOIN assets a ON ph.asset_id = a.id ORDER BY played_at DESC LIMIT 5'"
+	@echo ""
+	@echo "=== Last 5 Icecast Metadata Updates ==="
+	@ssh $(SERVER) "sudo tail -100 /var/log/icecast2/error.log | grep 'Metadata.*changed to' | tail -5 | sed 's/.*Metadata on mountpoint.*changed to //'"
+
 .DEFAULT_GOAL := help

@@ -68,32 +68,50 @@ log("Break queue initialized (Level 2)")
 # Level 3: Music queue - Apply crossfade HERE before fallback
 music_queue_raw = request.queue(id="music")
 
-# Helper function to record plays
-def record_play_callback(m) =
-    filename = m["filename"] ?? ""
-    log("CALLBACK FIRED: #{filename}")
-    if filename != "" then
-        source_type = "music"
-        cmd = "#{python_bin} #{scripts_path}/record_play.py #{string.quote(filename)} #{source_type}"
-        log("Executing: #{cmd}")
-        # Use thread.run with process.run to capture output
-        _ = thread.run(fun () -> begin
-            let result = process.run(cmd)
-            log("Process exit code: #{result.status}")
-            log("Process stdout: #{result.stdout}")
-            log("Process stderr: #{result.stderr}")
-        end)
-        log("Callback completed for #{filename}")
-    end
+# ============================================================================
+# CALLBACK CONFIGURATION - Compensates for crossfade timing
+# ============================================================================
+#
+# IMPORTANT: Music callbacks fire when track is QUEUED for crossfade, not when
+# it actually plays. The cross() operator buffers audio 4 seconds in advance.
+# Solution: Delay callback execution to match actual playback time.
+#
+# See docs/LIQUIDSOAP_SACRED_TOME.md for full documentation.
+
+# Crossfade duration (must match cross() operator below)
+crossfade_music_duration = 4.0
+crossfade_break_duration = 0.0
+
+# Unified callback execution with delay compensation
+def execute_record_play(filename, source_type, delay_sec) =
+  def delayed_execution() =
+    log("[TRACK START] #{source_type}: #{filename}")
+
+    cmd = "#{python_bin} #{scripts_path}/record_play.py #{string.quote(filename)} #{source_type}"
+    _ = process.run(cmd)
+
+    log("[CALLBACK] Executed record_play for #{filename}")
+  end
+
+  # Execute immediately or after delay
+  if delay_sec > 0.0 then
+    thread.run(delay=delay_sec, delayed_execution)
+  else
+    thread.run(delayed_execution)
+  end
 end
 
-# Attach callback to raw queue (synchronous to guarantee execution)
-# Fast enough (<100ms) to not affect playback
-music_queue_raw.on_track(synchronous=true, record_play_callback)
-log("Music queue initialized with play tracking (Level 3)")
+# Music queue callback - fires 4s early, compensate with delay
+def music_callback(m) =
+  filename = m["filename"] ?? ""
+  if filename != "" then
+    log("[MUSIC QUEUED] #{filename} (playing in ~#{crossfade_music_duration}s)")
+    execute_record_play(filename, "music", crossfade_music_duration)
+  end
+end
 
-# NOTE: Crossfade is NOT applied here - it's handled by smart_transition function
-# This allows breaks to cut cleanly without mid-crossfade interruption
+music_queue_raw.on_track(synchronous=true, music_callback)
+log("Music queue initialized with delayed callback (compensates for 4s crossfade buffer)")
 
 # ============================================================================
 # BREAK QUEUE SETUP
@@ -258,34 +276,18 @@ log("Volume normalization enabled (gentle settings)")
 
 # Track breaks, bumpers, and beds at the main output level
 # (Music is tracked on the queue before crossfading)
-# Synchronous to guarantee execution - fast enough (<100ms) to not affect playback
+# Breaks/bumpers play immediately (no crossfade), so no delay needed
 radio.on_track(synchronous=true, fun(m) -> begin
     filename = m["filename"] ?? ""
 
     if filename != "" then
         # Track different content types based on path
         if string.contains(substring="/breaks/", filename) then
-            log("BREAK CALLBACK: #{filename}")
-            cmd = "#{python_bin} #{scripts_path}/record_play.py #{string.quote(filename)} break"
-            log("Executing: #{cmd}")
-            _ = thread.run(fun () -> begin
-                let result = process.run(cmd)
-                log("Process exit code: #{result.status}")
-                log("Process stdout: #{result.stdout}")
-                log("Process stderr: #{result.stderr}")
-            end)
-            log("Break callback completed")
+            log("[BREAK START] #{filename}")
+            execute_record_play(filename, "break", crossfade_break_duration)
         elsif string.contains(substring="/bumpers/", filename) then
-            log("BUMPER CALLBACK: #{filename}")
-            cmd = "#{python_bin} #{scripts_path}/record_play.py #{string.quote(filename)} bumper"
-            log("Executing: #{cmd}")
-            _ = thread.run(fun () -> begin
-                let result = process.run(cmd)
-                log("Process exit code: #{result.status}")
-                log("Process stdout: #{result.stdout}")
-                log("Process stderr: #{result.stderr}")
-            end)
-            log("Bumper callback completed")
+            log("[BUMPER START] #{filename}")
+            execute_record_play(filename, "bumper", crossfade_break_duration)
         elsif string.contains(substring="/beds/", filename) then
             # Beds aren't in database, just log
             log("Bed playing: #{filename}")
