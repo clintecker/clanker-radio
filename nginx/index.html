@@ -79,6 +79,7 @@
         .now-playing {
             margin-bottom: 50px;
             position: relative;
+            min-height: 150px; /* Reserve space for overlay */
         }
 
         .np-label {
@@ -118,34 +119,39 @@
             50% { opacity: 0.5; }
         }
 
-        /* Crossfade incoming track display */
+        /* Crossfade incoming track display - overlays current track */
         .crossfade-incoming {
-            margin-top: 30px;
-            padding-top: 20px;
-            border-top: 1px solid rgba(127, 255, 127, 0.2);
-            animation: fadeIn 1s ease-in;
+            position: absolute;
+            top: 40px; /* Below the NOW TRANSMITTING label */
+            left: 0;
+            right: 0;
+            z-index: 1; /* Behind the glitching-out current track */
         }
 
         .crossfade-label {
-            font-size: 0.6rem;
-            letter-spacing: 0.25em;
-            color: var(--yellow);
-            margin-bottom: 8px;
+            display: none; /* Hide the "FADING IN" label */
         }
 
         .crossfade-title {
-            font-size: 1.5rem;
-            color: var(--phosphor);
+            font-size: 2rem;
+            color: var(--phosphor-bright);
             margin-bottom: 6px;
-            opacity: 0;
-            animation: fadeIn 2s ease-in forwards;
+            opacity: 0; /* Start invisible */
         }
 
         .crossfade-artist {
-            font-size: 0.9rem;
-            color: var(--phosphor-dim);
-            opacity: 0;
-            animation: fadeIn 2s ease-in 0.5s forwards;
+            font-size: 1.2rem;
+            color: var(--phosphor);
+            opacity: 0; /* Start invisible */
+        }
+
+        /* Apply fadeIn animation when crossfade is active */
+        .crossfading .crossfade-title {
+            animation: fadeIn 3s ease-out forwards;
+        }
+
+        .crossfading .crossfade-artist {
+            animation: fadeIn 3s ease-out 0.3s forwards; /* Slight delay */
         }
 
         .crossfading .np-title,
@@ -225,18 +231,24 @@
             margin-bottom: 8px;
             line-height: 1.2;
             text-shadow: 0 0 10px rgba(127, 255, 127, 0.5);
+            position: relative;
+            z-index: 2; /* Above incoming track during crossfade */
         }
 
         .np-artist {
             font-size: 1.2rem;
             color: var(--phosphor);
             margin-bottom: 15px;
+            position: relative;
+            z-index: 2; /* Above incoming track during crossfade */
         }
 
         .np-meta {
             font-size: 0.75rem;
             color: var(--phosphor-dim);
             margin-bottom: 15px;
+            position: relative;
+            z-index: 2; /* Above incoming track during crossfade */
         }
 
         /* Progress bar */
@@ -708,7 +720,8 @@
             }
 
             // Check if we're in crossfade window
-            if (lastData && duration > 0) {
+            // ONLY trigger crossfade if CURRENT track is music (not break/bumper)
+            if (lastData && duration > 0 && lastData.current && lastData.current.kind === 'music') {
                 const breaksQueue = lastData.breaks_queue || [];
                 const musicQueue = lastData.music_queue || [];
 
@@ -731,6 +744,8 @@
                     if (inCrossfadeWindow && !inCrossfade) {
                         // Start crossfade
                         console.log('🎵 CROSSFADE START:', {
+                            currentTrack: lastData.current.title,
+                            currentKind: lastData.current.kind,
                             timeRemaining,
                             crossfadeDuration,
                             nextTrack: nextTrack.title
@@ -748,11 +763,17 @@
                         document.getElementById('crossfade-incoming').style.display = 'none';
                     }
                 } else if (inCrossfade) {
-                    // No crossfade for this track (breaks), hide incoming
+                    // No crossfade for next track, hide incoming
                     inCrossfade = false;
                     document.querySelector('.now-playing').classList.remove('crossfading');
                     document.getElementById('crossfade-incoming').style.display = 'none';
                 }
+            } else if (inCrossfade) {
+                // Current track is NOT music (break/bumper), hide crossfade
+                console.log('🎵 CROSSFADE CANCELLED (current track is not music)');
+                inCrossfade = false;
+                document.querySelector('.now-playing').classList.remove('crossfading');
+                document.getElementById('crossfade-incoming').style.display = 'none';
             }
         }
 
