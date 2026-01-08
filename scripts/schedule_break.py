@@ -10,7 +10,7 @@ from datetime import datetime
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-from ai_radio.config import config
+from ai_radio.break_scheduler import get_fresh_break, StaleBreakError
 from ai_radio.liquidsoap_client import LiquidsoapClient
 
 logging.basicConfig(
@@ -41,22 +41,15 @@ def main():
         logger.info("Break already queued, skipping")
         sys.exit(0)
 
-    # Find most recent break file dynamically
-    breaks_dir = config.paths.breaks_path
-
-    # Get all break files sorted by modification time (newest first)
-    breaks = sorted(
-        breaks_dir.glob("break_*.mp3"),
-        key=lambda p: p.stat().st_mtime,
-        reverse=True
-    )
-
-    if not breaks:
-        logger.error("No breaks available in breaks directory")
+    # Find most recent fresh break
+    try:
+        next_break = get_fresh_break()
+    except FileNotFoundError as e:
+        logger.error(str(e))
         sys.exit(1)
-
-    next_break = breaks[0]
-    logger.info(f"Found most recent break: {next_break.name}")
+    except StaleBreakError as e:
+        logger.error(str(e))
+        sys.exit(1)
 
     # Final existence check to minimize TOCTOU race window
     # (file could still be deleted after this check, but push_track will handle gracefully)

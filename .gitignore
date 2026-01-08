@@ -126,3 +126,6 @@ bin/
 *.backup
 *.bak
 index.html.backup
+
+# Git worktrees
+.worktrees/
