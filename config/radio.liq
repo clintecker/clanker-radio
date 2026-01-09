@@ -195,6 +195,7 @@ log("Smart transition function defined (break-aware crossfading)")
 station_content_raw = switch(
     id="main_switch",
     track_sensitive=true,  # Waits for current track to finish before switching
+    replay_metadata=false,  # Don't persist break/bumper metadata to music tracks
     [
         # Level 1: Operator override (always highest priority)
         # source.is_ready checks if source has content ready to play
