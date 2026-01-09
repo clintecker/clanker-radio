@@ -626,7 +626,8 @@ def get_current_playing() -> tuple[dict | None, dict | None]:
             a.album,
             a.duration_sec,
             ph.played_at,
-            ph.source
+            ph.source,
+            a.kind
         FROM play_history ph
         LEFT JOIN assets a ON ph.asset_id = a.id
         WHERE ph.played_at >= ?
@@ -649,7 +650,8 @@ def get_current_playing() -> tuple[dict | None, dict | None]:
             "album": None,
             "duration_sec": 0,
             "played_at": row[5],
-            "source": row[6] if row[6] else "unknown"
+            "source": row[6] if row[6] else "unknown",
+            "kind": row[7] if row[7] else "unknown"
         }
     else:
         current = {
@@ -659,7 +661,8 @@ def get_current_playing() -> tuple[dict | None, dict | None]:
             "album": row[3],
             "duration_sec": row[4],
             "played_at": row[5],
-            "source": row[6]
+            "source": row[6],
+            "kind": row[7] if row[7] else "unknown"
         }
 
     # Get stream info (fast - Icecast responds in ~16ms)

@@ -101,17 +101,10 @@ def execute_record_play(filename, source_type, delay_sec) =
   end
 end
 
-# Music queue callback - fires 4s early, compensate with delay
-def music_callback(m) =
-  filename = m["filename"] ?? ""
-  if filename != "" then
-    log("[MUSIC QUEUED] #{filename} (playing in ~#{crossfade_music_duration}s)")
-    execute_record_play(filename, "music", crossfade_music_duration)
-  end
-end
-
-music_queue_raw.on_track(synchronous=true, music_callback)
-log("Music queue initialized with delayed callback (compensates for 4s crossfade buffer)")
+# Music queue - no callback here
+# Music tracks are tracked at the output level (radio.on_track) after all
+# switching/crossfading decisions are made, so interrupted tracks aren't recorded
+log("Music queue initialized (tracking handled at output level)")
 
 # ============================================================================
 # BREAK QUEUE SETUP
@@ -217,6 +210,28 @@ station_content_raw = switch(
 
 log("Switch configured: overrides and breaks interrupt music at track boundaries")
 
+# Track all content types at switch output level (before crossfade)
+# This ensures callbacks fire when tracks are actually selected to play
+station_content_raw.on_track(synchronous=true, fun(m) -> begin
+    filename = m["filename"] ?? ""
+
+    if filename != "" then
+        # Track different content types based on path
+        if string.contains(substring="/breaks/", filename) then
+            log("[BREAK START] #{filename}")
+            execute_record_play(filename, "break", 0.0)
+        elsif string.contains(substring="/bumpers/", filename) then
+            log("[BUMPER START] #{filename}")
+            execute_record_play(filename, "bumper", 0.0)
+        elsif string.contains(substring="/music/", filename) then
+            log("[MUSIC START] #{filename}")
+            execute_record_play(filename, "music", 0.0)
+        end
+    end
+end)
+
+log("Play tracking enabled at switch output level (before crossfade)")
+
 # Apply smart transition using cross() operator
 # Duration should accommodate the longest transition (4 seconds)
 station_content = cross(duration=4.0, smart_transition, station_content_raw)
@@ -274,28 +289,8 @@ log("Volume normalization enabled (gentle settings)")
 # Play Tracking
 # =============================================================================
 
-# Track breaks, bumpers, and beds at the main output level
-# (Music is tracked on the queue before crossfading)
-# Breaks/bumpers play immediately (no crossfade), so no delay needed
-radio.on_track(synchronous=true, fun(m) -> begin
-    filename = m["filename"] ?? ""
-
-    if filename != "" then
-        # Track different content types based on path
-        if string.contains(substring="/breaks/", filename) then
-            log("[BREAK START] #{filename}")
-            execute_record_play(filename, "break", crossfade_break_duration)
-        elsif string.contains(substring="/bumpers/", filename) then
-            log("[BUMPER START] #{filename}")
-            execute_record_play(filename, "bumper", crossfade_break_duration)
-        elsif string.contains(substring="/beds/", filename) then
-            # Beds aren't in database, just log
-            log("Bed playing: #{filename}")
-        end
-    end
-end)
-
-log("Play tracking enabled for breaks, bumpers, and beds")
+# All play tracking is done at the switch output level (station_content_raw)
+# See lines 215-231 where callbacks are attached before the cross() operator
 
 # =============================================================================
 # Icecast Output - Multiple Bitrates

@@ -36,11 +36,33 @@ last_state: Optional[str] = None
 
 async def sse_handler(request: web.Request) -> web.StreamResponse:
     """SSE endpoint - keeps connection open and pushes updates."""
+    # Check Origin header for CORS
+    origin = request.headers.get("Origin", "")
+    allowed = False
+
+    # Allow requests from clintecker.com and any subdomain
+    if origin.endswith(".clintecker.com") or origin.endswith("clintecker.com"):
+        # Verify it's actually a subdomain (not evil-clintecker.com)
+        if origin.startswith("http://") or origin.startswith("https://"):
+            domain_part = origin.split("://")[1]
+            if domain_part == "clintecker.com" or domain_part.endswith(".clintecker.com"):
+                allowed = True
+
+    # Reject if origin doesn't match
+    if not allowed and origin:
+        logger.warning(f"Rejected SSE connection from unauthorized origin: {origin}")
+        return web.Response(text="Forbidden", status=403)
+
     response = web.StreamResponse()
     response.headers["Content-Type"] = "text/event-stream"
     response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
     response.headers["Connection"] = "keep-alive"
-    response.headers["Access-Control-Allow-Origin"] = "*"
+
+    # Set CORS header to the requesting origin if allowed
+    if allowed and origin:
+        response.headers["Access-Control-Allow-Origin"] = origin
+        response.headers["Access-Control-Allow-Credentials"] = "true"
+
     response.headers["X-Accel-Buffering"] = "no"  # Disable nginx buffering
 
     await response.prepare(request)
