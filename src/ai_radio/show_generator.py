@@ -178,3 +178,95 @@ Generate the dialogue now:"""
     except Exception as e:
         logger.exception("Interview script generation failed")
         raise RuntimeError(f"Failed to generate interview script: {e}")
+
+
+def generate_discussion_script(topics: List[str], personas: List[Dict[str, str]]) -> str:
+    """Generate two-host discussion format script.
+
+    Args:
+        topics: List of topic strings to cover
+        personas: List of persona dicts with 'name' and 'traits' keys
+                  Both personas are co-equal hosts (not host/expert)
+
+    Returns:
+        Generated script with [speaker: Name] tags
+
+    Raises:
+        ValueError: If inputs are invalid or response format is wrong
+        RuntimeError: If API call fails
+    """
+    # API key validation (check first so tests can verify this error)
+    if not config.api_keys.gemini_api_key:
+        raise ValueError("RADIO_GEMINI_API_KEY not configured")
+
+    # Input validation
+    if not topics or len(topics) == 0:
+        raise ValueError("Cannot generate script without topics")
+
+    if not personas or len(personas) == 0:
+        raise ValueError("Cannot generate script without personas")
+
+    try:
+        client = genai.Client(api_key=config.api_keys.gemini_api_key.get_secret_value())
+
+        # Both personas are co-equal hosts (not host/expert dynamic)
+        host_a = personas[0] if len(personas) > 0 else {"name": "Host A", "traits": "engaging"}
+        host_b = personas[1] if len(personas) > 1 else {"name": "Host B", "traits": "thoughtful"}
+        topics_text = "\n".join([f"- {topic}" for topic in topics])
+
+        prompt = f"""Generate an 8-minute discussion-style radio dialogue (~1,200 words).
+
+PERSONAS (both are CO-EQUAL hosts, not host/expert):
+- Host A: {host_a['name']} - {host_a['traits']}
+- Host B: {host_b['name']} - {host_b['traits']}
+
+TOPICS TO COVER:
+{topics_text}
+
+OUTPUT FORMAT - Use speaker aliases exactly as shown:
+[speaker: {host_a['name']}] Dialogue here...
+[speaker: {host_b['name']}] Response here...
+
+STRUCTURE:
+1. {host_a['name']} opens with topic overview
+2. {host_b['name']} presents a contrasting perspective
+3. Back-and-forth debate with genuine disagreement
+4. {host_b['name']} closes with synthesis
+
+CRITICAL REQUIREMENTS:
+- Create genuine disagreement and contrasting viewpoints
+- Avoid "I agree" or "great point" filler
+- No one-sided validation - they should challenge each other
+- Both hosts are equals debating ideas, not interviewing
+- Natural conversational flow with back-and-forth exchanges
+- End with {host_b['name']} synthesizing the discussion
+
+CONSTRAINTS:
+- Exactly 1,200 words (±50 words)
+- Must be under 7,500 bytes total
+- Use the EXACT speaker format shown above
+
+Generate the dialogue now:"""
+
+        logger.debug(f"Generating discussion script with topics: {topics}")
+
+        response = client.models.generate_content(
+            model="gemini-2.0-flash-exp",
+            contents=prompt
+        )
+
+        script = response.text.strip()
+
+        # Validate response format
+        if "[speaker:" not in script:
+            raise ValueError("No speaker tags found in response")
+
+        logger.info(f"Generated discussion script: {len(script)} characters")
+        return script
+
+    except ValueError:
+        # Re-raise validation errors
+        raise
+    except Exception as e:
+        logger.exception("Discussion script generation failed")
+        raise RuntimeError(f"Failed to generate discussion script: {e}")
