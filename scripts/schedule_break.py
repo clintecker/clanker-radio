@@ -26,14 +26,15 @@ def main():
     """Main entry point"""
     now = datetime.now()
 
-    # Check if we're within 5 minutes of the hour
+    # Schedule during minute :59 for :00 top-of-hour break
+    # (Same pattern as station IDs: schedule 1 minute before target)
     minutes = now.minute
 
-    if minutes >= 5:
-        logger.info(f"Not near top of hour (minute: {minutes}), skipping")
+    if minutes != 59:
+        logger.info(f"Not at :59 minute (current: {minutes}), skipping")
         sys.exit(0)
 
-    logger.info("Near top of hour, scheduling break...")
+    logger.info("At :59, scheduling break for top of hour...")
 
     # Check if break already queued (prevent double-scheduling)
     client = LiquidsoapClient()
