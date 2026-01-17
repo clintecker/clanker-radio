@@ -2,7 +2,7 @@
 import json
 import pytest
 from datetime import datetime
-from ai_radio.show_models import ShowSchedule
+from ai_radio.show_models import ShowSchedule, GeneratedShow
 
 
 def test_create_show_schedule(tmp_path):
@@ -30,12 +30,13 @@ def test_create_show_schedule(tmp_path):
     assert schedule.active is True
 
 
-def test_create_generated_show():
-    """Test creating a GeneratedShow with all required fields."""
-    from ai_radio.show_models import GeneratedShow
+def test_generated_show_initialization_with_pending_status():
+    """Test GeneratedShow object initialization with pending status.
 
+    This tests in-memory object creation only, not database persistence.
+    """
     show = GeneratedShow(
-        schedule_id=1,
+        schedule_id=999,
         air_date="2026-01-18",
         status="pending",
         retry_count=0,
@@ -45,7 +46,11 @@ def test_create_generated_show():
         error_message=None
     )
 
-    assert show.schedule_id == 1
+    assert show.schedule_id == 999
     assert show.air_date == "2026-01-18"
     assert show.status == "pending"
     assert show.retry_count == 0
+    assert show.script_text is None
+    assert show.asset_id is None
+    assert show.generated_at is None
+    assert show.error_message is None
