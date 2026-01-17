@@ -1,7 +1,7 @@
 """Tests for show generation pipeline."""
 import pytest
 from unittest.mock import Mock, patch
-from ai_radio.show_generator import research_topics
+from ai_radio.show_generator import research_topics, generate_interview_script
 
 
 @patch('ai_radio.show_generator.genai.Client')
@@ -129,9 +129,15 @@ def test_research_topics_api_failure(mock_client_class):
         research_topics("Bitcoin news")
 
 
+@patch('ai_radio.show_generator.config')
 @patch('ai_radio.show_generator.genai.Client')
-def test_generate_interview_script(mock_client_class):
-    """Test generating interview-format script."""
+def test_generate_interview_script(mock_client_class, mock_config):
+    """Test generating interview-format script with multiple speakers."""
+    # Mock API key
+    mock_api_key = Mock()
+    mock_api_key.get_secret_value.return_value = "fake-api-key"
+    mock_config.api_keys.gemini_api_key = mock_api_key
+
     # Mock the Gemini API response
     mock_client = Mock()
     mock_client_class.return_value = mock_client
@@ -146,8 +152,6 @@ def test_generate_interview_script(mock_client_class):
 [speaker: Dr. Chen] This cycle is fundamentally different because the buyers are sophisticated institutional investors with long-term horizons, not retail speculators.'''
     mock_client.models.generate_content.return_value = mock_response
 
-    from ai_radio.show_generator import generate_interview_script
-
     script = generate_interview_script(
         topics=["Bitcoin institutional adoption", "Market cycle analysis"],
         personas=[
@@ -161,3 +165,76 @@ def test_generate_interview_script(mock_client_class):
     assert "[speaker: Sarah]" in script
     assert "[speaker: Dr. Chen]" in script
     assert "Bitcoin" in script or "bitcoin" in script
+
+
+def test_generate_interview_script_empty_topics():
+    """Test that empty topics list raises ValueError."""
+    with pytest.raises(ValueError, match="Cannot generate script without topics"):
+        generate_interview_script(
+            topics=[],
+            personas=[{"name": "Host", "traits": "engaging"}]
+        )
+
+
+def test_generate_interview_script_empty_personas():
+    """Test that empty personas list raises ValueError."""
+    with pytest.raises(ValueError, match="Cannot generate script without personas"):
+        generate_interview_script(
+            topics=["Bitcoin news"],
+            personas=[]
+        )
+
+
+@patch('ai_radio.show_generator.config')
+def test_generate_interview_script_missing_api_key(mock_config):
+    """Test that missing API key raises ValueError."""
+    mock_config.api_keys.gemini_api_key = None
+    with pytest.raises(ValueError, match="RADIO_GEMINI_API_KEY not configured"):
+        generate_interview_script(
+            topics=["Bitcoin news"],
+            personas=[{"name": "Host", "traits": "engaging"}]
+        )
+
+
+@patch('ai_radio.show_generator.config')
+@patch('ai_radio.show_generator.genai.Client')
+def test_generate_interview_script_api_failure(mock_client_class, mock_config):
+    """Test that general API error raises RuntimeError."""
+    # Mock API key
+    mock_api_key = Mock()
+    mock_api_key.get_secret_value.return_value = "fake-api-key"
+    mock_config.api_keys.gemini_api_key = mock_api_key
+
+    mock_client = Mock()
+    mock_client_class.return_value = mock_client
+
+    mock_client.models.generate_content.side_effect = Exception("API connection failed")
+
+    with pytest.raises(RuntimeError, match="Failed to generate interview script"):
+        generate_interview_script(
+            topics=["Bitcoin news"],
+            personas=[{"name": "Host", "traits": "engaging"}]
+        )
+
+
+@patch('ai_radio.show_generator.config')
+@patch('ai_radio.show_generator.genai.Client')
+def test_generate_interview_script_invalid_format(mock_client_class, mock_config):
+    """Test that response without speaker tags raises ValueError."""
+    # Mock API key
+    mock_api_key = Mock()
+    mock_api_key.get_secret_value.return_value = "fake-api-key"
+    mock_config.api_keys.gemini_api_key = mock_api_key
+
+    mock_client = Mock()
+    mock_client_class.return_value = mock_client
+
+    mock_response = Mock()
+    mock_response.text = "This is just plain text without any speaker tags."
+    mock_client.models.generate_content.return_value = mock_response
+
+    with pytest.raises(ValueError, match="No speaker tags found in response"):
+        generate_interview_script(
+            topics=["Bitcoin news"],
+            personas=[{"name": "Host", "traits": "engaging"}]
+        )
