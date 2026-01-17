@@ -14,7 +14,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 from ai_radio.show_repository import ShowRepository
 from ai_radio.liquidsoap_client import LiquidsoapClient
-from ai_radio.show_models import ShowSchedule
+from ai_radio.show_models import ShowSchedule, ShowStatus, LiquidsoapQueue
 from ai_radio.config import config
 
 logging.basicConfig(
@@ -96,7 +96,7 @@ def check_scheduled_shows() -> None:
 
             # Enqueue to Liquidsoap
             try:
-                success = client.push_track('breaks', str(asset_path))
+                success = client.push_track(LiquidsoapQueue.BREAKS, str(asset_path))
                 if success:
                     logger.info(f"Enqueued show: {schedule.name}")
                 else:

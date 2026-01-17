@@ -3,6 +3,29 @@ from dataclasses import dataclass
 from typing import Optional
 
 
+# Show generation status constants
+class ShowStatus:
+    """Status values for GeneratedShow state machine."""
+    PENDING = "pending"
+    SCRIPT_COMPLETE = "script_complete"
+    READY = "ready"
+    SCRIPT_FAILED = "script_failed"
+    AUDIO_FAILED = "audio_failed"
+
+
+# Show format constants
+class ShowFormat:
+    """Supported show formats."""
+    INTERVIEW = "interview"
+    TWO_HOST_DISCUSSION = "two_host_discussion"
+
+
+# Liquidsoap queue constants
+class LiquidsoapQueue:
+    """Liquidsoap queue names."""
+    BREAKS = "breaks"
+
+
 @dataclass
 class ShowSchedule:
     """Represents a scheduled AI-generated radio show.

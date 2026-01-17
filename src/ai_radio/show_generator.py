@@ -1,6 +1,7 @@
 """Show generation pipeline orchestration."""
 import json
 import logging
+import sqlite3
 import subprocess
 import tempfile
 from datetime import datetime
@@ -11,6 +12,7 @@ from google import genai
 from .config import config
 from .voice_synth import AudioFile
 from .ingest import ingest_audio_file
+from .show_models import ShowStatus, ShowFormat
 
 logger = logging.getLogger(__name__)
 
@@ -418,7 +420,7 @@ class ShowGenerator:
         """Generate complete show from schedule.
 
         Orchestrates the full pipeline from research through to ready asset:
-        1. Check if resuming from script_complete (skip research/script)
+        1. Check if resuming from ShowStatus.SCRIPT_COMPLETE (skip research/script)
         2. If pending: research topics → generate script → update DB
         3. Generate audio from script
         4. Ingest audio to assets
@@ -429,16 +431,16 @@ class ShowGenerator:
             show: GeneratedShow with id, status, script_text
 
         State transitions:
-            - pending → script_complete → ready
+            - pending → ShowStatus.SCRIPT_COMPLETE → ready
             - pending → script_failed (on research/script error)
-            - script_complete → ready (resumption path)
-            - script_complete → audio_failed (on audio error)
+            - ShowStatus.SCRIPT_COMPLETE → ready (resumption path)
+            - ShowStatus.SCRIPT_COMPLETE → audio_failed (on audio error)
         """
         logger.info(f"Starting show generation for show ID {show.id} (status: {show.status})")
 
         try:
             # Check if resuming from script_complete state
-            if show.status == "script_complete":
+            if show.status == ShowStatus.SCRIPT_COMPLETE:
                 logger.info("Resuming from script_complete state")
                 script_text = show.script_text
             else:
@@ -456,13 +458,13 @@ class ShowGenerator:
                 personas = json.loads(schedule.personas)
 
                 # Generate script based on format
-                if schedule.format == "interview":
+                if schedule.format == ShowFormat.INTERVIEW:
                     script_text = generate_interview_script(
                         topics=topics,
                         personas=personas
                     )
                     logger.info("Generated interview script")
-                elif schedule.format == "two_host_discussion":
+                elif schedule.format == ShowFormat.TWO_HOST_DISCUSSION:
                     script_text = generate_discussion_script(
                         topics=topics,
                         personas=personas
@@ -473,15 +475,18 @@ class ShowGenerator:
 
                 # Update database with completed script
                 self.repository.update_show_script(show.id, script_text)
-                self.repository.update_show_status(show.id, "script_complete")
+                self.repository.update_show_status(show.id, ShowStatus.SCRIPT_COMPLETE)
                 logger.info("Script phase complete, updated database")
 
         except Exception as e:
             # Script generation failed
             logger.exception(f"Script generation failed for show {show.id}")
-            self.repository.update_show_status(show.id, "script_failed")
+            self.repository.update_show_status(show.id, ShowStatus.SCRIPT_FAILED)
             self.repository.update_show_error(show.id, str(e))
             return
+
+        # Generate temp file path for audio synthesis
+        output_path = config.paths.tmp_path / f"show_{show.id}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.mp3"
 
         try:
             # Phase 2: Audio synthesis
@@ -489,9 +494,6 @@ class ShowGenerator:
 
             # Parse personas again if not already parsed (for resume path)
             personas = json.loads(schedule.personas)
-
-            # Generate output path
-            output_path = config.paths.tmp_path / f"show_{show.id}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.mp3"
 
             # Synthesize audio
             audio_file = synthesize_show_audio(
@@ -516,17 +518,48 @@ class ShowGenerator:
             )
 
             asset_id = asset_dict["id"]
+            asset_filepath = Path(asset_dict["path"])
             logger.info(f"Audio ingested with asset ID: {asset_id}")
 
             # Update database with asset and mark as ready
-            self.repository.update_show_asset(show.id, asset_id)
-            self.repository.update_show_status(show.id, "ready")
+            try:
+                self.repository.update_show_asset(show.id, asset_id)
+                self.repository.update_show_status(show.id, ShowStatus.READY)
+                logger.info(f"Show {show.id} generation complete: ready with asset {asset_id}")
+            except Exception as db_error:
+                # DB update failed - cleanup orphaned asset
+                logger.warning(f"DB update failed for show {show.id}. Cleaning up orphaned asset: {asset_id}")
+                try:
+                    # Delete file from disk
+                    if asset_filepath.exists():
+                        asset_filepath.unlink()
+                        logger.info(f"Deleted orphaned file: {asset_filepath}")
 
-            logger.info(f"Show {show.id} generation complete: ready with asset {asset_id}")
+                    # Delete from assets table
+                    conn = sqlite3.connect(config.paths.db_path)
+                    try:
+                        conn.execute("DELETE FROM assets WHERE id = ?", (asset_id,))
+                        conn.commit()
+                        logger.info(f"Deleted orphaned asset record: {asset_id}")
+                    finally:
+                        conn.close()
+                except Exception as cleanup_error:
+                    logger.error(
+                        f"CRITICAL: Failed to cleanup orphaned asset {asset_id}: {cleanup_error}. "
+                        f"Manual cleanup required for file: {asset_filepath}"
+                    )
+                # Re-raise original DB error
+                raise db_error
 
         except Exception as e:
             # Audio synthesis or ingestion failed
             logger.exception(f"Audio synthesis failed for show {show.id}")
-            self.repository.update_show_status(show.id, "audio_failed")
+            self.repository.update_show_status(show.id, ShowStatus.AUDIO_FAILED)
             self.repository.update_show_error(show.id, str(e))
             return
+
+        finally:
+            # Always clean up temporary audio file
+            if output_path.exists():
+                output_path.unlink()
+                logger.debug(f"Cleaned up temporary audio file: {output_path.name}")
