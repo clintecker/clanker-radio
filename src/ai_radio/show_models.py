@@ -31,3 +31,29 @@ class ShowSchedule:
     id: Optional[int] = None
     created_at: Optional[str] = None
     updated_at: Optional[str] = None
+
+
+@dataclass
+class GeneratedShow:
+    """Represents a generated instance of a scheduled show.
+
+    Maps to generated_shows table. Tracks the state machine:
+    pending → script_complete → ready (or → script_failed / audio_failed)
+    """
+    schedule_id: int
+    air_date: str  # "2026-01-18"
+    status: str    # 'pending', 'script_complete', 'ready', 'script_failed', 'audio_failed'
+    retry_count: int
+
+    # Artifacts (populated during generation)
+    script_text: Optional[str] = None
+    asset_id: Optional[str] = None  # Hex ID from assets table
+
+    # Metadata
+    generated_at: Optional[str] = None
+    error_message: Optional[str] = None
+
+    # Auto-populated by DB (optional for creation)
+    id: Optional[int] = None
+    created_at: Optional[str] = None
+    updated_at: Optional[str] = None
