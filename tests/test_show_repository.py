@@ -14,7 +14,9 @@ def test_db(tmp_path):
     conn = sqlite3.connect(str(db_path))
 
     # Apply migration
-    migration_sql = Path("db/migrations/005_add_scheduled_shows.sql").read_text()
+    project_root = Path(__file__).parent.parent
+    migration_path = project_root / "db/migrations/005_add_scheduled_shows.sql"
+    migration_sql = migration_path.read_text()
     conn.executescript(migration_sql)
     conn.close()
 
@@ -22,7 +24,11 @@ def test_db(tmp_path):
 
 
 def test_create_schedule(test_db):
-    """Test creating and retrieving a schedule."""
+    """Test creating a show schedule persists to database correctly.
+
+    Verifies schedule can be created, saved, and retrieved with
+    fields properly persisted including JSON-encoded fields.
+    """
     repo = ShowRepository(test_db)
 
     schedule = ShowSchedule(
@@ -48,3 +54,13 @@ def test_create_schedule(test_db):
     retrieved = repo.get_schedule(saved_id)
     assert retrieved.name == "Tech Talk"
     assert retrieved.format == "interview"
+    assert retrieved.timezone == "America/Chicago"
+    assert retrieved.duration_minutes == 8
+    assert retrieved.active is True
+
+    days = json.loads(retrieved.days_of_week)
+    assert days == [1, 3, 5]
+
+    personas_list = json.loads(retrieved.personas)
+    assert len(personas_list) == 2
+    assert personas_list[0]["name"] == "Host"
