@@ -27,7 +27,17 @@ class ScheduleParser:
     """Parse natural language show schedules."""
 
     def __init__(self):
-        self.client = genai.Client(api_key=config.api_keys.gemini_api_key)
+        """Initialize the schedule parser.
+
+        Raises:
+            ValueError: If RADIO_GEMINI_API_KEY is not configured
+        """
+        if not config.api_keys.gemini_api_key:
+            raise ValueError("RADIO_GEMINI_API_KEY not configured")
+
+        self.client = genai.Client(
+            api_key=config.api_keys.gemini_api_key.get_secret_value()
+        )
 
     def parse(self, user_input: str) -> ParsedSchedule:
         """Parse natural language to structured schedule.
@@ -37,7 +47,18 @@ class ScheduleParser:
 
         Returns:
             ParsedSchedule with structured data
+
+        Raises:
+            ValueError: If input is empty, too long, JSON is invalid, or required fields are missing
+            RuntimeError: If API call or parsing fails
         """
+        # Input validation
+        if not user_input or not user_input.strip():
+            raise ValueError("Cannot parse empty schedule description")
+
+        if len(user_input) > 2000:
+            raise ValueError("Schedule description too long (max 2000 characters)")
+
         prompt = f"""Parse this radio show schedule into structured JSON:
 
 "{user_input}"
@@ -62,28 +83,55 @@ Time: 24-hour format like "14:30"
 Format: Use "interview" for host+expert, "two_host_discussion" for two hosts debating
 """
 
-        response = self.client.models.generate_content(
-            model="gemini-2.0-flash-exp",
-            contents=prompt
-        )
+        try:
+            response = self.client.models.generate_content(
+                model="gemini-2.0-flash-exp",
+                contents=prompt
+            )
 
-        # Extract JSON from response
-        text = response.text.strip()
-        if text.startswith("```"):
-            # Remove markdown code blocks
-            text = text.split("```")[1]
-            if text.startswith("json"):
-                text = text[4:]
+            # Extract JSON from response
+            text = response.text.strip()
+            if text.startswith("```"):
+                # Remove markdown code blocks
+                text = text.split("```")[1]
+                if text.startswith("json"):
+                    text = text[4:]
 
-        data = json.loads(text.strip())
+            data = json.loads(text.strip())
 
-        return ParsedSchedule(
-            name=data["name"],
-            format=data["format"],
-            topic_area=data["topic_area"],
-            days_of_week=data["days_of_week"],
-            start_time=data["start_time"],
-            duration_minutes=data.get("duration_minutes", 8),
-            personas=data["personas"],
-            content_guidance=data.get("content_guidance", "")
-        )
+            # Validate required fields
+            required_fields = [
+                "name",
+                "format",
+                "topic_area",
+                "days_of_week",
+                "start_time",
+                "personas"
+            ]
+            missing = [f for f in required_fields if f not in data]
+            if missing:
+                raise ValueError(f"Response missing required fields: {missing}")
+
+            return ParsedSchedule(
+                name=data["name"],
+                format=data["format"],
+                topic_area=data["topic_area"],
+                days_of_week=data["days_of_week"],
+                start_time=data["start_time"],
+                duration_minutes=data.get("duration_minutes", 8),
+                personas=data["personas"],
+                content_guidance=data.get("content_guidance", "")
+            )
+
+        except json.JSONDecodeError as e:
+            logger.error(f"Failed to parse Gemini response as JSON: {e}")
+            raise ValueError(f"Invalid JSON response from Gemini: {e}")
+        except ValueError:
+            # Re-raise ValueError (from missing fields check or JSONDecodeError)
+            raise
+        except KeyError as e:
+            logger.error(f"Missing required field: {e}")
+            raise ValueError(f"Incomplete schedule data: {e}")
+        except Exception as e:
+            logger.exception("Schedule parsing failed")
+            raise RuntimeError(f"Failed to parse schedule: {e}")
