@@ -38,6 +38,23 @@ def should_air_now(schedule: ShowSchedule, now: datetime) -> bool:
 
     Returns:
         True if schedule should be airing now, False otherwise
+
+    DST Handling:
+        Python's ZoneInfo handles Daylight Saving Time transitions automatically:
+
+        Spring Forward (2AM -> 3AM):
+            - Times in the gap (e.g., 2:30AM) don't exist
+            - Shows scheduled during the gap won't air
+            - ZoneInfo skips non-existent times using fold-aware handling
+
+        Fall Back (2AM happens twice):
+            - Times in the overlap are ambiguous (happen twice)
+            - Python uses fold=0 by default (first occurrence)
+            - Shows scheduled in the overlap air during first occurrence only
+            - Minute-based polling prevents duplicate airings
+
+        The polling interval (1 minute) ensures shows air once per scheduled time,
+        even during DST transitions.
     """
     # Parse days_of_week from JSON
     days_of_week = json.loads(schedule.days_of_week)
