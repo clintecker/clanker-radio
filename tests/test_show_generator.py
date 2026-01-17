@@ -127,3 +127,37 @@ def test_research_topics_api_failure(mock_client_class):
 
     with pytest.raises(RuntimeError, match="Failed to research topics"):
         research_topics("Bitcoin news")
+
+
+@patch('ai_radio.show_generator.genai.Client')
+def test_generate_interview_script(mock_client_class):
+    """Test generating interview-format script."""
+    # Mock the Gemini API response
+    mock_client = Mock()
+    mock_client_class.return_value = mock_client
+
+    mock_response = Mock()
+    mock_response.text = '''[speaker: Sarah] Welcome to Crypto Insights. Today we're joined by blockchain expert Dr. Chen to discuss recent Bitcoin developments. Dr. Chen, what's driving the current price surge?
+
+[speaker: Dr. Chen] Thanks for having me, Sarah. The primary factor is institutional adoption. We're seeing major corporations adding Bitcoin to their treasury reserves.
+
+[speaker: Sarah] That's fascinating. How does this compare to previous market cycles?
+
+[speaker: Dr. Chen] This cycle is fundamentally different because the buyers are sophisticated institutional investors with long-term horizons, not retail speculators.'''
+    mock_client.models.generate_content.return_value = mock_response
+
+    from ai_radio.show_generator import generate_interview_script
+
+    script = generate_interview_script(
+        topics=["Bitcoin institutional adoption", "Market cycle analysis"],
+        personas=[
+            {"name": "Sarah", "traits": "curious, engaging host"},
+            {"name": "Dr. Chen", "traits": "analytical blockchain expert"}
+        ]
+    )
+
+    assert isinstance(script, str)
+    assert len(script) > 0
+    assert "[speaker: Sarah]" in script
+    assert "[speaker: Dr. Chen]" in script
+    assert "Bitcoin" in script or "bitcoin" in script
