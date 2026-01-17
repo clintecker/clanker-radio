@@ -30,9 +30,14 @@ def research_topics(topic_area: str, content_guidance: str = "") -> List[str]:
     if len(topic_area) > 500:
         raise ValueError("Topic area too long (max 500 characters)")
 
+    if content_guidance and len(content_guidance) > 1000:
+        raise ValueError("Content guidance too long (max 1000 characters)")
+
     # API key validation
     if not config.api_keys.gemini_api_key:
         raise ValueError("RADIO_GEMINI_API_KEY not configured")
+
+    logger.debug(f"Starting topic research for: {topic_area[:100]}...")
 
     try:
         client = genai.Client(api_key=config.api_keys.gemini_api_key.get_secret_value())
@@ -75,7 +80,7 @@ Be specific and concrete. Each topic should be a complete sentence."""
         if not all(isinstance(t, str) for t in topics):
             raise ValueError("Not all topics are strings")
 
-        logger.info(f"Researched {len(topics)} topics for {topic_area}")
+        logger.info(f"Researched {len(topics)} topics for '{topic_area}': {topics}")
         return topics
 
     except json.JSONDecodeError as e:
