@@ -1,6 +1,13 @@
 """Shared test fixtures and utilities for all tests."""
 
+import sys
+from pathlib import Path
 from datetime import datetime
+
+# Add src and root directories to Python path for imports
+project_root = Path(__file__).parent.parent
+sys.path.insert(0, str(project_root / "src"))
+sys.path.insert(0, str(project_root))
 
 from ai_radio.weather import WeatherData, ForecastPeriod, HourlyForecast
 
