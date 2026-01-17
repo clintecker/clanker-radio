@@ -28,3 +28,24 @@ def test_create_show_schedule(tmp_path):
     assert schedule.format == "two_host_discussion"
     assert json.loads(schedule.days_of_week) == [1, 2, 3, 4, 5]
     assert schedule.active is True
+
+
+def test_create_generated_show():
+    """Test creating a GeneratedShow with all required fields."""
+    from ai_radio.show_models import GeneratedShow
+
+    show = GeneratedShow(
+        schedule_id=1,
+        air_date="2026-01-18",
+        status="pending",
+        retry_count=0,
+        script_text=None,
+        asset_id=None,
+        generated_at=None,
+        error_message=None
+    )
+
+    assert show.schedule_id == 1
+    assert show.air_date == "2026-01-18"
+    assert show.status == "pending"
+    assert show.retry_count == 0
