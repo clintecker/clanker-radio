@@ -10,6 +10,7 @@ from google import genai
 
 from .config import config
 from .voice_synth import AudioFile
+from .ingest import ingest_audio_file
 
 logger = logging.getLogger(__name__)
 
@@ -396,3 +397,136 @@ def synthesize_show_audio(
     except Exception as e:
         logger.exception("Audio synthesis failed")
         raise RuntimeError(f"Failed to synthesize audio: {e}")
+
+
+class ShowGenerator:
+    """Orchestrates complete show generation pipeline.
+
+    Coordinates: research → script → audio → ingest → database updates
+    Handles state machine transitions and error recovery.
+    """
+
+    def __init__(self, repository):
+        """Initialize show generator.
+
+        Args:
+            repository: Repository instance with database update methods
+        """
+        self.repository = repository
+
+    def generate(self, schedule, show) -> None:
+        """Generate complete show from schedule.
+
+        Orchestrates the full pipeline from research through to ready asset:
+        1. Check if resuming from script_complete (skip research/script)
+        2. If pending: research topics → generate script → update DB
+        3. Generate audio from script
+        4. Ingest audio to assets
+        5. Update DB to ready with asset_id
+
+        Args:
+            schedule: ShowSchedule with format, topics, personas
+            show: GeneratedShow with id, status, script_text
+
+        State transitions:
+            - pending → script_complete → ready
+            - pending → script_failed (on research/script error)
+            - script_complete → ready (resumption path)
+            - script_complete → audio_failed (on audio error)
+        """
+        logger.info(f"Starting show generation for show ID {show.id} (status: {show.status})")
+
+        try:
+            # Check if resuming from script_complete state
+            if show.status == "script_complete":
+                logger.info("Resuming from script_complete state")
+                script_text = show.script_text
+            else:
+                # Phase 1: Research and script generation
+                logger.info("Phase 1: Research and script generation")
+
+                # Research topics
+                topics = research_topics(
+                    topic_area=schedule.topic_area,
+                    content_guidance=schedule.content_guidance or ""
+                )
+                logger.info(f"Researched {len(topics)} topics")
+
+                # Parse personas from JSON string
+                personas = json.loads(schedule.personas)
+
+                # Generate script based on format
+                if schedule.format == "interview":
+                    script_text = generate_interview_script(
+                        topics=topics,
+                        personas=personas
+                    )
+                    logger.info("Generated interview script")
+                elif schedule.format == "two_host_discussion":
+                    script_text = generate_discussion_script(
+                        topics=topics,
+                        personas=personas
+                    )
+                    logger.info("Generated discussion script")
+                else:
+                    raise ValueError(f"Invalid show format: {schedule.format}")
+
+                # Update database with completed script
+                self.repository.update_show_script(show.id, script_text)
+                self.repository.update_show_status(show.id, "script_complete")
+                logger.info("Script phase complete, updated database")
+
+        except Exception as e:
+            # Script generation failed
+            logger.exception(f"Script generation failed for show {show.id}")
+            self.repository.update_show_status(show.id, "script_failed")
+            self.repository.update_show_error(show.id, str(e))
+            return
+
+        try:
+            # Phase 2: Audio synthesis
+            logger.info("Phase 2: Audio synthesis")
+
+            # Parse personas again if not already parsed (for resume path)
+            personas = json.loads(schedule.personas)
+
+            # Generate output path
+            output_path = config.paths.tmp_path / f"show_{show.id}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.mp3"
+
+            # Synthesize audio
+            audio_file = synthesize_show_audio(
+                script_text=script_text,
+                personas=personas,
+                output_path=output_path
+            )
+
+            if not audio_file:
+                raise RuntimeError("Audio synthesis returned None")
+
+            logger.info(f"Audio synthesized: {audio_file.duration_estimate:.1f}s")
+
+            # Phase 3: Ingest audio to assets
+            logger.info("Phase 3: Ingesting audio to assets")
+
+            asset_dict = ingest_audio_file(
+                source_path=audio_file.file_path,
+                kind="break",
+                db_path=config.paths.db_path,
+                output_dir=config.paths.music_path
+            )
+
+            asset_id = asset_dict["id"]
+            logger.info(f"Audio ingested with asset ID: {asset_id}")
+
+            # Update database with asset and mark as ready
+            self.repository.update_show_asset(show.id, asset_id)
+            self.repository.update_show_status(show.id, "ready")
+
+            logger.info(f"Show {show.id} generation complete: ready with asset {asset_id}")
+
+        except Exception as e:
+            # Audio synthesis or ingestion failed
+            logger.exception(f"Audio synthesis failed for show {show.id}")
+            self.repository.update_show_status(show.id, "audio_failed")
+            self.repository.update_show_error(show.id, str(e))
+            return
