@@ -1,10 +1,15 @@
 """Show generation pipeline orchestration."""
 import json
 import logging
-from typing import Dict, List
+import subprocess
+import tempfile
+from datetime import datetime
+from pathlib import Path
+from typing import Dict, List, Optional
 from google import genai
 
 from .config import config
+from .voice_synth import AudioFile
 
 logger = logging.getLogger(__name__)
 
@@ -270,3 +275,124 @@ Generate the dialogue now:"""
     except Exception as e:
         logger.exception("Discussion script generation failed")
         raise RuntimeError(f"Failed to generate discussion script: {e}")
+
+
+def synthesize_show_audio(
+    script_text: str,
+    personas: List[Dict[str, str]],
+    output_path: Path
+) -> Optional[AudioFile]:
+    """Synthesize multi-speaker audio from script.
+
+    Args:
+        script_text: Script with [speaker: Name] tags
+        personas: List of persona dicts with 'name' and 'traits' keys
+        output_path: Path where audio file will be saved
+
+    Returns:
+        AudioFile with metadata, or None if synthesis fails
+
+    Raises:
+        ValueError: If inputs are invalid
+        RuntimeError: If synthesis fails
+    """
+    # API key validation (check first)
+    if not config.api_keys.gemini_api_key:
+        raise ValueError("RADIO_GEMINI_API_KEY not configured")
+
+    # Input validation
+    if not script_text or not script_text.strip():
+        raise ValueError("Cannot synthesize empty script")
+
+    if "[speaker:" not in script_text:
+        raise ValueError("No speaker tags found in script")
+
+    if not personas or len(personas) == 0:
+        raise ValueError("Cannot synthesize without personas")
+
+    try:
+        # Extract speaker names from personas
+        speaker_names = [p["name"] for p in personas]
+        voice = ", ".join(speaker_names)
+
+        logger.debug(f"Synthesizing audio for speakers: {voice}")
+
+        # Call Gemini TTS API
+        client = genai.Client(api_key=config.api_keys.gemini_api_key.get_secret_value())
+
+        response = client.models.generate_content(
+            model="gemini-2.5-flash-preview-tts",
+            contents=script_text
+        )
+
+        # Extract PCM audio data from response
+        if not response.candidates or not response.candidates[0].content.parts:
+            raise RuntimeError("No audio data in Gemini response")
+
+        audio_data = response.candidates[0].content.parts[0].inline_data.data
+
+        if not audio_data:
+            raise RuntimeError("No audio inline_data in Gemini response")
+
+        # Create output directory if needed
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+
+        # Write PCM data to temporary file
+        with tempfile.NamedTemporaryFile(suffix='.pcm', delete=False) as pcm_file:
+            pcm_file.write(audio_data)
+            pcm_path = pcm_file.name
+
+        try:
+            # Convert PCM to MP3 using ffmpeg
+            # Gemini TTS outputs 24kHz 16-bit mono PCM
+            result = subprocess.run(
+                [
+                    "ffmpeg",
+                    "-y",  # Overwrite output file
+                    "-f", "s16le",  # Format: signed 16-bit little-endian
+                    "-ar", "24000",  # Sample rate: 24kHz
+                    "-ac", "1",  # Audio channels: mono
+                    "-i", pcm_path,  # Input PCM file
+                    "-c:a", "libmp3lame",
+                    "-q:a", "2",  # High quality MP3
+                    str(output_path),
+                ],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+
+            if result.returncode != 0:
+                logger.error(f"ffmpeg PCM conversion failed: {result.stderr}")
+                raise RuntimeError("Failed to synthesize audio")
+
+        finally:
+            # Clean up temp PCM file
+            Path(pcm_path).unlink(missing_ok=True)
+
+        # Estimate duration (150 words per minute)
+        word_count = len(script_text.split())
+        duration_estimate = (word_count / 150) * 60  # Convert to seconds
+
+        logger.info(
+            f"Show audio synthesis complete: {output_path} "
+            f"(~{duration_estimate:.1f}s, {word_count} words, voices: {voice})"
+        )
+
+        return AudioFile(
+            file_path=output_path,
+            duration_estimate=duration_estimate,
+            timestamp=datetime.now(),
+            voice=voice,
+            model="gemini-2.5-flash-preview-tts"
+        )
+
+    except ValueError:
+        # Re-raise validation errors
+        raise
+    except RuntimeError:
+        # Re-raise runtime errors
+        raise
+    except Exception as e:
+        logger.exception("Audio synthesis failed")
+        raise RuntimeError(f"Failed to synthesize audio: {e}")

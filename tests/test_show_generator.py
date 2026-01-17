@@ -1,7 +1,9 @@
 """Tests for show generation pipeline."""
 import pytest
+from pathlib import Path
 from unittest.mock import Mock, patch
-from ai_radio.show_generator import research_topics, generate_interview_script
+from ai_radio.show_generator import research_topics, generate_interview_script, generate_discussion_script, synthesize_show_audio
+from ai_radio.voice_synth import AudioFile
 
 
 @patch('ai_radio.show_generator.genai.Client')
@@ -238,3 +240,271 @@ def test_generate_interview_script_invalid_format(mock_client_class, mock_config
             topics=["Bitcoin news"],
             personas=[{"name": "Host", "traits": "engaging"}]
         )
+
+
+@patch('ai_radio.show_generator.config')
+@patch('ai_radio.show_generator.genai.Client')
+def test_generate_discussion_script(mock_client_class, mock_config):
+    """Test generating discussion-format script with two co-equal hosts."""
+    # Mock API key
+    mock_api_key = Mock()
+    mock_api_key.get_secret_value.return_value = "fake-api-key"
+    mock_config.api_keys.gemini_api_key = mock_api_key
+
+    # Mock the Gemini API response
+    mock_client = Mock()
+    mock_client_class.return_value = mock_client
+
+    mock_response = Mock()
+    mock_response.text = '''[speaker: Alex] I think Bitcoin's institutional adoption is actually a double-edged sword. Sure, it brings legitimacy, but we're seeing concentration of holdings in just a few corporate treasuries. That goes against the decentralization ethos.
+
+[speaker: Jordan] I disagree completely. You're missing the bigger picture. Institutional adoption is exactly what Bitcoin needs to achieve global reserve currency status. Without major players, it remains a niche asset.
+
+[speaker: Alex] But that's my point - becoming a reserve currency means becoming part of the system Bitcoin was designed to replace. We're watching it get co-opted.
+
+[speaker: Jordan] That's idealistic thinking. Bitcoin can't change the world from the margins. It needs institutional buy-in to reach the scale where it actually matters.'''
+    mock_client.models.generate_content.return_value = mock_response
+
+    script = generate_discussion_script(
+        topics=["Bitcoin institutional adoption", "Decentralization vs mainstream acceptance"],
+        personas=[
+            {"name": "Alex", "traits": "skeptical, idealistic, questions mainstream narratives"},
+            {"name": "Jordan", "traits": "optimistic, pragmatic, focuses on real-world adoption"}
+        ]
+    )
+
+    assert isinstance(script, str)
+    assert len(script) > 0
+    assert "[speaker: Alex]" in script
+    assert "[speaker: Jordan]" in script
+    assert "Bitcoin" in script or "bitcoin" in script
+
+
+def test_generate_discussion_script_empty_topics():
+    """Test that empty topics list raises ValueError."""
+    with pytest.raises(ValueError, match="Cannot generate script without topics"):
+        generate_discussion_script(
+            topics=[],
+            personas=[
+                {"name": "Alex", "traits": "skeptical"},
+                {"name": "Jordan", "traits": "optimistic"}
+            ]
+        )
+
+
+def test_generate_discussion_script_empty_personas():
+    """Test that empty personas list raises ValueError."""
+    with pytest.raises(ValueError, match="Cannot generate script without personas"):
+        generate_discussion_script(
+            topics=["Bitcoin news"],
+            personas=[]
+        )
+
+
+@patch('ai_radio.show_generator.config')
+def test_generate_discussion_script_missing_api_key(mock_config):
+    """Test that missing API key raises ValueError."""
+    mock_config.api_keys.gemini_api_key = None
+    with pytest.raises(ValueError, match="RADIO_GEMINI_API_KEY not configured"):
+        generate_discussion_script(
+            topics=["Bitcoin news"],
+            personas=[
+                {"name": "Alex", "traits": "skeptical"},
+                {"name": "Jordan", "traits": "optimistic"}
+            ]
+        )
+
+
+@patch('ai_radio.show_generator.config')
+@patch('ai_radio.show_generator.genai.Client')
+def test_generate_discussion_script_api_failure(mock_client_class, mock_config):
+    """Test that general API error raises RuntimeError."""
+    # Mock API key
+    mock_api_key = Mock()
+    mock_api_key.get_secret_value.return_value = "fake-api-key"
+    mock_config.api_keys.gemini_api_key = mock_api_key
+
+    mock_client = Mock()
+    mock_client_class.return_value = mock_client
+
+    mock_client.models.generate_content.side_effect = Exception("API connection failed")
+
+    with pytest.raises(RuntimeError, match="Failed to generate discussion script"):
+        generate_discussion_script(
+            topics=["Bitcoin news"],
+            personas=[
+                {"name": "Alex", "traits": "skeptical"},
+                {"name": "Jordan", "traits": "optimistic"}
+            ]
+        )
+
+
+@patch('ai_radio.show_generator.config')
+@patch('ai_radio.show_generator.genai.Client')
+def test_generate_discussion_script_invalid_format(mock_client_class, mock_config):
+    """Test that response without speaker tags raises ValueError."""
+    # Mock API key
+    mock_api_key = Mock()
+    mock_api_key.get_secret_value.return_value = "fake-api-key"
+    mock_config.api_keys.gemini_api_key = mock_api_key
+
+    mock_client = Mock()
+    mock_client_class.return_value = mock_client
+
+    mock_response = Mock()
+    mock_response.text = "This is just plain text without any speaker tags."
+    mock_client.models.generate_content.return_value = mock_response
+
+    with pytest.raises(ValueError, match="No speaker tags found in response"):
+        generate_discussion_script(
+            topics=["Bitcoin news"],
+            personas=[
+                {"name": "Alex", "traits": "skeptical"},
+                {"name": "Jordan", "traits": "optimistic"}
+            ]
+        )
+
+
+@patch('ai_radio.show_generator.subprocess.run')
+@patch('ai_radio.show_generator.config')
+@patch('ai_radio.show_generator.genai.Client')
+def test_synthesize_show_audio(mock_client_class, mock_config, mock_subprocess):
+    """Test synthesizing multi-speaker audio from script."""
+    # Mock API key
+    mock_api_key = Mock()
+    mock_api_key.get_secret_value.return_value = "fake-api-key"
+    mock_config.api_keys.gemini_api_key = mock_api_key
+
+    # Mock Gemini API response with audio data
+    mock_client = Mock()
+    mock_client_class.return_value = mock_client
+
+    mock_response = Mock()
+    mock_part = Mock()
+    mock_part.inline_data.data = b"fake_pcm_audio_data"
+    mock_response.candidates = [Mock(content=Mock(parts=[mock_part]))]
+    mock_client.models.generate_content.return_value = mock_response
+
+    # Mock subprocess (ffmpeg) - success
+    mock_subprocess.return_value = Mock(returncode=0, stderr="")
+
+    # Call function
+    script = "[speaker: Sarah] Hello!\n[speaker: Dr. Chen] Hi there!"
+    personas = [
+        {"name": "Sarah", "traits": "engaging"},
+        {"name": "Dr. Chen", "traits": "analytical"}
+    ]
+    output_path = Path("/tmp/test_audio.mp3")
+
+    result = synthesize_show_audio(script, personas, output_path)
+
+    # Verify result
+    assert isinstance(result, AudioFile)
+    assert result.file_path == output_path
+    assert result.voice == "Sarah, Dr. Chen"
+    assert result.model == "gemini-2.5-flash-preview-tts"
+    assert result.duration_estimate > 0
+
+
+def test_synthesize_show_audio_empty_script():
+    """Test that empty script text raises ValueError."""
+    personas = [
+        {"name": "Sarah", "traits": "engaging"},
+        {"name": "Dr. Chen", "traits": "analytical"}
+    ]
+    output_path = Path("/tmp/test_audio.mp3")
+
+    with pytest.raises(ValueError, match="Cannot synthesize empty script"):
+        synthesize_show_audio("", personas, output_path)
+
+    with pytest.raises(ValueError, match="Cannot synthesize empty script"):
+        synthesize_show_audio("   ", personas, output_path)
+
+
+def test_synthesize_show_audio_no_speaker_tags():
+    """Test that script without speaker tags raises ValueError."""
+    script = "This is just plain text without any speaker tags."
+    personas = [
+        {"name": "Sarah", "traits": "engaging"},
+        {"name": "Dr. Chen", "traits": "analytical"}
+    ]
+    output_path = Path("/tmp/test_audio.mp3")
+
+    with pytest.raises(ValueError, match="No speaker tags found in script"):
+        synthesize_show_audio(script, personas, output_path)
+
+
+def test_synthesize_show_audio_empty_personas():
+    """Test that empty personas list raises ValueError."""
+    script = "[speaker: Sarah] Hello!"
+    output_path = Path("/tmp/test_audio.mp3")
+
+    with pytest.raises(ValueError, match="Cannot synthesize without personas"):
+        synthesize_show_audio(script, [], output_path)
+
+
+@patch('ai_radio.show_generator.config')
+def test_synthesize_show_audio_missing_api_key(mock_config):
+    """Test that missing API key raises ValueError."""
+    mock_config.api_keys.gemini_api_key = None
+
+    script = "[speaker: Sarah] Hello!"
+    personas = [{"name": "Sarah", "traits": "engaging"}]
+    output_path = Path("/tmp/test_audio.mp3")
+
+    with pytest.raises(ValueError, match="RADIO_GEMINI_API_KEY not configured"):
+        synthesize_show_audio(script, personas, output_path)
+
+
+@patch('ai_radio.show_generator.subprocess.run')
+@patch('ai_radio.show_generator.config')
+@patch('ai_radio.show_generator.genai.Client')
+def test_synthesize_show_audio_api_failure(mock_client_class, mock_config, mock_subprocess):
+    """Test that API failure raises RuntimeError."""
+    # Mock API key
+    mock_api_key = Mock()
+    mock_api_key.get_secret_value.return_value = "fake-api-key"
+    mock_config.api_keys.gemini_api_key = mock_api_key
+
+    # Mock API failure
+    mock_client = Mock()
+    mock_client_class.return_value = mock_client
+    mock_client.models.generate_content.side_effect = Exception("API connection failed")
+
+    script = "[speaker: Sarah] Hello!"
+    personas = [{"name": "Sarah", "traits": "engaging"}]
+    output_path = Path("/tmp/test_audio.mp3")
+
+    with pytest.raises(RuntimeError, match="Failed to synthesize audio"):
+        synthesize_show_audio(script, personas, output_path)
+
+
+@patch('ai_radio.show_generator.subprocess.run')
+@patch('ai_radio.show_generator.config')
+@patch('ai_radio.show_generator.genai.Client')
+def test_synthesize_show_audio_ffmpeg_failure(mock_client_class, mock_config, mock_subprocess):
+    """Test that ffmpeg conversion failure raises RuntimeError."""
+    # Mock API key
+    mock_api_key = Mock()
+    mock_api_key.get_secret_value.return_value = "fake-api-key"
+    mock_config.api_keys.gemini_api_key = mock_api_key
+
+    # Mock Gemini API response with audio data
+    mock_client = Mock()
+    mock_client_class.return_value = mock_client
+
+    mock_response = Mock()
+    mock_part = Mock()
+    mock_part.inline_data.data = b"fake_pcm_audio_data"
+    mock_response.candidates = [Mock(content=Mock(parts=[mock_part]))]
+    mock_client.models.generate_content.return_value = mock_response
+
+    # Mock subprocess (ffmpeg) - failure
+    mock_subprocess.return_value = Mock(returncode=1, stderr="ffmpeg error: invalid format")
+
+    script = "[speaker: Sarah] Hello!"
+    personas = [{"name": "Sarah", "traits": "engaging"}]
+    output_path = Path("/tmp/test_audio.mp3")
+
+    with pytest.raises(RuntimeError, match="Failed to synthesize audio"):
+        synthesize_show_audio(script, personas, output_path)
