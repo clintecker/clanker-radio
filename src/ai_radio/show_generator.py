@@ -325,7 +325,10 @@ def synthesize_show_audio(
 
         response = client.models.generate_content(
             model="gemini-2.5-flash-preview-tts",
-            contents=script_text
+            contents=script_text,
+            config=genai.types.GenerateContentConfig(
+                response_modalities=["AUDIO"]
+            )
         )
 
         # Extract PCM audio data from response
