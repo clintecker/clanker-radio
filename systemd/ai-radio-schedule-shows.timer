@@ -1,0 +1,11 @@
+[Unit]
+Description=AI Radio Schedule Shows Polling Timer
+Documentation=https://github.com/clintecker/clanker-radio
+
+[Timer]
+# Run every minute
+OnCalendar=*:*:00
+AccuracySec=1s
+
+[Install]
+WantedBy=timers.target
