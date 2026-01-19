@@ -11,8 +11,9 @@ def repair_script(script: FieldReportScript) -> FieldReportScript:
     """Apply automatic repairs to common violations.
 
     Specific repairs applied:
-    - Ensures first segment has interference_after=True
-    - Adds interference_after=True to third segment when script has 5+ segments
+    - Ensures first segment (0) has interference_after=True
+    - Adds interference_after=True to fourth segment (3) when script has 7+ segments
+    - Adds interference_after=True to seventh segment (6) when script has 8+ segments
 
     Logging behavior:
     - Logs at INFO level when repairs are applied
@@ -31,17 +32,25 @@ def repair_script(script: FieldReportScript) -> FieldReportScript:
 
     # Fix: First segment MUST have interference
     if repaired_segments and not repaired_segments[0].interference_after:
-        logger.info("Repair: Setting interference_after=True on first segment")
+        logger.info("Repair: Setting interference_after=True on first segment (0)")
         repaired_segments[0].interference_after = True
 
-    # Fix: Add second interference on third segment if we have 5+ segments
-    # Business rule: 5-segment threshold ensures sufficient content between interruptions
-    if len(repaired_segments) >= 5 and not repaired_segments[2].interference_after:
-        logger.info("Repair: Setting interference_after=True on third segment")
-        repaired_segments[2].interference_after = True
+    # Fix: Add second interference on fourth segment if we have 7+ segments
+    # Business rule: 7-segment threshold ensures sufficient content between interruptions
+    if len(repaired_segments) >= 7 and not repaired_segments[3].interference_after:
+        logger.info("Repair: Setting interference_after=True on fourth segment (3)")
+        repaired_segments[3].interference_after = True
+
+    # Fix: Add third interference on seventh segment if we have 8+ segments
+    # Spreads three interference points throughout longer interviews
+    if len(repaired_segments) >= 8 and not repaired_segments[6].interference_after:
+        logger.info("Repair: Setting interference_after=True on seventh segment (6)")
+        repaired_segments[6].interference_after = True
 
     # Return new FieldReportScript with repaired segments
     return FieldReportScript(
+        presenter_name=script.presenter_name,
+        source_name=script.source_name,
         cold_open=script.cold_open.model_copy(),
         interview_segments=repaired_segments,
         signoff=script.signoff

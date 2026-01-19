@@ -21,50 +21,92 @@ logging.basicConfig(
 )
 
 def generate_field_report_json(
-    presenter_name: str,
-    source_name: str,
-    topics: list[str]
+    seed_theme: str = None
 ) -> str:
     """Generate field report as structured JSON using schema.
 
+    Generates everything: interviewer, interviewee, locations, organizations,
+    events, tactics - the whole resistance universe from scratch.
+
     Args:
-        presenter_name: Name of the field reporter
-        source_name: Name of the interview source
-        topics: List of resistance group topics to cover
+        seed_theme: Optional theme to guide generation (e.g., "community defense",
+                   "food distribution", "tech resistance"). If None, LLM chooses.
 
     Returns:
-        JSON string matching FieldReportScript schema
+        JSON string matching FieldReportScript schema with embedded speaker names
     """
     client = genai.Client(api_key=config.api_keys.gemini_api_key.get_secret_value())
 
-    topics_text = '\n'.join([f"- {topic}" for topic in topics])
+    theme_guidance = f"\n\nTHEME FOCUS: {seed_theme}" if seed_theme else ""
 
     prompt = f"""Generate a pirate radio field report as structured JSON.
+
+YOU MUST INVENT EVERYTHING - this is world-building:
+- Create the field reporter's name (first + last, diverse backgrounds)
+- Create the interviewee's name (first + last, diverse backgrounds)
+- Invent 2-3 resistance organizations with specific names (NOT generic like "Resistance Group")
+- Create specific Chicago neighborhood locations (West Side, Pilsen, Bridgeport, etc.)
+- Invent recent events (raids, victories, losses) with named people and places
+- Create specific tactics and resources (mesh networks, solar chargers, patrol routes)
+- Generate consequences (injuries, arrests, victories) with real stakes{theme_guidance}
 
 WORLD CONTEXT:
 {config.world.world_setting}
 
-SPEAKERS:
-- {presenter_name} (field reporter for resistance radio)
-- {source_name} (organizer from resistance movement)
+TONE & ENERGY:
+{config.world.world_tone}
 
-TOPICS:
-{topics_text}
+This is ILLEGAL underground radio - urgent, raw, passionate. Not a polite interview.
+- Field reporter is broadcasting under threat from a specific location in Chicago
+- Interviewee is a fellow resistance fighter sharing front-line intel
+- They KNOW each other, trust each other - this is comrades talking, not journalist/subject
+- Questions are DIRECT and PERSONAL - "How are YOU dealing with..." not "Can you tell our listeners..."
+- Answers are CONCRETE and SPECIFIC - named people, exact locations, specific tactics
+- Both are ANGRY at corps, HOPEFUL about resistance, SCARED but DETERMINED
+
+MAKE IT REAL AND BELIEVABLE - Natural Human Conversation:
+- Questions should BUILD on previous answers, not feel like separate topics
+- Include moments of empathy: "That's rough", "I'm sorry about...", "Damn"
+- Add realistic hesitations: "I mean...", "You know...", "Look..."
+- Let them interrupt their own thoughts, backtrack, clarify
+- Show they're listening to each other - react to what was just said
+- Mix emotions mid-sentence: frustration bleeding into hope, fear into defiance
+- Include personal details: memories, feelings, doubts alongside the tactical info
+- Vary sentence length - short punchy responses mixed with longer explanations
+- Don't make every answer perfectly structured - real people ramble sometimes
+
+CRITICAL WORLDBUILDING REQUIREMENTS:
+- Organization names must be SPECIFIC (e.g., "Humboldt Park Food Collective", not "Community Aid Group")
+- People names must be REAL (e.g., "Jamal Washington", "Maria Santos")
+- Locations must be SPECIFIC Chicago neighborhoods/streets
+- Events must have CONSEQUENCES - who got hurt, who won, what changed
+- No vague language: "many people" → "47 families", "some success" → "took back the water plant"
 
 STRUCTURE REQUIREMENTS:
 
 **cold_open** (4 fields):
-- complaint_line: {presenter_name} whispers complaint about equipment/patrol (~15 words)
+- complaint_line: Field reporter whispers complaint about equipment/patrol (~15 words)
 - realization: Shocked reaction to mic being live (e.g., "Oh shit. Oh.")
-- intro_sentence_1: First introduction in normal voice (~20 words)
+- intro_sentence_1: First introduction in normal voice, include reporter's name (~20 words)
 - intro_sentence_2: Second introduction continuing setup (~20 words)
 
-**interview_segments** (4-6 items, each with 3 fields):
-- question: {presenter_name} asks about organizing work (~25-30 words)
-- answer: {source_name} responds about their work (~40-50 words)
-- interference_after: Boolean - true for segments 0 and 2 (first and third Q&A)
+**interview_segments** (8-10 items, each with 3 fields):
+- question: Field reporter asks about organizing work (~35-40 words)
+  * VARY the question style - don't repeat patterns
+  * Mix: direct questions, follow-ups, challenges, expressions of solidarity
+  * BUILD on previous answers - reference what was just said
+  * Example good variety: "What's the situation with..." then "That's heavy. How do you..." then "But doesn't that risk..."
+  * Show you're listening: "You mentioned Maria - what happened there?"
+- answer: Interviewee responds about their work (~50-60 words)
+  * CONCRETE details - specific names, numbers, places, tactics
+  * VARY the answer style - don't just list facts
+  * Mix: passionate declarations, tactical explanations, grim realities, defiant hope
+  * Each answer should have a DIFFERENT emotional arc
+  * Let them be human - show emotion, hesitation, hope, frustration
+  * Build on what they said before - reference earlier points
+- interference_after: Boolean - true for segments 0, 3, and 6 (spread throughout)
 
-**signoff**: {presenter_name} signs off (~15-20 words)
+**signoff**: Field reporter signs off (~15-20 words)
 
 WORD BUDGETS - MANDATORY LIMITS:
 You MUST stay within these strict per-field word count limits:
@@ -76,20 +118,22 @@ Cold Open:
   - intro_sentence_2: MAX 30 words (target ~20)
 
 Interview Segments (per segment):
-  - question: MAX 40 words (target 25-30)
-  - answer: MAX 60 words (target 40-50)
+  - question: MAX 50 words (target 35-40)
+  - answer: MAX 70 words (target 50-60)
 
-Signoff: MAX 25 words (target 15-20)
+Signoff: MAX 30 words (target 20-25)
 
-Total Script: Target 700-900 words, NEVER exceed 1000 words
+Total Script: Target 1000-1200 words, NEVER exceed 1400 words
 
 These are HARD LIMITS enforced by validation. Fields exceeding limits will be flagged as errors.
 Generate content WITHIN budget to avoid compression.
 
-CRITICAL: Set interference_after=true ONLY on segments 0 and 2. This places interference IMMEDIATELY after first answer and third answer.
+CRITICAL: Set interference_after=true ONLY on segments 0, 3, and 6. This places interference IMMEDIATELY after 1st, 4th, and 7th answers (spread throughout the interview).
 
 OUTPUT: Valid JSON matching this exact structure:
 {{{{
+  "presenter_name": "First Last",
+  "source_name": "First Last",
   "cold_open": {{{{
     "complaint_line": "...",
     "realization": "...",
@@ -105,7 +149,9 @@ OUTPUT: Valid JSON matching this exact structure:
     ...
   ],
   "signoff": "..."
-}}}}"""
+}}}}
+
+REMEMBER: You are CREATING the universe - invent everything!"""
 
     response = client.models.generate_content(
         model="gemini-2.0-flash-exp",
@@ -275,27 +321,23 @@ def main():
     from ai_radio.script_editor import compress_script_to_budget
     from ai_radio.script_renderer import render_script
 
-    presenter_name = "Maya Rodriguez"
-    source_name = "Sam Chen"
-
-    # Sample resistance topics
-    topics = [
-        "The Bridgeport Mutual Aid Collective - distributing solar chargers and water filters",
-        "West Side Watchdogs - community defense patrols against corporate security",
-        "Pilsen Solidarity Network - setting up mesh networks for free communication"
-    ]
-
     print("🎬 Generating Field Report with JSON Schema Workflow")
-    print(f"   Presenter: {presenter_name}")
-    print(f"   Source: {source_name}")
+    print("   Letting AI invent the entire universe...")
     print()
 
-    # Step 1: Generate structured JSON
+    # Step 1: Generate structured JSON (AI invents everything)
     print("✍️  Generating structured JSON with schema...")
-    json_output = generate_field_report_json(presenter_name, source_name, topics)
+    json_output = generate_field_report_json()  # No hardcoded inputs!
     data = json.loads(json_output)
     script = FieldReportScript(**data)
+
+    # Extract generated names
+    presenter_name = script.presenter_name
+    source_name = script.source_name
+
     print(f"   ✅ Valid JSON structure generated")
+    print(f"   📻 Generated reporter: {presenter_name}")
+    print(f"   🎤 Generated source: {source_name}")
     print()
 
     # Step 2: Validate structure
@@ -318,7 +360,7 @@ def main():
 
     # Step 4: Compress if over budget
     print("✂️  Checking word count budget...")
-    script = compress_script_to_budget(script, target_words=900)
+    script = compress_script_to_budget(script, target_words=1200)
     print(f"   ✅ Word count within budget")
     print()
 
