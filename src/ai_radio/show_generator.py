@@ -1238,7 +1238,7 @@ def add_background_bed(
     output_path: Path,
     intro_seconds: float = 5.0,
     outro_seconds: float = 5.5,
-    ducked_volume_db: float = -18.0,  # Bed ducks down 18dB during voice (background presence)
+    ducked_volume_db: float = -20.0,  # Bed ducks down 20dB during voice (background presence)
     voice_fadein: float = 0.5,
     voice_fadeout: float = 0.5,
     bed_fadein: float = 1.0,  # Bed fades in at start
