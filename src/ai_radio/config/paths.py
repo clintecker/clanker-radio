@@ -1,5 +1,6 @@
 """Filesystem paths configuration."""
 
+import os
 from pathlib import Path
 
 from pydantic import Field
@@ -90,3 +91,39 @@ class PathsConfig(BaseSettings):
     @property
     def liquidsoap_sock_path(self) -> Path:
         return Path("/run/liquidsoap/radio.sock")
+
+    @property
+    def beds_dir_resolved(self) -> Path | None:
+        """Return beds directory if it exists, checking multiple locations in priority order.
+
+        Priority order:
+        1. Environment variable: AI_RADIO_BEDS_DIR
+        2. Configured path: self.beds_path
+        3. Common local paths:
+           - ~/Music/radio-beds
+           - ./assets/beds (relative to cwd)
+           - /tmp/radio-beds
+
+        Returns:
+            Path to existing beds directory, or None if none found
+        """
+        # Check environment variable first
+        if env_path := os.getenv("AI_RADIO_BEDS_DIR"):
+            path = Path(env_path)
+            if path.exists():
+                return path
+
+        # Check configured path
+        if self.beds_path.exists():
+            return self.beds_path
+
+        # Check common local paths
+        for local_path in [
+            Path.home() / "Music" / "radio-beds",
+            Path.cwd() / "assets" / "beds",
+            Path("/tmp") / "radio-beds"
+        ]:
+            if local_path.exists():
+                return local_path
+
+        return None

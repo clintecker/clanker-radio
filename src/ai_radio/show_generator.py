@@ -1144,19 +1144,29 @@ def add_background_bed(
     import random
     import shutil
 
-    # Get a random bed from the beds directory
-    beds_path = config.paths.beds_path
+    # Get a random bed from the beds directory using resolved path
+    beds_dir = config.paths.beds_dir_resolved
 
-    if not beds_path.exists():
-        logger.warning(f"Beds directory not found: {beds_path}, skipping background music")
+    if beds_dir is None:
+        logger.warning(
+            "No background beds directory found. Checked:\n"
+            f"  - $AI_RADIO_BEDS_DIR\n"
+            f"  - {config.paths.beds_path}\n"
+            f"  - ~/Music/radio-beds\n"
+            f"  - ./assets/beds\n"
+            f"  - /tmp/radio-beds\n"
+            "Background music will be skipped."
+        )
         shutil.copy(voice_audio, output_path)
         return
 
+    logger.info(f"Using beds directory: {beds_dir}")
+
     # Find all audio files in beds directory (MP3 or WAV)
-    bed_files = list(beds_path.glob("*.mp3")) + list(beds_path.glob("*.wav"))
+    bed_files = list(beds_dir.glob("*.mp3")) + list(beds_dir.glob("*.wav"))
 
     if not bed_files:
-        logger.warning(f"No bed files found in {beds_path}, skipping background music")
+        logger.warning(f"No bed files found in {beds_dir}, skipping background music")
         shutil.copy(voice_audio, output_path)
         return
 
