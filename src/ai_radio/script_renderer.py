@@ -1,5 +1,6 @@
 """Render structured scripts to final text format with programmatic interference."""
 import random
+
 from ai_radio.models.script_schema import FieldReportScript
 
 
@@ -61,6 +62,7 @@ def render_script(
         lines.append(f"[speaker: {source}] [earnest] {segment.answer}")
 
         # Inject interference acknowledgment if flagged
+        # Intentional randomness: selects from template pool for natural variety
         if segment.interference_after:
             interference_phrase = random.choice(INTERFERENCE_TEMPLATES)
             lines.append(f"[speaker: {presenter}] {interference_phrase}")

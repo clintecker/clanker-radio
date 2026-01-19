@@ -1,5 +1,6 @@
 """Tests for script rendering with programmatic interference."""
 import pytest
+
 from ai_radio.models.script_schema import ColdOpen, InterviewSegment, FieldReportScript
 from ai_radio.script_renderer import render_script
 
@@ -76,15 +77,19 @@ def test_render_script_injects_interference_templates():
     rendered = render_script(script, presenter="Maya Rodriguez", source="Sam Chen")
 
     # Should have interference phrases (templates, not from model)
+    # Check for all 6 template phrases to avoid flaky test failures
+    # These phrases correspond to unique substrings from each template
     interference_phrases = [
-        "Sorry about that",
-        "signal's spotty",
-        "corp jammers",
-        "signal's back"
+        "Sorry about that, someone's trying to jam us again",
+        "Damn corp jammers",
+        "Can you still hear me? Signal's spotty",
+        "okay, signal's back",
+        "They're trying to block us",
+        "You can't silence us"
     ]
 
     # At least one interference phrase should appear
-    has_interference = any(phrase in rendered.lower() for phrase in interference_phrases)
+    has_interference = any(phrase in rendered for phrase in interference_phrases)
     assert has_interference, f"No interference phrases found in:\n{rendered}"
 
 
