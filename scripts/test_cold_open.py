@@ -209,8 +209,56 @@ Follow these steps IN ORDER to construct the script. This is a MANDATORY SEQUENC
 
     return response.text
 
+def test_json_workflow_end_to_end():
+    """Test complete JSON workflow: generate → validate → repair → render."""
+    import json
+    from ai_radio.models.script_schema import FieldReportScript
+    from ai_radio.script_validation import validate_script
+    from ai_radio.script_repair import repair_script
+    from ai_radio.script_renderer import render_script
+
+    presenter = "Maya Rodriguez"
+    source = "Sam Chen"
+    topics = ["Test organizing work"]
+
+    # Generate JSON
+    json_output = generate_field_report_json(presenter, source, topics)
+    data = json.loads(json_output)
+    script = FieldReportScript(**data)
+
+    # Validate
+    issues = validate_script(script)
+
+    # Repair if needed
+    if issues:
+        script = repair_script(script)
+
+    # Render to final format
+    final_script = render_script(script, presenter, source)
+
+    # Verify structure
+    assert "[speaker: Maya Rodriguez]" in final_script
+    assert "[speaker: Sam Chen]" in final_script
+    assert "[whispering]" in final_script  # Cold open
+
+    # Verify interference templates injected
+    has_interference = any(
+        phrase in final_script.lower()
+        for phrase in ["sorry about", "jammers", "signal"]
+    )
+    assert has_interference
+
+    print("✅ End-to-end JSON workflow successful")
+    return final_script
+
 def main():
-    """Generate and synthesize field report with cold open."""
+    """Generate and synthesize field report using JSON schema workflow."""
+    import json
+    from ai_radio.models.script_schema import FieldReportScript
+    from ai_radio.script_validation import validate_script
+    from ai_radio.script_repair import repair_script
+    from ai_radio.script_renderer import render_script
+
     presenter_name = "Maya Rodriguez"
     source_name = "Sam Chen"
 
@@ -221,26 +269,53 @@ def main():
         "Pilsen Solidarity Network - setting up mesh networks for free communication"
     ]
 
-    print("🎬 Generating Field Report with Cold Open")
+    print("🎬 Generating Field Report with JSON Schema Workflow")
     print(f"   Presenter: {presenter_name}")
     print(f"   Source: {source_name}")
     print()
 
-    # Generate full script with cold open
-    print("✍️  Generating cold open + field report script...")
-    script = generate_cold_open_with_field_report(presenter_name, source_name, topics)
-
-    print(f"   Script length: {len(script)} characters")
-    print(f"   Word count: {len(script.split())} words")
-    print()
-    print("=" * 60)
-    print(script)
-    print("=" * 60)
+    # Step 1: Generate structured JSON
+    print("✍️  Generating structured JSON with schema...")
+    json_output = generate_field_report_json(presenter_name, source_name, topics)
+    data = json.loads(json_output)
+    script = FieldReportScript(**data)
+    print(f"   ✅ Valid JSON structure generated")
     print()
 
-    # Synthesize with two speakers and background bed
+    # Step 2: Validate structure
+    print("🔍 Validating structure...")
+    issues = validate_script(script)
+    if issues:
+        print(f"   ⚠️  Found {len(issues)} validation issues:")
+        for issue in issues:
+            print(f"      - {issue.field}: {issue.message}")
+    else:
+        print(f"   ✅ No validation issues")
+    print()
+
+    # Step 3: Repair if needed
+    if issues:
+        print("🔧 Repairing violations...")
+        script = repair_script(script)
+        print(f"   ✅ Repairs applied")
+        print()
+
+    # Step 4: Render to final script
+    print("📝 Rendering final script with programmatic interference...")
+    final_script = render_script(script, presenter_name, source_name)
+
+    word_count = len(final_script.split())
+    print(f"   Script length: {len(final_script)} characters")
+    print(f"   Word count: {word_count} words")
+    print()
+    print("=" * 60)
+    print(final_script)
+    print("=" * 60)
+    print()
+
+    # Step 5: Synthesize with two speakers and background bed
     print("🔊 Synthesizing audio with background bed...")
-    output_path = Path(f"/tmp/field-report-cold-open-{datetime.now().strftime('%Y%m%d_%H%M%S')}.mp3")
+    output_path = Path(f"/tmp/field-report-json-{datetime.now().strftime('%Y%m%d_%H%M%S')}.mp3")
 
     personas = [
         {"name": presenter_name, "traits": "female field reporter"},
@@ -248,23 +323,28 @@ def main():
     ]
 
     audio_file = synthesize_show_audio(
-        script_text=script,
+        script_text=final_script,
         personas=personas,
         output_path=output_path,
         add_bed=True  # Add background bed with ducking
     )
 
     print()
-    print(f"✅ Field report with cold open generated: {output_path}")
+    print(f"✅ Field report generated: {output_path}")
     print(f"   Duration: {audio_file.duration_estimate:.1f}s")
     print(f"   Voices: {audio_file.voice}")
     print()
-    print("Listen to verify:")
-    print("  - Whispered tones at start")
-    print("  - Transition to NORMAL VOICE after embarrassment")
-    print("  - Two distinct voices (Maya + Sam)")
-    print("  - Background bed loops throughout")
-    print("  - Music ducks during speech")
+    print("🎯 JSON Schema Workflow Benefits:")
+    print("  ✓ Reliable cold open timing (enforced by schema)")
+    print("  ✓ Programmatic interference injection (templates)")
+    print("  ✓ Word budget constraints (validated)")
+    print("  ✓ Structural guarantees (Pydantic models)")
+    print()
+    print("📊 Metrics:")
+    print(f"  - Total words: {word_count}")
+    print(f"  - Cold open: ~{len(script.cold_open.complaint_line.split()) + len(script.cold_open.intro_sentence_1.split()) + len(script.cold_open.intro_sentence_2.split())} words")
+    print(f"  - Interview segments: {len(script.interview_segments)}")
+    print(f"  - Duration estimate: {audio_file.duration_estimate:.1f}s (~{audio_file.duration_estimate/60:.1f} min)")
 
     return 0
 
