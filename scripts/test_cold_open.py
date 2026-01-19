@@ -272,6 +272,7 @@ def main():
     from ai_radio.models.script_schema import FieldReportScript
     from ai_radio.script_validation import validate_script
     from ai_radio.script_repair import repair_script
+    from ai_radio.script_editor import compress_script_to_budget
     from ai_radio.script_renderer import render_script
 
     presenter_name = "Maya Rodriguez"
@@ -315,7 +316,13 @@ def main():
         print(f"   ✅ Repairs applied")
         print()
 
-    # Step 4: Render to final script
+    # Step 4: Compress if over budget
+    print("✂️  Checking word count budget...")
+    script = compress_script_to_budget(script, target_words=900)
+    print(f"   ✅ Word count within budget")
+    print()
+
+    # Step 5: Render to final script
     print("📝 Rendering final script with programmatic interference...")
     final_script = render_script(script, presenter_name, source_name)
 
@@ -328,7 +335,7 @@ def main():
     print("=" * 60)
     print()
 
-    # Step 5: Synthesize with two speakers and background bed
+    # Step 6: Synthesize with two speakers and background bed
     print("🔊 Synthesizing audio with background bed...")
     output_path = Path(f"/tmp/field-report-json-{datetime.now().strftime('%Y%m%d_%H%M%S')}.mp3")
 
@@ -352,8 +359,9 @@ def main():
     print("🎯 JSON Schema Workflow Benefits:")
     print("  ✓ Reliable cold open timing (enforced by schema)")
     print("  ✓ Programmatic interference injection (templates)")
-    print("  ✓ Word budget constraints (validated)")
+    print("  ✓ Word budget constraints (validated + compressed)")
     print("  ✓ Structural guarantees (Pydantic models)")
+    print("  ✓ LLM-assisted compression (defense-in-depth)")
     print()
     print("📊 Metrics:")
     print(f"  - Total words: {word_count}")
