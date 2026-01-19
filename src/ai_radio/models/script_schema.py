@@ -26,17 +26,19 @@ class InterviewSegment(BaseModel):
 class FieldReportScript(BaseModel):
     """Complete field report structure."""
 
+    presenter_name: str = Field(..., description="Name of field reporter")
+    source_name: str = Field(..., description="Name of interviewee/source")
     cold_open: ColdOpen
     interview_segments: list[InterviewSegment] = Field(
-        ..., min_length=4, max_length=6
+        ..., min_length=8, max_length=10
     )
     signoff: str = Field(..., description="Final signoff line")
 
     @model_validator(mode="after")
     def validate_segment_count(self):
-        """Ensure 4-6 interview segments."""
-        if not (4 <= len(self.interview_segments) <= 6):
+        """Ensure 8-10 interview segments."""
+        if not (8 <= len(self.interview_segments) <= 10):
             raise ValueError(
-                f"Must have at least 4 interview segments, got {len(self.interview_segments)}"
+                f"Must have 8-10 interview segments, got {len(self.interview_segments)}"
             )
         return self
