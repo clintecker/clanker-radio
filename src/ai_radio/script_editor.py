@@ -1,11 +1,18 @@
 """Script editor for word count enforcement via compression."""
 import logging
-from ai_radio.models.script_schema import FieldReportScript, InterviewSegment
-from ai_radio.config import config
+
 import google.genai as genai
+
+from ai_radio.config import config
+from ai_radio.models.script_schema import FieldReportScript, InterviewSegment
 
 
 logger = logging.getLogger(__name__)
+
+# Model configuration constants
+EDITOR_MODEL = "gemini-2.0-flash-exp"
+# Temperature 0.0 ensures deterministic, consistent compression results
+EDITOR_TEMPERATURE = 0.0
 
 
 def compress_script_to_budget(
@@ -82,11 +89,16 @@ etc."""
 
     client = genai.Client(api_key=config.api_keys.gemini_api_key.get_secret_value())
 
-    response = client.models.generate_content(
-        model="gemini-2.0-flash-exp",
-        contents=prompt,
-        config=genai.types.GenerateContentConfig(temperature=0.0)
-    )
+    try:
+        response = client.models.generate_content(
+            model=EDITOR_MODEL,
+            contents=prompt,
+            config=genai.types.GenerateContentConfig(temperature=EDITOR_TEMPERATURE)
+        )
+    except Exception as e:
+        logger.error(f"LLM API call failed during script compression: {e}")
+        logger.warning("Returning original script uncompressed")
+        return script
 
     # Parse compressed answers
     compressed_answers = []
@@ -103,6 +115,16 @@ etc."""
 
     if current_answer:
         compressed_answers.append('\n'.join(current_answer).strip())
+
+    # Validate response - ensure we got the right number of answers
+    expected_count = len(script.interview_segments)
+    actual_count = len(compressed_answers)
+
+    if actual_count != expected_count:
+        logger.warning(
+            f"LLM returned {actual_count} answers but expected {expected_count}. "
+            f"Using available answers and preserving originals for missing."
+        )
 
     # Build new segments with compressed answers
     new_segments = []
