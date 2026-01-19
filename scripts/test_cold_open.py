@@ -66,10 +66,25 @@ STRUCTURE REQUIREMENTS:
 
 **signoff**: {presenter_name} signs off (~15-20 words)
 
-WORD BUDGETS (strict):
-- Total cold_open: ~70 words
-- Each interview segment: ~70-80 words
-- Total script: 700-900 words (4-6 segments × 75 words average = 300-450 words + cold open + signoff)
+WORD BUDGETS - MANDATORY LIMITS:
+You MUST stay within these strict per-field word count limits:
+
+Cold Open:
+  - complaint_line: MAX 25 words (target ~15)
+  - realization: MAX 5 words (target ~3)
+  - intro_sentence_1: MAX 30 words (target ~20)
+  - intro_sentence_2: MAX 30 words (target ~20)
+
+Interview Segments (per segment):
+  - question: MAX 40 words (target 25-30)
+  - answer: MAX 60 words (target 40-50)
+
+Signoff: MAX 25 words (target 15-20)
+
+Total Script: Target 700-900 words, NEVER exceed 1000 words
+
+These are HARD LIMITS enforced by validation. Fields exceeding limits will be flagged as errors.
+Generate content WITHIN budget to avoid compression.
 
 CRITICAL: Set interference_after=true ONLY on segments 0 and 2. This places interference IMMEDIATELY after first answer and third answer.
 
