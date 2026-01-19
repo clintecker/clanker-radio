@@ -64,16 +64,64 @@ This is ILLEGAL underground radio - urgent, raw, passionate. Not a polite interv
 - Answers are CONCRETE and SPECIFIC - named people, exact locations, specific tactics
 - Both are ANGRY at corps, HOPEFUL about resistance, SCARED but DETERMINED
 
-MAKE IT REAL AND BELIEVABLE - Natural Human Conversation:
-- Questions should BUILD on previous answers, not feel like separate topics
-- Include moments of empathy: "That's rough", "I'm sorry about...", "Damn"
-- Add realistic hesitations: "I mean...", "You know...", "Look..."
-- Let them interrupt their own thoughts, backtrack, clarify
-- Show they're listening to each other - react to what was just said
-- Mix emotions mid-sentence: frustration bleeding into hope, fear into defiance
-- Include personal details: memories, feelings, doubts alongside the tactical info
-- Vary sentence length - short punchy responses mixed with longer explanations
-- Don't make every answer perfectly structured - real people ramble sometimes
+MAKE IT REAL AND BELIEVABLE - NPR-Style Natural Conversation:
+
+ACTIVE LISTENING (Reporter must do this):
+- Affirm constantly: "Yeah", "Mm-hmm", "Right", "Absolutely", "Damn"
+- Reflect back: "So what you're saying is...", "Wait, you mean..."
+- Validate emotion: "That must've been rough", "I can't imagine", "Shit, I'm sorry"
+- Bridge topics: "Yeah. Okay, that brings me to...", "Right. So..."
+- Add context they know: "I heard about that raid, but I didn't know you were there"
+
+LAYERED QUESTIONING (Build organically):
+- Start broad: "What's the situation?" → narrow from their answer
+- Follow what they JUST said: "You mentioned Maria - what happened?"
+- Probe: "Why that route?", "What were you thinking?"
+- Clarify: "Wait, who was there?", "I'm confused, explain that again?"
+- Connect: "Is that related to what you said about Bridgeport?"
+- Process aloud: "I'm wondering if...", "That makes me think..."
+
+PACING VARIATION (Not every moment same weight):
+- HEAVY moments (deaths, losses): Slow down, let silence breathe, show emotion
+- LIGHT moments (small wins, humor): Quick back-and-forth, both can laugh
+- MEDIUM moments (tactics, planning): Practical, focused
+- Pattern: Heavy → Light → Medium → Heavy (vary the rhythm)
+
+CONVERSATIONAL REPAIRS (Real people clarify):
+- "I mean...", "Wait, no, let me say that better..."
+- "You know what I'm trying to say?", "Does that make sense?"
+- "Actually, that's not quite right. What really happened was..."
+- "How do I explain this... okay, so..."
+
+THINKING TOGETHER (Not just Q&A):
+- Reporter processes: "That makes sense because...", "I hadn't thought about it that way"
+- Share observations: "What strikes me is...", "The thing that worries me..."
+- Mutual problem-solving: "But wait, how does that work? That seems like it would..."
+- Don't just ask - participate in the conversation
+
+HUMOR & LIGHTNESS (Even in dark times):
+- Gallows humor: "Getting shot at really makes you run faster, huh?"
+- Absurdity: "So you're hiding in a dumpster..."
+- Irony: "They call us terrorists. We're bringing people water."
+- Self-deprecating: "I'm not exactly a tech genius"
+- Mark with [laughing] or [chuckling]
+
+EMOTIONAL VULNERABILITY (Show feelings):
+- Fears: "Honestly? I'm scared every time I leave"
+- Doubts: "Sometimes I wonder if it's worth it"
+- Grief: "I keep thinking about Maria"
+- Hope: "But then I remember why we fight"
+- Ask: "How do YOU deal with that? Personally?"
+
+INTERRUPTIONS & OVERLAP:
+- Let them interrupt each other occasionally
+- Mark with [interrupting]: "But—" "[interrupting] Wait, that's not what happened"
+- Shows engagement, not perfect turns
+
+PERSONAL + TACTICAL BALANCE:
+- Mix specific data with feelings: "We lost 47 families... and I knew most of them"
+- Anecdotes over abstractions: "I remember when Maria..." not "The situation is..."
+- Vary sentence length - short punchy mixed with longer rambling
 
 CRITICAL WORLDBUILDING REQUIREMENTS:
 - Organization names must be SPECIFIC (e.g., "Humboldt Park Food Collective", not "Community Aid Group")
@@ -95,21 +143,77 @@ STRUCTURE REQUIREMENTS:
 
 **interview_segments** (8-10 items, each with 3 fields):
 - question: Field reporter asks about organizing work (~35-40 words)
-  * VARY the question style - don't repeat patterns
-  * Mix: direct questions, follow-ups, challenges, expressions of solidarity
-  * BUILD on previous answers - reference what was just said
-  * Example good variety: "What's the situation with..." then "That's heavy. How do you..." then "But doesn't that risk..."
-  * Show you're listening: "You mentioned Maria - what happened there?"
+
+  MUST INCLUDE ACTIVE LISTENING:
+  * Start many questions with affirmation: "Yeah. So...", "Right. Okay...", "Damn. That's..."
+  * Reference what they JUST said: "You mentioned X - tell me about that"
+  * Reflect back: "So what you're saying is [paraphrase]?"
+  * Add context: "I heard about that, but...", "Someone from Bridgeport told me..."
+  * Show emotion: "Shit, I'm sorry", "Wait, seriously?", [laughing]
+  * Process aloud: "I'm wondering if...", "That makes me think..."
+
+  QUESTION PATTERNS TO VARY:
+  * Broad opening: "What's the situation in Pilsen?"
+  * Narrow follow-up: "You mentioned Maria - what happened there?"
+  * Probing: "Why did you make that call?", "What were you thinking?"
+  * Clarifying: "Wait, who was there?", "I'm confused - explain that?"
+  * Connecting: "Is that related to the Bridgeport thing?"
+  * Challenge gently: "But doesn't that risk...", "How do you balance..."
+  * Personal: "How are YOU dealing with that?"
+  * Thinking together: "Wait, how does that work? Seems like it would..."
+
+  PACING CUES (vary throughout):
+  * After heavy answer: "Damn. [pause] That's rough." (slow, emotional)
+  * After tactical answer: Quick follow-up, keep momentum
+  * After something surprising: "Wait, what?" or [laughing] "You did WHAT?"
+
 - answer: Interviewee responds about their work (~50-60 words)
-  * CONCRETE details - specific names, numbers, places, tactics
-  * VARY the answer style - don't just list facts
-  * Mix: passionate declarations, tactical explanations, grim realities, defiant hope
-  * Each answer should have a DIFFERENT emotional arc
-  * Let them be human - show emotion, hesitation, hope, frustration
-  * Build on what they said before - reference earlier points
+
+  MUST VARY EMOTIONAL ARC:
+  * Segment 1-2: Grim reality, heavy (set the stakes)
+  * Segment 3-4: Tactical, determined (show resistance)
+  * Segment 5-6: Personal, vulnerable (show humanity)
+  * Segment 7-8: Mix of hope/defiance and tactical
+  * Segment 9-10: Looking forward, call to action
+
+  INCLUDE IN ANSWERS:
+  * CONCRETE specifics: Names, numbers, locations, exact events
+  * Emotional honesty: Fear, grief, hope, anger, humor
+  * Conversational repairs: "I mean...", "Wait, let me say that better..."
+  * Anecdotes: "I remember when...", "Last week, I saw..."
+  * Self-interruption: "We lost three people. No, wait, four."
+  * Vulnerability: "Honestly? I'm scared", "Sometimes I wonder..."
+  * References to earlier points: "Like I said about Maria..."
+  * Humor when appropriate: Gallows humor, self-deprecating, irony
+  * Vary length: Some short and punchy, some longer and rambling
+
+  BALANCE TACTICAL + PERSONAL:
+  * Don't just list facts - show how they FEEL about it
+  * "We're running convoys through the tunnels" → "We're running convoys through the tunnels. Same ones where Maria died. Every time I go down there, I..."
+
 - interference_after: Boolean - true for segments 0, 3, and 6 (spread throughout)
 
 **signoff**: Field reporter signs off (~15-20 words)
+
+EXAMPLE COMPARISON - Good vs Bad:
+
+❌ BAD (Too formal, Q&A list):
+Q: What's the situation with water in Pilsen?
+A: CorpSec cut off access. We're running night convoys through tunnels.
+Q: How are you protecting patrol routes?
+A: We rotate them daily using mesh networks.
+
+✅ GOOD (Natural conversation):
+Q: Mateo, how bad is the water situation in Pilsen right now?
+A: Bad. Real bad, Aisha. CorpSec cut off the main line last week. We had families going three days without—
+Q: [interrupting] Damn. So what are you doing? You can't just let people go thirsty.
+A: No, we... [sighs] Look, we're running night convoys through the old tunnels. Same ones where Maria got caught. Every time I go down there, I think about her. But what choice do we have?
+Q: Right. Okay, so the tunnels. How do you keep CorpSec from tracking you?
+A: We rotate routes every night. And the mesh network lets us coordinate in real-time, so if someone spots a patrol—
+Q: [interrupting] Wait, but doesn't the mesh traffic give away your position? I'm wondering how you...
+A: [laughing] You sound like my tech guy, Aisha. So what we do is use burst transmissions, keeps it hard to...
+
+Notice: Affirmations ("Damn", "Right"), interruptions, emotional reactions, conversational repairs, humor, building on what was JUST said.
 
 WORD BUDGETS - MANDATORY LIMITS:
 You MUST stay within these strict per-field word count limits:
