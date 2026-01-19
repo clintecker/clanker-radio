@@ -864,11 +864,15 @@ def add_radio_effects(
         filters = []
 
         if add_base_effects:
-            # Base radio effect: bandpass (AM radio range) + boost voice
+            # Base radio effect: bandpass (AM radio range) + boost voice + ambient transmission effects
             filters.append(
                 # Bandpass filter for radio character (300-3400 Hz)
                 "highpass=f=300,"
                 "lowpass=f=3400,"
+                # Subtle continuous vibrato for signal drift (frequency ~1.5Hz, depth ~0.05)
+                "vibrato=f=1.5:d=0.05,"
+                # Slight tremolo for signal strength variation (frequency ~2Hz, depth ~0.15)
+                "tremolo=f=2:d=0.15,"
                 # Strong boost to compensate for bandpass loss and make voice prominent
                 "volume=2.5"
             )
@@ -880,18 +884,30 @@ def add_radio_effects(
             interference_segments = []
 
             for i, t in enumerate(interference_times):
-                burst_duration = random.uniform(0.3, 1.5)  # 0.3-1.5s bursts
+                burst_duration = random.uniform(1.5, 4.0)  # 1.5-4s bursts (longer, more impactful)
 
                 # Combine 2-3 interference types per burst for complexity
                 num_effects = random.choice([2, 3])
-                effect_types = random.sample(['heterodyne', 'sweep', 'digital', 'static'], num_effects)
+                effect_types = random.sample([
+                    'heterodyne', 'sweep', 'digital', 'static',
+                    'phasing', 'chorus', 'harmonic', 'stutter'
+                ], num_effects)
+
+                # Vary burst intensity - mix of subtle, medium, strong
+                intensity = random.choice(['subtle', 'medium', 'strong'])
+                intensity_ranges = {
+                    'subtle': (0.5, 0.8),
+                    'medium': (1.2, 1.8),
+                    'strong': (2.0, 3.0)
+                }
 
                 # Each effect gets its own flutter/warble
                 for effect_type in effect_types:
                     # Random flutter for this effect
                     effect_flutter_freq = random.uniform(3, 15)
                     effect_flutter_depth = random.uniform(0.6, 0.9)
-                    base_volume = random.uniform(1.5, 2.5)  # Very loud interference
+                    vol_min, vol_max = intensity_ranges[intensity]
+                    base_volume = random.uniform(vol_min, vol_max)
 
                     if effect_type == 'heterodyne':
                         # Howling/beating tones (classic HAM radio interference)
@@ -929,17 +945,68 @@ def add_radio_effects(
                             'start': t,
                             'duration': burst_duration,
                             'freqs': freqs,
-                            'base_volume': base_volume,  # Same volume
+                            'base_volume': base_volume,
                             'flutter_freq': effect_flutter_freq,
                             'flutter_depth': effect_flutter_depth
                         })
-                    else:
+                    elif effect_type == 'static':
                         # White noise static (classic)
                         interference_segments.append({
                             'type': 'static',
                             'start': t,
                             'duration': burst_duration,
                             'base_volume': base_volume * 1.5,  # Louder static
+                            'flutter_freq': effect_flutter_freq,
+                            'flutter_depth': effect_flutter_depth
+                        })
+                    elif effect_type == 'phasing':
+                        # Phase shifter effect (swooshing)
+                        freq = random.uniform(800, 1800)
+                        interference_segments.append({
+                            'type': 'phasing',
+                            'start': t,
+                            'duration': burst_duration,
+                            'freq': freq,
+                            'base_volume': base_volume,
+                            'flutter_freq': effect_flutter_freq,
+                            'flutter_depth': effect_flutter_depth
+                        })
+                    elif effect_type == 'chorus':
+                        # Chorus/thickening effect
+                        freq = random.uniform(900, 1600)
+                        interference_segments.append({
+                            'type': 'chorus',
+                            'start': t,
+                            'duration': burst_duration,
+                            'freq': freq,
+                            'base_volume': base_volume,
+                            'flutter_freq': effect_flutter_freq,
+                            'flutter_depth': effect_flutter_depth
+                        })
+                    elif effect_type == 'harmonic':
+                        # Harmonic distortion (overtones)
+                        base_freq = random.uniform(400, 1200)
+                        harmonics = [base_freq * h for h in [1, 2, 3]]
+                        interference_segments.append({
+                            'type': 'harmonic',
+                            'start': t,
+                            'duration': burst_duration,
+                            'harmonics': harmonics,
+                            'base_volume': base_volume,
+                            'flutter_freq': effect_flutter_freq,
+                            'flutter_depth': effect_flutter_depth
+                        })
+                    elif effect_type == 'stutter':
+                        # Glitchy stuttering effect
+                        freq = random.uniform(700, 1500)
+                        stutter_rate = random.uniform(8, 20)  # Hz
+                        interference_segments.append({
+                            'type': 'stutter',
+                            'start': t,
+                            'duration': burst_duration,
+                            'freq': freq,
+                            'stutter_rate': stutter_rate,
+                            'base_volume': base_volume,
                             'flutter_freq': effect_flutter_freq,
                             'flutter_depth': effect_flutter_depth
                         })
@@ -1006,13 +1073,60 @@ def add_radio_effects(
                         )
                         input_index += len(seg['freqs'])
 
-                    else:  # static
+                    elif seg['type'] == 'static':
                         # Classic white noise
                         interference_inputs.extend([
                             "-f", "lavfi", "-i", f"anoisesrc=d={duration}:c=white:r=48000:a=1.0"
                         ])
                         interference_filter_complex.append(
                             f"[{input_index}:a]volume=volume='{vol_expr}':eval=frame[stat{input_index}_env]"
+                        )
+                        input_index += 1
+
+                    elif seg['type'] == 'phasing':
+                        # Phase shifter effect (swooshing)
+                        interference_inputs.extend([
+                            "-f", "lavfi", "-i", f"sine=frequency={seg['freq']}:duration={duration}:sample_rate=48000"
+                        ])
+                        interference_filter_complex.append(
+                            f"[{input_index}:a]aphaser=in_gain=0.4:out_gain=0.74:delay=3.0:decay=0.4:speed=0.5:type=t[phase{input_index}];"
+                            f"[phase{input_index}]volume=volume='{vol_expr}':eval=frame[phase{input_index}_env]"
+                        )
+                        input_index += 1
+
+                    elif seg['type'] == 'chorus':
+                        # Chorus/thickening effect
+                        interference_inputs.extend([
+                            "-f", "lavfi", "-i", f"sine=frequency={seg['freq']}:duration={duration}:sample_rate=48000"
+                        ])
+                        interference_filter_complex.append(
+                            f"[{input_index}:a]chorus=0.5:0.9:50|60|40:0.4|0.32|0.3:0.25|0.4|0.3:2|2.3|1.3[chorus{input_index}];"
+                            f"[chorus{input_index}]volume=volume='{vol_expr}':eval=frame[chorus{input_index}_env]"
+                        )
+                        input_index += 1
+
+                    elif seg['type'] == 'harmonic':
+                        # Harmonic distortion (overtones)
+                        for harmonic in seg['harmonics']:
+                            interference_inputs.extend([
+                                "-f", "lavfi", "-i", f"sine=frequency={harmonic}:duration={duration}:sample_rate=48000"
+                            ])
+                        # Mix the harmonics
+                        harmonic_inputs = [f"[{input_index+i}:a]" for i in range(len(seg['harmonics']))]
+                        interference_filter_complex.append(
+                            f"{''.join(harmonic_inputs)}amix=inputs={len(seg['harmonics'])}:weights=1.0 0.5 0.3[harm{input_index}];"
+                            f"[harm{input_index}]volume=volume='{vol_expr}':eval=frame[harm{input_index}_env]"
+                        )
+                        input_index += len(seg['harmonics'])
+
+                    elif seg['type'] == 'stutter':
+                        # Glitchy stuttering effect (rapid tremolo)
+                        interference_inputs.extend([
+                            "-f", "lavfi", "-i", f"sine=frequency={seg['freq']}:duration={duration}:sample_rate=48000"
+                        ])
+                        interference_filter_complex.append(
+                            f"[{input_index}:a]tremolo=f={seg['stutter_rate']}:d=0.9[stutter{input_index}];"
+                            f"[stutter{input_index}]volume=volume='{vol_expr}':eval=frame[stutter{input_index}_env]"
                         )
                         input_index += 1
 
@@ -1024,14 +1138,34 @@ def add_radio_effects(
                         interference_streams.append(line.split('[')[-1].rstrip(']'))
 
                 # Define consistent mixing weights for clarity and control
-                voice_weight = 2.5  # Voice should dominate
+                voice_weight = 5.0  # Voice should dominate (increased from 2.5)
                 pink_noise_weight = 0.1
                 interference_weight = 0.8  # Audible but not overwhelming
 
-                # Build full filter complex
-                # Apply radio effects to voice, normalize it HOT, then mix with interference
+                # Build voice degradation expression - voice drops/warbles during interference
+                voice_degradation_parts = []
+                for seg in interference_filters:
+                    # During interference: duck volume slightly (still audible)
+                    seg_start = seg['start']
+                    seg_end = seg['start'] + seg['duration']
+                    # Volume drops to 75% during interference (0.25 reduction, still audible)
+                    voice_degradation_parts.append(
+                        f"between(t,{seg_start},{seg_end})*0.25"
+                    )
+
+                # Voice volume expression: normal=1.0, during interference=0.75
+                voice_vol_expr = "1.0-(" + "+".join(voice_degradation_parts) + ")" if voice_degradation_parts else "1.0"
+
+                # Build full filter complex with voice degradation
+                # Apply radio effects to voice, add degradation during interference, normalize, then mix
                 filter_complex = (
-                    f"[0:a]{filter_str},loudnorm=I=-14:TP=-1.5:LRA=11[voice_norm];"
+                    f"[0:a]{filter_str}[voice_filtered];"
+                    # Add pitch warble and volume duck during interference
+                    f"[voice_filtered]volume=volume='{voice_vol_expr}':eval=frame,"
+                    # Add subtle vibrato (pitch warble) during interference for instability
+                    f"vibrato=f=5:d=0.3[voice_degraded];"
+                    # Normalize the degraded voice HOT
+                    f"[voice_degraded]loudnorm=I=-14:TP=-1.5:LRA=11[voice_norm];"
                     + ";".join(interference_filter_complex) + ";"
                     + f"[voice_norm][1:a]{''.join(['['+s+']' for s in interference_streams])}amix=inputs={2+len(interference_streams)}:weights={'{:.1f} {:.1f} '.format(voice_weight, pink_noise_weight) + ' '.join(['{:.1f}'.format(interference_weight)]*len(interference_streams))}[out]"
                 )
@@ -1413,7 +1547,7 @@ def synthesize_show_audio(
             )
 
         # Extract PCM audio data from response
-        if not response.candidates or not response.candidates[0].content.parts:
+        if not response.candidates or not response.candidates[0].content or not response.candidates[0].content.parts:
             raise RuntimeError("No audio data in Gemini response")
 
         parts = response.candidates[0].content.parts
