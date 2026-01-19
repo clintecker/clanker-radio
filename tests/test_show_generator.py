@@ -508,3 +508,237 @@ def test_synthesize_show_audio_ffmpeg_failure(mock_client_class, mock_config, mo
 
     with pytest.raises(RuntimeError, match="Failed to synthesize audio"):
         synthesize_show_audio(script, personas, output_path)
+
+
+# Tests for find_exact_phrase_timestamps()
+def test_find_exact_phrase_timestamps_perfect_match():
+    """Test exact phrase matching with perfect STT transcription."""
+    from ai_radio.show_generator import find_exact_phrase_timestamps
+
+    word_timestamps = [
+        {'word': 'Hello', 'start': 0.0, 'end': 0.5},
+        {'word': 'everyone', 'start': 0.5, 'end': 1.0},
+        {'word': 'Nice', 'start': 5.0, 'end': 5.3},
+        {'word': 'try', 'start': 5.3, 'end': 5.6},
+        {'word': 'corps', 'start': 5.6, 'end': 6.0},
+        {'word': 'Back', 'start': 10.0, 'end': 10.3},
+        {'word': 'to', 'start': 10.3, 'end': 10.5},
+        {'word': 'topic', 'start': 10.5, 'end': 11.0},
+    ]
+
+    acknowledgment_phrases = [
+        {'phrase': 'Nice try corps', 'timestamp': None, 'follows_segment': 1}
+    ]
+
+    result = find_exact_phrase_timestamps(word_timestamps, acknowledgment_phrases)
+
+    assert len(result) == 1
+    assert result[0]['timestamp'] == 5.0
+    assert result[0]['phrase'] == 'Nice try corps'
+
+
+def test_find_exact_phrase_timestamps_with_stt_errors():
+    """Test fuzzy matching handles STT transcription errors."""
+    from ai_radio.show_generator import find_exact_phrase_timestamps
+
+    # STT mistranscribed "corps" as "corpse"
+    word_timestamps = [
+        {'word': 'Hello', 'start': 0.0, 'end': 0.5},
+        {'word': 'everyone', 'start': 0.5, 'end': 1.0},
+        {'word': 'Nice', 'start': 5.0, 'end': 5.3},
+        {'word': 'try', 'start': 5.3, 'end': 5.6},
+        {'word': 'corpse', 'start': 5.6, 'end': 6.0},  # STT error
+        {'word': 'Back', 'start': 10.0, 'end': 10.3},
+        {'word': 'to', 'start': 10.3, 'end': 10.5},
+        {'word': 'topic', 'start': 10.5, 'end': 11.0},
+    ]
+
+    acknowledgment_phrases = [
+        {'phrase': 'Nice try corps', 'timestamp': None, 'follows_segment': 1}
+    ]
+
+    result = find_exact_phrase_timestamps(word_timestamps, acknowledgment_phrases, threshold=85)
+
+    assert len(result) == 1
+    assert result[0]['timestamp'] == 5.0
+    assert result[0]['phrase'] == 'Nice try corps'
+
+
+def test_find_exact_phrase_timestamps_with_emotion_tags():
+    """Test phrase matching strips emotion tags before matching."""
+    from ai_radio.show_generator import find_exact_phrase_timestamps
+
+    word_timestamps = [
+        {'word': 'Damn', 'start': 5.0, 'end': 5.3},
+        {'word': 'corp', 'start': 5.3, 'end': 5.6},
+        {'word': 'jammers', 'start': 5.6, 'end': 6.0},
+        {'word': 'where', 'start': 6.5, 'end': 6.7},
+        {'word': 'was', 'start': 6.7, 'end': 6.9},
+        {'word': 'I', 'start': 6.9, 'end': 7.0},
+    ]
+
+    acknowledgment_phrases = [
+        {'phrase': '[frustrated] Damn corp jammers... where was I?', 'timestamp': None, 'follows_segment': 1}
+    ]
+
+    result = find_exact_phrase_timestamps(word_timestamps, acknowledgment_phrases)
+
+    assert len(result) == 1
+    assert result[0]['timestamp'] == 5.0
+
+
+def test_find_exact_phrase_timestamps_constrained_search():
+    """Test sequential search finds first occurrence when starting from beginning."""
+    from ai_radio.show_generator import find_exact_phrase_timestamps
+
+    # Same phrase appears twice at 2.0s and 8.0s
+    # Sequential search starts from 0.0s, so should find first occurrence at 2.0s
+    word_timestamps = [
+        {'word': 'Nice', 'start': 2.0, 'end': 2.3},
+        {'word': 'try', 'start': 2.3, 'end': 2.6},
+        {'word': 'corps', 'start': 2.6, 'end': 3.0},
+        {'word': 'More', 'start': 3.5, 'end': 4.0},
+        {'word': 'content', 'start': 4.0, 'end': 4.5},
+        {'word': 'Nice', 'start': 8.0, 'end': 8.3},
+        {'word': 'try', 'start': 8.3, 'end': 8.6},
+        {'word': 'corps', 'start': 8.6, 'end': 9.0},
+    ]
+
+    acknowledgment_phrases = [
+        {'phrase': 'Nice try corps', 'timestamp': None, 'follows_segment': 1}
+    ]
+
+    result = find_exact_phrase_timestamps(word_timestamps, acknowledgment_phrases)
+
+    # Should find the first occurrence (sequential search starts from 0.0s)
+    assert len(result) == 1
+    assert result[0]['timestamp'] == 2.0
+
+
+def test_find_exact_phrase_timestamps_multiple_phrases():
+    """Test matching multiple acknowledgment phrases."""
+    from ai_radio.show_generator import find_exact_phrase_timestamps
+
+    word_timestamps = [
+        {'word': 'Hello', 'start': 0.0, 'end': 0.5},
+        {'word': 'Nice', 'start': 5.0, 'end': 5.3},
+        {'word': 'try', 'start': 5.3, 'end': 5.6},
+        {'word': 'corps', 'start': 5.6, 'end': 6.0},
+        {'word': 'More', 'start': 10.0, 'end': 10.5},
+        {'word': 'words', 'start': 10.5, 'end': 11.0},
+        {'word': 'Damn', 'start': 15.0, 'end': 15.3},
+        {'word': 'jammers', 'start': 15.3, 'end': 15.8},
+    ]
+
+    acknowledgment_phrases = [
+        {'phrase': 'Nice try corps', 'timestamp': None, 'follows_segment': 1},
+        {'phrase': 'Damn jammers', 'timestamp': None, 'follows_segment': 3}
+    ]
+
+    result = find_exact_phrase_timestamps(word_timestamps, acknowledgment_phrases)
+
+    assert len(result) == 2
+    assert result[0]['timestamp'] == 5.0
+    assert result[1]['timestamp'] == 15.0
+
+
+def test_find_exact_phrase_timestamps_phrase_not_found():
+    """Test graceful failure when phrase not found in transcript."""
+    from ai_radio.show_generator import find_exact_phrase_timestamps
+
+    word_timestamps = [
+        {'word': 'Hello', 'start': 0.0, 'end': 0.5},
+        {'word': 'everyone', 'start': 0.5, 'end': 1.0},
+    ]
+
+    acknowledgment_phrases = [
+        {'phrase': 'Nice try corps', 'timestamp': None, 'follows_segment': 1}
+    ]
+
+    result = find_exact_phrase_timestamps(word_timestamps, acknowledgment_phrases)
+
+    # Should return phrase with timestamp still None
+    assert len(result) == 1
+    assert result[0]['timestamp'] is None
+    assert result[0]['phrase'] == 'Nice try corps'
+
+
+def test_find_exact_phrase_timestamps_flexible_window():
+    """Test flexible N±1 word window matching."""
+    from ai_radio.show_generator import find_exact_phrase_timestamps
+
+    # Phrase is 4 words, should match in 3-5 word windows
+    word_timestamps = [
+        {'word': 'Damn', 'start': 5.0, 'end': 5.3},
+        {'word': 'those', 'start': 5.3, 'end': 5.5},  # Extra word
+        {'word': 'corp', 'start': 5.5, 'end': 5.7},
+        {'word': 'jammers', 'start': 5.7, 'end': 6.0},
+        {'word': 'again', 'start': 6.0, 'end': 6.3},
+    ]
+
+    acknowledgment_phrases = [
+        {'phrase': 'Damn corp jammers again', 'timestamp': None, 'follows_segment': 1}
+    ]
+
+    result = find_exact_phrase_timestamps(word_timestamps, acknowledgment_phrases, threshold=85)
+
+    # Should match even with "those" inserted
+    assert len(result) == 1
+    assert result[0]['timestamp'] == 5.0
+
+
+def test_find_exact_phrase_timestamps_with_punctuation():
+    """Test phrase matching ignores punctuation."""
+    from ai_radio.show_generator import find_exact_phrase_timestamps
+
+    word_timestamps = [
+        {'word': 'Nice', 'start': 5.0, 'end': 5.3},
+        {'word': 'try,', 'start': 5.3, 'end': 5.6},  # With comma
+        {'word': 'corps!', 'start': 5.6, 'end': 6.0},  # With exclamation
+    ]
+
+    acknowledgment_phrases = [
+        {'phrase': 'Nice try, corps!', 'timestamp': None, 'follows_segment': 1}
+    ]
+
+    result = find_exact_phrase_timestamps(word_timestamps, acknowledgment_phrases)
+
+    assert len(result) == 1
+    assert result[0]['timestamp'] == 5.0
+
+
+def test_find_exact_phrase_timestamps_sequential_search_prevents_false_matches():
+    """Test sequential search prevents matching same phrase twice when it appears multiple times."""
+    from ai_radio.show_generator import find_exact_phrase_timestamps
+
+    # "Nice try corps" appears at 2.0s and 10.0s
+    # Two acknowledgments should match BOTH occurrences: first at 2.0s, second at 10.0s
+    # Without sequential search, both would match 2.0s (first match always wins)
+    word_timestamps = [
+        {'word': 'Nice', 'start': 2.0, 'end': 2.3},
+        {'word': 'try', 'start': 2.3, 'end': 2.6},
+        {'word': 'corps', 'start': 2.6, 'end': 3.0},
+        {'word': 'Some', 'start': 3.5, 'end': 4.0},
+        {'word': 'content', 'start': 4.0, 'end': 4.5},
+        {'word': 'here', 'start': 4.5, 'end': 5.0},
+        {'word': 'More', 'start': 6.0, 'end': 6.5},
+        {'word': 'content', 'start': 6.5, 'end': 7.0},
+        {'word': 'Nice', 'start': 10.0, 'end': 10.3},
+        {'word': 'try', 'start': 10.3, 'end': 10.6},
+        {'word': 'corps', 'start': 10.6, 'end': 11.0},
+    ]
+
+    acknowledgment_phrases = [
+        {'phrase': 'Nice try corps', 'timestamp': None, 'follows_segment': 1},
+        {'phrase': 'Nice try corps', 'timestamp': None, 'follows_segment': 3}
+    ]
+
+    result = find_exact_phrase_timestamps(word_timestamps, acknowledgment_phrases)
+
+    # First phrase should match at 2.0s
+    # Second phrase should search starting 2s after first match (4.0s+) and find at 10.0s
+    assert len(result) == 2
+    assert result[0]['timestamp'] == 2.0
+    assert result[0]['phrase'] == 'Nice try corps'
+    assert result[1]['timestamp'] == 10.0, f"Expected second phrase at 10.0s but got {result[1]['timestamp']}"
+    assert result[1]['phrase'] == 'Nice try corps'
