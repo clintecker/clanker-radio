@@ -6,6 +6,11 @@ from pathlib import Path
 from datetime import datetime
 import logging
 
+import google.genai as genai
+
+from ai_radio.config import config
+from ai_radio.show_generator import synthesize_show_audio
+
 # Add src to path
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
@@ -15,15 +20,10 @@ logging.basicConfig(
     format='%(levelname)s - %(name)s - %(message)s'
 )
 
-from ai_radio.config import config
-from ai_radio.show_generator import synthesize_show_audio, research_topics
-import google.genai as genai
-import google.genai.types
-
 def generate_field_report_json(
     presenter_name: str,
     source_name: str,
-    topics: list
+    topics: list[str]
 ) -> str:
     """Generate field report as structured JSON using schema.
 
@@ -103,7 +103,7 @@ OUTPUT: Valid JSON matching this exact structure:
 
     return response.text
 
-def generate_cold_open_with_field_report(presenter_name: str, source_name: str, topics: list) -> str:
+def generate_cold_open_with_field_report(presenter_name: str, source_name: str, topics: list[str]) -> str:
     """Generate a cold open + full field report with two speakers.
 
     Args:
