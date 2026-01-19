@@ -38,10 +38,10 @@ def validate_script(script: FieldReportScript) -> list[ValidationIssue]:
         ))
 
     intro2_words = len(script.cold_open.intro_sentence_2.split())
-    if intro2_words > 30:
+    if intro2_words > 35:
         issues.append(ValidationIssue(
             field="cold_open.intro_sentence_2",
-            message=f"Intro sentence 2 too long: {intro2_words} words (max 30 words)"
+            message=f"Intro sentence 2 too long: {intro2_words} words (max 35 words)"
         ))
 
     # Validate interview segments

@@ -88,7 +88,10 @@ STRUCTURE REQUIREMENTS:
 - complaint_line: Field reporter whispers complaint about equipment/patrol (~15 words)
 - realization: Shocked reaction to mic being live (e.g., "Oh shit. Oh.")
 - intro_sentence_1: First introduction in normal voice, include reporter's name (~20 words)
-- intro_sentence_2: Second introduction continuing setup (~20 words)
+- intro_sentence_2: Authentication check - casual mention of encrypted broadcast with verification code (~25-30 words)
+  * MUST include: mention this is encrypted, verification code (4-6 digits), reference to one-time pads
+  * Make it NATURAL and routine, not dramatic: "If you're hearing this, your keys worked. Today's auth is seven-four-two-nine. Check your pads from last week's meet."
+  * Treat it like everyday opsec, not a big deal - they do this every broadcast
 
 **interview_segments** (8-10 items, each with 3 fields):
 - question: Field reporter asks about organizing work (~35-40 words)
@@ -115,7 +118,7 @@ Cold Open:
   - complaint_line: MAX 25 words (target ~15)
   - realization: MAX 5 words (target ~3)
   - intro_sentence_1: MAX 30 words (target ~20)
-  - intro_sentence_2: MAX 30 words (target ~20)
+  - intro_sentence_2: MAX 35 words (target 25-30, includes authentication)
 
 Interview Segments (per segment):
   - question: MAX 50 words (target 35-40)
