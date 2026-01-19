@@ -77,17 +77,37 @@ def test_complete_json_workflow_with_audio() -> None:
     script = compress_script_to_budget(script, target_words=TARGET_WORD_COUNT)
 
     # Step 5: Render
-    final_script = render_script(script, presenter, source)
+    final_script, metadata = render_script(script, presenter, source)
 
     # Verify structure
     assert "[speaker: Maya Rodriguez]" in final_script
     assert "[whispering]" in final_script
+
+    # Verify metadata structure
+    assert "acknowledgment_phrases" in metadata
+    assert "total_lines" in metadata
+    assert "total_words" in metadata
+
+    # Count how many segments have interference_after=True
+    expected_interference_count = sum(1 for seg in script.interview_segments if seg.interference_after)
+
+    # Verify metadata acknowledgment count matches schema interference flags
+    assert len(metadata["acknowledgment_phrases"]) == expected_interference_count, \
+        f"Acknowledgment count mismatch: {len(metadata['acknowledgment_phrases'])} in metadata " \
+        f"but {expected_interference_count} segments with interference_after=True"
 
     # Check for interference phrases (less strict - just check if any interference was injected)
     has_interference = any(phrase in final_script.lower() for phrase in [
         "sorry", "jammers", "signal", "damn", "corp", "hold on", "can you"
     ])
     assert has_interference, "No interference phrases found in rendered script"
+
+    # Log metadata for debugging
+    print(f"\n📊 Metadata Flow Test:")
+    print(f"   Expected interference: {expected_interference_count}")
+    print(f"   Acknowledgment phrases: {len(metadata['acknowledgment_phrases'])}")
+    for ack in metadata['acknowledgment_phrases']:
+        print(f"      - Line {ack['line_num']}: {ack['phrase'][:50]}...")
 
     # Step 6: Synthesize audio
     output_path = Path("/tmp/test-json-workflow-integration.mp3")
@@ -101,7 +121,8 @@ def test_complete_json_workflow_with_audio() -> None:
             script_text=final_script,
             personas=personas,
             output_path=output_path,
-            add_bed=True
+            add_bed=True,
+            interference_metadata=metadata  # Pass metadata for synchronized interference
         )
 
         # Verify audio was generated
@@ -132,3 +153,83 @@ def test_complete_json_workflow_with_audio() -> None:
         # Cleanup: remove temporary audio file
         if output_path.exists():
             output_path.unlink()
+
+
+@pytest.mark.integration
+def test_interference_synchronization_no_hallucination() -> None:
+    """Test that interference timing uses exact metadata without LLM hallucination.
+
+    This test specifically validates the fix for the emotion timing issue where
+    the LLM would hallucinate extra interference points that don't exist in the
+    script metadata. The deterministic approach should only place interference
+    at the exact locations specified in the metadata.
+
+    Raises:
+        AssertionError: If interference count doesn't match acknowledgment count
+    """
+    presenter = "Maya Rodriguez"
+    source = "Sam Chen"
+    topics = [
+        "Bridgeport Mutual Aid - solar chargers"
+    ]
+
+    # Generate JSON with exactly 2 interference points (segments 0 and 2)
+    json_output = generate_field_report_json(presenter, source, topics)
+    data = json.loads(json_output)
+    script = FieldReportScript(**data)
+
+    # Validate and compress
+    issues = validate_script(script)
+    if issues:
+        script = repair_script(script)
+    script = compress_script_to_budget(script, target_words=TARGET_WORD_COUNT)
+
+    # Render with metadata
+    final_script, metadata = render_script(script, presenter, source)
+
+    # Count expected interference from schema
+    expected_count = sum(1 for seg in script.interview_segments if seg.interference_after)
+
+    # Verify metadata matches schema (no hallucination at render time)
+    actual_ack_count = len(metadata["acknowledgment_phrases"])
+    assert actual_ack_count == expected_count, \
+        f"Renderer hallucinated acknowledgments: expected {expected_count}, got {actual_ack_count}"
+
+    print(f"\n✅ No Hallucination Test:")
+    print(f"   Schema interference flags: {expected_count}")
+    print(f"   Metadata acknowledgments: {actual_ack_count}")
+    print(f"   Match: {actual_ack_count == expected_count}")
+
+    # Verify each acknowledgment phrase is actually in the script
+    # Use fuzzy matching to handle compression artifacts
+    from thefuzz import fuzz
+    import re
+
+    def normalize_for_matching(text: str) -> str:
+        """Normalize text for matching (lowercase, remove extra whitespace)."""
+        text = re.sub(r'\[.*?\]', '', text)  # Remove emotion tags
+        text = re.sub(r'\s+', ' ', text)  # Normalize whitespace
+        return text.strip().lower()
+
+    script_normalized = normalize_for_matching(final_script)
+
+    for ack in metadata["acknowledgment_phrases"]:
+        phrase = ack["phrase"]
+        phrase_normalized = normalize_for_matching(phrase)
+
+        # Check if phrase appears in script (fuzzy match to handle compression)
+        found = False
+        # Split into sentences and check each
+        for line in final_script.split('\n'):
+            line_normalized = normalize_for_matching(line)
+            # Use fuzzy matching with threshold of 80%
+            similarity = fuzz.partial_ratio(phrase_normalized, line_normalized)
+            if similarity >= 80:
+                found = True
+                break
+
+        assert found, \
+            f"Acknowledgment phrase not found in script (fuzzy match): {phrase}"
+
+    print(f"   All {actual_ack_count} acknowledgment phrases verified in script")
+    print(f"   ✅ No LLM hallucination detected")

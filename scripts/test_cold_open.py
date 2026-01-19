@@ -249,7 +249,7 @@ def test_json_workflow_end_to_end():
         script = repair_script(script)
 
     # Render to final format
-    final_script = render_script(script, presenter, source)
+    final_script, metadata = render_script(script, presenter, source)
 
     # Verify structure
     assert "[speaker: Maya Rodriguez]" in final_script
@@ -324,12 +324,22 @@ def main():
 
     # Step 5: Render to final script
     print("📝 Rendering final script with programmatic interference...")
-    final_script = render_script(script, presenter_name, source_name)
+    final_script, metadata = render_script(script, presenter_name, source_name)
 
     word_count = len(final_script.split())
     print(f"   Script length: {len(final_script)} characters")
     print(f"   Word count: {word_count} words")
     print()
+
+    # Display metadata about acknowledgment phrases
+    print(f"📊 Metadata:")
+    print(f"   Total lines: {metadata['total_lines']}")
+    print(f"   Total words: {metadata['total_words']}")
+    print(f"   Acknowledgment phrases: {len(metadata['acknowledgment_phrases'])}")
+    for ack in metadata["acknowledgment_phrases"]:
+        print(f"      - Line {ack['line_num']}: {ack['phrase'][:60]}...")
+    print()
+
     print("=" * 60)
     print(final_script)
     print("=" * 60)
@@ -348,7 +358,8 @@ def main():
         script_text=final_script,
         personas=personas,
         output_path=output_path,
-        add_bed=True  # Add background bed with ducking
+        add_bed=True,  # Add background bed with ducking
+        interference_metadata=metadata  # Pass metadata for synchronized interference timing
     )
 
     print()
