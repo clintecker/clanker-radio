@@ -1,8 +1,9 @@
 """Integration test for complete JSON workflow with audio generation."""
+import importlib.util
 import json
 import sys
-import importlib.util
 from pathlib import Path
+
 import pytest
 
 # Add paths for imports
@@ -18,16 +19,38 @@ spec.loader.exec_module(test_cold_open)
 generate_field_report_json = test_cold_open.generate_field_report_json
 
 from ai_radio.models.script_schema import FieldReportScript
-from ai_radio.script_validation import validate_script
-from ai_radio.script_repair import repair_script
-from ai_radio.script_renderer import render_script
 from ai_radio.script_editor import compress_script_to_budget
+from ai_radio.script_renderer import render_script
+from ai_radio.script_repair import repair_script
+from ai_radio.script_validation import validate_script
 from ai_radio.show_generator import synthesize_show_audio
+
+# Constants for timing validation
+TARGET_WORD_COUNT = 900
+SPEAKING_RATE_WPM = 150
+DURATION_VARIANCE_FACTOR = 0.5
+COLD_OPEN_MIN_SECONDS = 10
+COLD_OPEN_MAX_SECONDS = 30
 
 
 @pytest.mark.integration
-def test_complete_json_workflow_with_audio():
-    """Test complete workflow: JSON → validate → repair → compress → render → audio."""
+def test_complete_json_workflow_with_audio() -> None:
+    """Test complete workflow from JSON generation through audio synthesis.
+
+    This integration test verifies the entire content generation pipeline:
+    1. Generate JSON structure for a field report
+    2. Validate the script structure
+    3. Repair any validation issues
+    4. Compress to target word count budget
+    5. Render script with speaker tags and emotion markers
+    6. Synthesize audio with TTS and verify output
+
+    The test validates timing constraints, speaker presence, interference phrases,
+    and that the generated audio file meets duration expectations.
+
+    Raises:
+        AssertionError: If any step in the workflow fails validation
+    """
     presenter = "Maya Rodriguez"
     source = "Sam Chen"
     topics = [
@@ -51,7 +74,7 @@ def test_complete_json_workflow_with_audio():
         script = repair_script(script)
 
     # Step 4: Compress if over budget
-    script = compress_script_to_budget(script, target_words=900)
+    script = compress_script_to_budget(script, target_words=TARGET_WORD_COUNT)
 
     # Step 5: Render
     final_script = render_script(script, presenter, source)
@@ -64,8 +87,6 @@ def test_complete_json_workflow_with_audio():
     has_interference = any(phrase in final_script.lower() for phrase in [
         "sorry", "jammers", "signal", "damn", "corp", "hold on", "can you"
     ])
-    if not has_interference:
-        print(f"DEBUG: Final script:\n{final_script}")
     assert has_interference, "No interference phrases found in rendered script"
 
     # Step 6: Synthesize audio
@@ -75,38 +96,45 @@ def test_complete_json_workflow_with_audio():
         {"name": source, "traits": "male organizer"}
     ]
 
-    audio_file = synthesize_show_audio(
-        script_text=final_script,
-        personas=personas,
-        output_path=output_path,
-        add_bed=True
-    )
+    try:
+        audio_file = synthesize_show_audio(
+            script_text=final_script,
+            personas=personas,
+            output_path=output_path,
+            add_bed=True
+        )
 
-    # Verify audio was generated
-    assert output_path.exists()
-    assert audio_file.duration_estimate > 0
+        # Verify audio was generated
+        assert output_path.exists()
+        assert audio_file.duration_estimate > 0
 
-    # Verify timing constraints
-    # Cold open should be roughly 15-25 seconds (using ~150 words/min speaking rate)
-    cold_open_words = (
-        len(script.cold_open.complaint_line.split()) +
-        len(script.cold_open.realization.split()) +
-        len(script.cold_open.intro_sentence_1.split()) +
-        len(script.cold_open.intro_sentence_2.split())
-    )
-    cold_open_seconds = (cold_open_words / 150) * 60  # Rough estimate
+        # Verify timing constraints
+        # Cold open should be roughly 15-25 seconds (using speaking rate)
+        cold_open_words = (
+            len(script.cold_open.complaint_line.split()) +
+            len(script.cold_open.realization.split()) +
+            len(script.cold_open.intro_sentence_1.split()) +
+            len(script.cold_open.intro_sentence_2.split())
+        )
+        cold_open_seconds = (cold_open_words / SPEAKING_RATE_WPM) * 60
 
-    assert 10 <= cold_open_seconds <= 30, f"Cold open timing off: {cold_open_seconds}s"
+        assert COLD_OPEN_MIN_SECONDS <= cold_open_seconds <= COLD_OPEN_MAX_SECONDS, \
+            f"Cold open timing off: {cold_open_seconds}s"
 
-    # Total duration should be reasonable for word count
-    total_words = len(final_script.split())
-    expected_duration = (total_words / 150) * 60  # ~150 wpm
+        # Total duration should be reasonable for word count
+        total_words = len(final_script.split())
+        expected_duration = (total_words / SPEAKING_RATE_WPM) * 60
 
-    # Allow 50% variance for pauses, emotion tags, etc.
-    assert expected_duration * 0.5 <= audio_file.duration_estimate <= expected_duration * 1.5
+        # Allow variance for pauses, emotion tags, etc.
+        assert expected_duration * DURATION_VARIANCE_FACTOR <= audio_file.duration_estimate <= \
+            expected_duration * (2 - DURATION_VARIANCE_FACTOR)
 
-    print(f"✅ Integration test passed")
-    print(f"   Words: {total_words}")
-    print(f"   Duration: {audio_file.duration_estimate:.1f}s")
-    print(f"   Cold open: ~{cold_open_seconds:.1f}s")
-    print(f"   Output: {output_path}")
+        print(f"✅ Integration test passed")
+        print(f"   Words: {total_words}")
+        print(f"   Duration: {audio_file.duration_estimate:.1f}s")
+        print(f"   Cold open: ~{cold_open_seconds:.1f}s")
+        print(f"   Output: {output_path}")
+    finally:
+        # Cleanup: remove temporary audio file
+        if output_path.exists():
+            output_path.unlink()
