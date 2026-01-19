@@ -128,12 +128,6 @@ def test_complete_json_workflow_with_audio() -> None:
         # Allow variance for pauses, emotion tags, etc.
         assert expected_duration * DURATION_VARIANCE_FACTOR <= audio_file.duration_estimate <= \
             expected_duration * (2 - DURATION_VARIANCE_FACTOR)
-
-        print(f"✅ Integration test passed")
-        print(f"   Words: {total_words}")
-        print(f"   Duration: {audio_file.duration_estimate:.1f}s")
-        print(f"   Cold open: ~{cold_open_seconds:.1f}s")
-        print(f"   Output: {output_path}")
     finally:
         # Cleanup: remove temporary audio file
         if output_path.exists():
