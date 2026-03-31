@@ -71,7 +71,8 @@ class TestClaudeScriptWriter:
                     mock_config.llm_api_key = "test-key"
                     mock_config.llm_model = "claude-3-5-sonnet-20241022"
                     mock_config.station_tz = "UTC"
-                    mock_config.station_name = "Test Radio"
+                    # Mock nested station config
+                    mock_config.station.station_name = "Test Radio"
                     mock_config.station_location = "Test City"
                     mock_config.weather_script_temperature = 0.8
                     mock_config.news_script_temperature = 0.6
@@ -117,7 +118,8 @@ class TestClaudeScriptWriter:
                     mock_config.llm_api_key = "test-key"
                     mock_config.llm_model = "claude-3-5-sonnet-20241022"
                     mock_config.station_tz = "UTC"
-                    mock_config.station_name = "Test Radio"
+                    # Mock nested station config
+                    mock_config.station.station_name = "Test Radio"
                     mock_config.station_location = "Test City"
                     mock_config.weather_script_temperature = 0.8
                     mock_config.news_script_temperature = 0.6
@@ -157,7 +159,8 @@ class TestClaudeScriptWriter:
             mock_config.llm_api_key = "test-key"
             mock_config.llm_model = "claude-3-5-sonnet-20241022"
             mock_config.station_tz = "UTC"
-            mock_config.station_name = "Test Radio"
+            # Mock nested station config
+            mock_config.station.station_name = "Test Radio"
             mock_config.station_location = "Test City"
             mock_config.weather_script_temperature = 0.8
             mock_config.news_script_temperature = 0.6
@@ -211,7 +214,8 @@ class TestClaudeScriptWriter:
                     mock_config.llm_api_key = "test-key"
                     mock_config.llm_model = "claude-3-5-sonnet-20241022"
                     mock_config.station_tz = "UTC"
-                    mock_config.station_name = "Test Radio"
+                    # Mock nested station config
+                    mock_config.station.station_name = "Test Radio"
                     mock_config.station_location = "Test City"
                     mock_config.weather_script_temperature = 0.8
                     mock_config.news_script_temperature = 0.6
@@ -253,7 +257,8 @@ class TestClaudeScriptWriter:
             mock_config.llm_api_key = "test-key"
             mock_config.llm_model = "claude-3-5-sonnet-20241022"
             mock_config.station_tz = "UTC"
-            mock_config.station_name = "Test Radio"
+            # Mock nested station config
+            mock_config.station.station_name = "Test Radio"
             mock_config.station_location = "Test City"
             mock_config.weather_script_temperature = 0.8
             mock_config.news_script_temperature = 0.6

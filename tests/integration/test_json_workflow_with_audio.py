@@ -51,17 +51,14 @@ def test_complete_json_workflow_with_audio() -> None:
     Raises:
         AssertionError: If any step in the workflow fails validation
     """
-    presenter = "Maya Rodriguez"
-    source = "Sam Chen"
-    topics = [
-        "Bridgeport Mutual Aid - solar chargers",
-        "West Side Watchdogs - community defense"
-    ]
-
-    # Step 1: Generate JSON
-    json_output = generate_field_report_json(presenter, source, topics)
+    # Step 1: Generate JSON (LLM generates presenter/source names)
+    json_output = generate_field_report_json()
     data = json.loads(json_output)
     script = FieldReportScript(**data)
+
+    # Extract generated names
+    presenter = script.presenter_name
+    source = script.source_name
 
     assert script.cold_open is not None
     assert len(script.interview_segments) >= 4
@@ -79,8 +76,8 @@ def test_complete_json_workflow_with_audio() -> None:
     # Step 5: Render
     final_script, metadata = render_script(script, presenter, source)
 
-    # Verify structure
-    assert "[speaker: Maya Rodriguez]" in final_script
+    # Verify structure (use generated presenter name)
+    assert f"[speaker: {presenter}]" in final_script
     assert "[whispering]" in final_script
 
     # Verify metadata structure
@@ -167,16 +164,14 @@ def test_interference_synchronization_no_hallucination() -> None:
     Raises:
         AssertionError: If interference count doesn't match acknowledgment count
     """
-    presenter = "Maya Rodriguez"
-    source = "Sam Chen"
-    topics = [
-        "Bridgeport Mutual Aid - solar chargers"
-    ]
-
-    # Generate JSON with exactly 2 interference points (segments 0 and 2)
-    json_output = generate_field_report_json(presenter, source, topics)
+    # Generate JSON (LLM generates presenter/source names)
+    json_output = generate_field_report_json()
     data = json.loads(json_output)
     script = FieldReportScript(**data)
+
+    # Extract generated names
+    presenter = script.presenter_name
+    source = script.source_name
 
     # Validate and compress
     issues = validate_script(script)

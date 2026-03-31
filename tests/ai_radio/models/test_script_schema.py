@@ -10,13 +10,15 @@ def test_cold_open_validates_structure():
         complaint_line="Sam, I swear if that generator fails one more time",
         realization="Oh shit. Oh.",
         intro_sentence_1="This is Maya Rodriguez with Field Reports.",
-        intro_sentence_2="Broadcasting from the ruins of Sector 7."
+        intro_sentence_2="Broadcasting from the ruins of Sector 7.",
+        guest_intro="Tonight I have Sam Chen from the Bridgeport Collective."
     )
 
     assert cold_open.complaint_line is not None
     assert cold_open.realization is not None
     assert cold_open.intro_sentence_1 is not None
     assert cold_open.intro_sentence_2 is not None
+    assert cold_open.guest_intro is not None
 
 
 def test_interview_segment_has_interference_flag():
@@ -38,7 +40,8 @@ def test_field_report_script_validates_min_segments():
                 complaint_line="test",
                 realization="test",
                 intro_sentence_1="test",
-                intro_sentence_2="test"
+                intro_sentence_2="test",
+                guest_intro="test"
             ),
             interview_segments=[],  # Too few
             signoff="Stay safe out there."

@@ -375,6 +375,10 @@ def test_synthesize_show_audio(mock_client_class, mock_config, mock_subprocess):
     mock_api_key.get_secret_value.return_value = "fake-api-key"
     mock_config.api_keys.gemini_api_key = mock_api_key
 
+    # Mock TTS config
+    mock_config.tts.gemini_tts_model = "gemini-2.5-flash-preview-tts"
+    mock_config.paths.beds_dir_resolved = None  # No beds for this test
+
     # Mock Gemini API response with audio data
     mock_client = Mock()
     mock_client_class.return_value = mock_client
@@ -385,8 +389,9 @@ def test_synthesize_show_audio(mock_client_class, mock_config, mock_subprocess):
     mock_response.candidates = [Mock(content=Mock(parts=[mock_part]))]
     mock_client.models.generate_content.return_value = mock_response
 
-    # Mock subprocess (ffmpeg) - success
-    mock_subprocess.return_value = Mock(returncode=0, stderr="")
+    # Mock subprocess (ffmpeg and ffprobe) - success
+    # First call is pcm->mp3 conversion, second would be ffprobe for duration
+    mock_subprocess.return_value = Mock(returncode=0, stderr="", stdout="3.2")
 
     # Call function
     script = "[speaker: Sarah] Hello!\n[speaker: Dr. Chen] Hi there!"

@@ -21,32 +21,28 @@ from ai_radio.models.script_schema import FieldReportScript
 
 def test_generate_field_report_json_returns_valid_structure():
     """JSON generation returns valid FieldReportScript."""
-    presenter = "Maya Rodriguez"
-    source = "Sam Chen"
-    topics = [
-        "Bridgeport Mutual Aid - solar chargers",
-        "West Side Watchdogs - community defense"
-    ]
-
-    json_output = generate_field_report_json(presenter, source, topics)
+    # New signature: LLM generates presenter/source names
+    json_output = generate_field_report_json()
     data = json.loads(json_output)
 
     # Should parse as valid FieldReportScript
     script = FieldReportScript(**data)
 
     assert script.cold_open is not None
-    assert len(script.interview_segments) >= 4
-    assert len(script.interview_segments) <= 6
+    assert len(script.interview_segments) >= 8
+    assert len(script.interview_segments) <= 10
     assert script.signoff is not None
+    # Verify LLM generated names
+    assert script.presenter_name is not None
+    assert len(script.presenter_name) > 0
+    assert script.source_name is not None
+    assert len(script.source_name) > 0
 
 
 def test_first_segment_has_interference():
     """First interview segment should have interference_after=True."""
-    presenter = "Maya Rodriguez"
-    source = "Sam Chen"
-    topics = ["Test topic"]
-
-    json_output = generate_field_report_json(presenter, source, topics)
+    # New signature: LLM generates all content
+    json_output = generate_field_report_json()
     data = json.loads(json_output)
     script = FieldReportScript(**data)
 

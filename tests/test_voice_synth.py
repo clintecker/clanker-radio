@@ -217,24 +217,30 @@ class TestSynthesizeBulletinConvenience:
             file_path=output_path,
             duration_estimate=15.0,
             timestamp=datetime.now(),
-            voice="alloy",
-            model="tts-1",
+            voice="Kore",
+            model="gemini-2.5-pro-preview-tts",
         )
 
-        with patch("ai_radio.voice_synth.OpenAIVoiceSynthesizer") as mock_synth_class:
-            mock_synth = Mock()
-            mock_synth.synthesize.return_value = mock_audio
-            mock_synth_class.return_value = mock_synth
+        with patch("ai_radio.voice_synth.config") as mock_config:
+            mock_config.tts.tts_provider = "gemini"
 
-            result = synthesize_bulletin(script, output_path)
+            with patch("ai_radio.voice_synth.GeminiVoiceSynthesizer") as mock_synth_class:
+                mock_synth = Mock()
+                mock_synth.synthesize.return_value = mock_audio
+                mock_synth_class.return_value = mock_synth
 
-            assert result == mock_audio
+                result = synthesize_bulletin(script, output_path)
+
+                assert result == mock_audio
 
     def test_synthesize_bulletin_initialization_failure(self, tmp_path):
         """synthesize_bulletin should return None if synthesizer initialization fails."""
-        with patch("ai_radio.voice_synth.OpenAIVoiceSynthesizer") as mock_synth_class:
-            mock_synth_class.side_effect = ValueError("No API key")
+        with patch("ai_radio.voice_synth.config") as mock_config:
+            mock_config.tts.tts_provider = "gemini"
 
-            result = synthesize_bulletin("test", tmp_path / "test.mp3")
+            with patch("ai_radio.voice_synth.GeminiVoiceSynthesizer") as mock_synth_class:
+                mock_synth_class.side_effect = ValueError("No API key")
 
-            assert result is None
+                result = synthesize_bulletin("test", tmp_path / "test.mp3")
+
+                assert result is None
