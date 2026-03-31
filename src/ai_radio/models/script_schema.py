@@ -10,7 +10,8 @@ class ColdOpen(BaseModel):
     )
     realization: str = Field(..., description="Shocked realization mic is live")
     intro_sentence_1: str = Field(..., description="First introduction sentence")
-    intro_sentence_2: str = Field(..., description="Second introduction sentence")
+    intro_sentence_2: str = Field(..., description="Authentication check sentence")
+    guest_intro: str = Field(..., description="Guest/segment introduction sentence")
 
 
 class InterviewSegment(BaseModel):
@@ -20,6 +21,9 @@ class InterviewSegment(BaseModel):
     answer: str = Field(..., description="Source answer (~40-50 words)")
     interference_after: bool = Field(
         default=False, description="Whether interference follows this segment"
+    )
+    interference_phrase: str | None = Field(
+        default=None, description="Optional creative acknowledgment of interference (if interference_after=True)"
     )
 
 

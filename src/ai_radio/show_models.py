@@ -18,6 +18,7 @@ class ShowFormat:
     """Supported show formats."""
     INTERVIEW = "interview"
     TWO_HOST_DISCUSSION = "two_host_discussion"
+    FIELD_REPORT = "field_report"  # On-the-ground dispatches from resistance/civic groups
 
 
 # Liquidsoap queue constants

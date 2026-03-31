@@ -1497,22 +1497,32 @@ def synthesize_show_audio(
             speaker_voice_configs = []
 
             # Smart voice assignment based on traits
+            import random
+
+            # Track which voices we've used to avoid duplicates
+            used_voices = []
+
             for i, persona in enumerate(personas[:2]):  # Only first 2 personas get distinct voices
                 traits_lower = persona.get("traits", "").lower()
 
                 # Check for gender hints in traits
                 if "female" in traits_lower or "woman" in traits_lower:
-                    # Use female voices - rotate through them
+                    # Use female voices - pick randomly from unused ones
                     female_voices = ["Aoede", "Kore", "Leda", "Zephyr"]
-                    voice_name = female_voices[i % len(female_voices)]
+                    available = [v for v in female_voices if v not in used_voices]
+                    voice_name = random.choice(available if available else female_voices)
                 elif "male" in traits_lower or "man" in traits_lower:
-                    # Use male voices - rotate through them
+                    # Use male voices - pick randomly from unused ones
                     male_voices = ["Puck", "Charon", "Fenrir", "Orus"]
-                    voice_name = male_voices[i % len(male_voices)]
+                    available = [v for v in male_voices if v not in used_voices]
+                    voice_name = random.choice(available if available else male_voices)
                 else:
-                    # Default: alternate male/female
-                    all_voices = ["Puck", "Aoede", "Charon", "Kore"]
-                    voice_name = all_voices[i % len(all_voices)]
+                    # Default: pick randomly from all voices, avoid duplicates
+                    all_voices = ["Puck", "Aoede", "Charon", "Kore", "Fenrir", "Leda", "Orus", "Zephyr"]
+                    available = [v for v in all_voices if v not in used_voices]
+                    voice_name = random.choice(available if available else all_voices)
+
+                used_voices.append(voice_name)
 
                 speaker_voice_configs.append(
                     genai.types.SpeakerVoiceConfig(

@@ -44,6 +44,13 @@ def validate_script(script: FieldReportScript) -> list[ValidationIssue]:
             message=f"Intro sentence 2 too long: {intro2_words} words (max 35 words)"
         ))
 
+    guest_intro_words = len(script.cold_open.guest_intro.split())
+    if guest_intro_words > 35:
+        issues.append(ValidationIssue(
+            field="cold_open.guest_intro",
+            message=f"Guest intro too long: {guest_intro_words} words (max 35 words)"
+        ))
+
     # Validate interview segments
     for i, segment in enumerate(script.interview_segments):
         question_words = len(segment.question.split())
@@ -74,6 +81,7 @@ def validate_script(script: FieldReportScript) -> list[ValidationIssue]:
         len(script.cold_open.realization.split()) +
         len(script.cold_open.intro_sentence_1.split()) +
         len(script.cold_open.intro_sentence_2.split()) +
+        len(script.cold_open.guest_intro.split()) +
         sum(len(s.question.split()) + len(s.answer.split()) for s in script.interview_segments) +
         len(script.signoff.split())
     )

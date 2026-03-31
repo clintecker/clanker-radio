@@ -142,6 +142,8 @@ etc."""
 
     # Return new script with compressed segments
     return FieldReportScript(
+        presenter_name=script.presenter_name,
+        source_name=script.source_name,
         cold_open=script.cold_open.model_copy(),
         interview_segments=new_segments,
         signoff=script.signoff

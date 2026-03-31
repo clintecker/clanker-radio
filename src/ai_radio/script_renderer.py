@@ -1,5 +1,6 @@
 """Render structured scripts to final text format with programmatic interference."""
 import random
+import re
 
 from ai_radio.models.script_schema import FieldReportScript
 
@@ -15,11 +16,49 @@ INTERFERENCE_TEMPLATES = [
 ]
 
 
+# Emotion pools for questions and answers
+# Richer set for dystopian resistance vibe
+QUESTION_EMOTIONS = [
+    "curious", "concerned", "interested", "skeptical", "worried",
+    "urgent", "intense", "direct", "probing", "careful"
+]
+ANSWER_EMOTIONS = [
+    "earnest", "passionate", "determined", "worried", "hopeful", "confident",
+    "defiant", "resolute", "fierce", "steadfast", "grim", "intense"
+]
+
+
+# Pause variations for natural flow
+PAUSES = ["[short pause]", "[medium pause]"]
+
+
+def clean_phrase(phrase: str) -> str:
+    """Remove emotion tags and extra punctuation from phrase.
+
+    Args:
+        phrase: Raw phrase with potential emotion tags like "[nervous] text..."
+
+    Returns:
+        Cleaned phrase without tags or trailing punctuation
+    """
+    # Remove all [tag] patterns
+    cleaned = re.sub(r'\[.*?\]', '', phrase)
+
+    # Normalize multiple spaces to single space
+    cleaned = re.sub(r'\s+', ' ', cleaned)
+
+    # Strip whitespace and trailing ellipsis/punctuation
+    cleaned = cleaned.strip()
+    cleaned = cleaned.rstrip('.,;:!?…')
+
+    return cleaned
+
+
 def render_script(
     script: FieldReportScript,
     presenter: str,
     source: str
-) -> str:
+) -> tuple[str, dict]:
     """Render structured script to final text format with speaker tags.
 
     Programmatically injects interference acknowledgments from templates
@@ -31,9 +70,30 @@ def render_script(
         source: Name of the interview source
 
     Returns:
-        Formatted script text with speaker tags and interference
+        Tuple of (rendered_script, metadata) where metadata contains:
+        {
+            "acknowledgment_phrases": [
+                {"line_num": 5, "phrase": "Nice try, corps", "timestamp": None},
+                ...
+            ],
+            "total_lines": 25,
+            "total_words": 455
+        }
     """
     lines = []
+    metadata = {
+        "acknowledgment_phrases": [],
+        "total_lines": 0,
+        "total_words": 0
+    }
+
+    # Track used templates to prevent repetition
+    used_interference_phrases = []
+    available_templates = list(INTERFERENCE_TEMPLATES)
+
+    # Track last emotions to prevent immediate repetition
+    last_question_emotion = None
+    last_answer_emotion = None
 
     # Render cold open
     lines.append(
@@ -52,22 +112,61 @@ def render_script(
         f"[speaker: {presenter}] [confident] "
         f"{script.cold_open.intro_sentence_2}"
     )
+    lines.append(
+        f"[speaker: {presenter}] [intense] "
+        f"{script.cold_open.guest_intro}"
+    )
 
     # Render interview segments with programmatic interference injection
     for segment in script.interview_segments:
-        # Question from presenter
-        lines.append(f"[speaker: {presenter}] {segment.question}")
+        # Question from presenter - avoid repeating last emotion
+        question_options = [e for e in QUESTION_EMOTIONS if e != last_question_emotion]
+        question_emotion = random.choice(question_options)
+        last_question_emotion = question_emotion
+        question_line = f"[speaker: {presenter}] [{question_emotion}] {segment.question}"
+        lines.append(question_line)
 
-        # Answer from source
-        lines.append(f"[speaker: {source}] [earnest] {segment.answer}")
+        # Answer from source - avoid repeating last emotion
+        answer_options = [e for e in ANSWER_EMOTIONS if e != last_answer_emotion]
+        answer_emotion = random.choice(answer_options)
+        last_answer_emotion = answer_emotion
+        answer_line = f"[speaker: {source}] [{answer_emotion}] {segment.answer}"
+
+        # 30% chance to add pause after answer
+        if random.random() < 0.3:
+            answer_line += f" {random.choice(PAUSES)}"
+
+        lines.append(answer_line)
 
         # Inject interference acknowledgment if flagged
-        # Intentional randomness: selects from template pool for natural variety
         if segment.interference_after:
-            interference_phrase = random.choice(INTERFERENCE_TEMPLATES)
+            # Use LLM-generated phrase if available, otherwise fall back to templates
+            if segment.interference_phrase:
+                interference_phrase = segment.interference_phrase
+            else:
+                # Fallback to templates if LLM didn't generate a phrase
+                if not available_templates:
+                    available_templates = list(INTERFERENCE_TEMPLATES)
+                interference_phrase = random.choice(available_templates)
+                available_templates.remove(interference_phrase)  # Don't reuse
+
             lines.append(f"[speaker: {presenter}] {interference_phrase}")
+
+            # Track this acknowledgment phrase in metadata
+            cleaned_phrase = clean_phrase(interference_phrase)
+            metadata["acknowledgment_phrases"].append({
+                "line_num": len(lines),  # Line number where phrase appears (1-based)
+                "phrase": cleaned_phrase,
+                "timestamp": None  # Will be filled in by STT later
+            })
 
     # Render signoff
     lines.append(f"[speaker: {presenter}] [determined] {script.signoff}")
 
-    return "\n".join(lines)
+    script_text = "\n".join(lines)
+
+    # Calculate metadata
+    metadata["total_lines"] = len(lines)
+    metadata["total_words"] = len(script_text.split())
+
+    return script_text, metadata
