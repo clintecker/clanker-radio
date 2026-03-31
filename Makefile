@@ -8,6 +8,7 @@ REMOTE_BASE = /srv/ai_radio
 .PHONY: check-exports test-sse check-db check-callbacks now-playing
 .PHONY: restart-liquidsoap restart-push restart-all tail-all
 .PHONY: check-station-ids status-station-id logs-station-id-timer check-last-station-id
+.PHONY: refresh-breaks-index list-breaks
 
 help: ## Show this help message
 	@echo "LAST BYTE RADIO - Development Commands"
@@ -96,6 +97,12 @@ tail-all: ## Quick check of all logs
 	@echo ""
 	@echo "=== SSE Push (last 10 lines) ==="
 	@ssh $(SERVER) "sudo journalctl -u ai-radio-push.service -n 10 --no-pager"
+
+refresh-breaks-index: ## Regenerate the public breaks index.json
+	@ssh $(SERVER) "cd $(REMOTE_BASE) && sudo -u ai-radio $(REMOTE_BASE)/.venv/bin/python $(REMOTE_BASE)/scripts/generate_breaks_index.py"
+
+list-breaks: ## Show recent breaks from the public API
+	@curl -s http://10.10.0.86/api/breaks/index.json | python3 -m json.tool
 
 check-export-stderr: ## Check stderr from recent export attempts
 	@ssh $(SERVER) "ls -lt /tmp/ai_radio_logs/export_*.err 2>/dev/null | head -5 && echo '---' && for f in \$$(ls -t /tmp/ai_radio_logs/export_*.err 2>/dev/null | head -3); do echo \"=== \$$f ===\"tail -20 \"\$$f\" 2>/dev/null || echo 'empty'; done"
