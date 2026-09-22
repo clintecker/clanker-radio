@@ -2,11 +2,15 @@
 
 ## Server Connection
 
-**Production Server:** `your-radio-host` (Tailscale) or `your-radio-host` (LAN). The old `10.10.0.86` address is gone.
-**User:** `clint`
-**Connection:** `ssh clint@your-radio-host` (or `make <target> SERVER=clint@your-radio-host`)
+The production host is **not** written down in this public repo. Every remote
+target in the `Makefile` uses the `SERVER` variable (`user@host`), which is read
+from the gitignored deploy profile `.deploy_config.lastbyte` (`DEPLOY_SERVER=...`)
+or passed per call: `make deploy SERVER=user@host`.
 
-All deployment and remote operations use the `SERVER` variable in the Makefile. Override per-call with `make deploy SERVER=...`.
+The host is reachable over Tailscale (it is no longer LAN-only) and over the LAN
+when you are on it. The current address and SSH-key access live in Clint's private
+notes; ask him if you need them. If SSH connects but rejects your key, only Clint
+can add it on the box.
 
 ## Common Operations
 

@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>%VITE_STATION_NAME% // %VITE_STATION_TAGLINE%</title>
+  <meta name="description" content="Live stream, now playing and recent transmissions.">
+  <meta name="theme-color" content="#050a05">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap" rel="stylesheet">
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1 id="station-name">%VITE_STATION_NAME%</h1>
+      <div class="tagline" id="station-tagline">%VITE_STATION_TAGLINE%</div>
+    </header>
+
+    <div class="now-playing-container" id="now-playing-container" aria-live="polite">
+      <section class="now-playing" id="now-playing" data-kind="music">
+        <div class="np-label">
+          <span id="np-kind">NOW TRANSMITTING</span>
+          <span class="status" id="system-status" data-state="connecting">
+            <span class="status-dot" aria-hidden="true"></span>
+            <span id="status-text">TUNING</span>
+          </span>
+        </div>
+        <div class="np-title" id="current-title">Tuning…</div>
+        <div class="np-artist" id="current-artist"></div>
+        <div class="np-meta" id="current-meta"></div>
+
+        <div class="progress" id="progress" hidden>
+          <div class="progress-bar"><div class="progress-fill" id="progress-fill"></div></div>
+          <div class="progress-time tabular"><span id="current-time">0:00</span> / <span id="total-time">0:00</span></div>
+        </div>
+
+        <canvas class="signal" id="signal" aria-hidden="true"></canvas>
+        <div class="incoming" id="incoming" hidden></div>
+      </section>
+    </div>
+
+    <section class="stream-section" aria-labelledby="controls-heading">
+      <div class="eyebrow" id="controls-heading">RECEIVER</div>
+      <audio id="radio-stream" preload="none"></audio>
+      <div class="player-controls">
+        <button id="play-button" class="play-button" type="button" aria-pressed="false">TUNE IN</button>
+        <div class="control" id="volume-control">
+          <label class="control-label" for="volume">VOL</label>
+          <input type="range" id="volume" min="0" max="100" value="70">
+        </div>
+        <div class="control">
+          <label class="control-label" for="quality-selector">QUALITY</label>
+          <select id="quality-selector" class="quality-selector"></select>
+        </div>
+      </div>
+      <div class="stream-stats tabular">
+        <div class="stat">LISTENERS: <span class="stat-value" id="listeners">—</span></div>
+        <div class="stat">BITRATE: <span class="stat-value" id="bitrate">—</span></div>
+        <div class="stat">SAMPLE RATE: <span class="stat-value" id="samplerate">—</span></div>
+        <div class="stat">UPTIME: <span class="stat-value" id="uptime">—</span></div>
+      </div>
+      <div class="player-error" id="player-error" hidden></div>
+    </section>
+
+    <section class="section" aria-labelledby="next-heading">
+      <div class="eyebrow" id="next-heading">NEXT UP</div>
+      <div class="next-track" id="next-track"></div>
+    </section>
+
+    <section class="section" aria-labelledby="history-heading">
+      <div class="eyebrow" id="history-heading">RECENT TRANSMISSIONS</div>
+      <div id="history-list"></div>
+    </section>
+
+    <footer>
+      <a href="%VITE_PLAYLIST_URL%" download>DOWNLOAD M3U PLAYLIST</a>
+    </footer>
+  </div>
+  <script type="module" src="/src/main.ts"></script>
+</body>
+</html>

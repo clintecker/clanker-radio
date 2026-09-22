@@ -257,7 +257,7 @@ For service management, manual queue control, log monitoring, and maintenance ta
 │   ├── liquidsoap.log   # Streaming engine logs
 │   └── jobs.jsonl       # Python service logs
 ├── public/              # Web frontend (if using nginx)
-│   ├── index.html       # Cyber-terminal player
+│   ├── radio.conf       # nginx site config (player is built from frontend/)
 │   ├── admin/           # Admin interface
 │   └── now_playing.json # Real-time metadata
 ├── scripts/             # Management and automation scripts

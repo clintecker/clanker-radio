@@ -37,7 +37,7 @@ go run ./cmd/radiotui
 
 ### Syncing Database
 
-The database lives on the production server at `10.10.0.86`. To sync it locally:
+The database lives on the production server at `your-radio-host`. To sync it locally:
 
 ```bash
 ./scripts/sync_db.sh
@@ -135,7 +135,7 @@ go run ./cmd/radiotui /path/to/custom.sqlite3
 - Check server logs at `/srv/ai_radio/logs/`
 
 **SSH connection failed during sync**
-- Ensure you have SSH access to `ai-radio@10.10.0.86`
+- Ensure you have SSH access to `ai-radio@your-radio-host`
 - Check VPN connection if required
 
 ## License

@@ -55,7 +55,7 @@ location /api/dj-tag/ {
 
 ## Deployment Steps
 
-1. SSH to server: `ssh clint@10.10.0.86`
+1. SSH to server: `ssh user@your-radio-host`
 2. Edit nginx config: `sudo nano /etc/nginx/sites-enabled/radio`
 3. Add the three sections above
 4. Test configuration: `sudo nginx -t`

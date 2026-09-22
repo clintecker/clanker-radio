@@ -370,7 +370,9 @@ Deploy the web player frontend:
 cd /srv/ai_radio
 
 # Copy frontend files to public directory
-cp nginx/index.html public/
+# Web player: build the Vite app and copy its output (or just run `make deploy-frontend`)
+(cd frontend && npm ci && npm run build)
+cp -r frontend/dist/. public/
 cp nginx/stream.m3u public/
 
 # Set permissions
@@ -391,7 +393,7 @@ curl http://localhost/
 ```
 
 **Nginx configuration** serves:
-- `/` - Web player (index.html)
+- `/` - Web player (built from `frontend/`, see frontend/README.md)
 - `/stream.m3u` - M3U playlist
 - `/now_playing.json` - Current track metadata
 - `/radio` - Proxies to Icecast (optional)

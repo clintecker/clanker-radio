@@ -1,3 +1,5 @@
+> **Note (2026-09-22):** point-in-time plan kept as a historical record. The server address `10.10.0.86` used below is stale; use the `SERVER` convention from the Makefile.
+
 # Phase 2: Asset Management - Implementation Plan (Adapted for Phase 1 Reality)
 
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.

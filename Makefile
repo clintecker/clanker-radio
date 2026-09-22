@@ -1,5 +1,13 @@
 # Production server connection
-SERVER = clint@your-radio-host
+# Deploy target. Not baked into this public repo: it is read from the gitignored
+# deploy profile (.deploy_config.lastbyte, DEPLOY_SERVER=user@host), or passed
+# explicitly:  make deploy SERVER=user@host
+SERVER ?= $(shell . ./.deploy_config.lastbyte 2>/dev/null && echo $$DEPLOY_SERVER)
+ifeq ($(strip $(SERVER)),)
+  ifneq ($(filter-out help sync-db tui build-tui clean test,$(or $(MAKECMDGOALS),help)),)
+    $(error SERVER is not set. Create .deploy_config.lastbyte with DEPLOY_SERVER=user@host, or run: make $(MAKECMDGOALS) SERVER=user@host)
+  endif
+endif
 REMOTE_BASE = /srv/ai_radio
 
 .PHONY: help sync-db tui build-tui clean test
@@ -33,12 +41,12 @@ clean: ## Clean build artifacts
 test: ## Run tests
 	@uv run pytest tests/ -v
 
-# --- Server Operations (your-radio-host / your-radio-host on LAN) ---
+# --- Server Operations (target: $(SERVER)) ---
 
 deploy: ## Deploy all (frontend + scripts + code)
 	@./scripts/deploy.sh lastbyte all
 
-deploy-frontend: ## Deploy frontend only
+deploy-frontend: ## Build (frontend/) and deploy the web player
 	@./scripts/deploy.sh lastbyte frontend
 
 deploy-scripts: ## Deploy Python scripts only
@@ -46,6 +54,12 @@ deploy-scripts: ## Deploy Python scripts only
 
 deploy-code: ## Deploy ai_radio package only
 	@./scripts/deploy.sh lastbyte code
+
+frontend-dev: ## Run the web player locally against the live station (proxied)
+	@cd frontend && npm install --no-audit --no-fund --silent && npm run dev
+
+frontend-test: ## Typecheck + unit tests for the web player
+	@cd frontend && npm install --no-audit --no-fund --silent && npm run typecheck && npm test
 
 deploy-systemd: ## Deploy systemd units (daemon-reload; services may need restart)
 	@./scripts/deploy.sh lastbyte systemd
@@ -121,7 +135,7 @@ refresh-breaks-index: ## Regenerate the public breaks index.json
 	@ssh $(SERVER) "cd $(REMOTE_BASE) && sudo -u ai-radio $(REMOTE_BASE)/.venv/bin/python $(REMOTE_BASE)/scripts/generate_breaks_index.py"
 
 list-breaks: ## Show recent breaks from the public API
-	@curl -s http://your-radio-host/api/breaks/index.json | python3 -m json.tool
+	@ssh $(SERVER) "curl -s http://127.0.0.1/api/breaks/index.json" | python3 -m json.tool
 
 check-export-stderr: ## Check stderr from recent export attempts
 	@ssh $(SERVER) "ls -lt /tmp/ai_radio_logs/export_*.err 2>/dev/null | head -5 && echo '---' && for f in \$$(ls -t /tmp/ai_radio_logs/export_*.err 2>/dev/null | head -3); do echo \"=== \$$f ===\"tail -20 \"\$$f\" 2>/dev/null || echo 'empty'; done"

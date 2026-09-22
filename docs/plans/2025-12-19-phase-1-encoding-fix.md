@@ -99,7 +99,7 @@ SUCCESS: MP3 stream operational
 Install OPAM encoder packages to provide MP3 encoding support.
 
 ### Prerequisites
-- VM accessible: 10.10.0.86 / 100.85.213.117
+- VM accessible: your-radio-host / 100.85.213.117
 - Phase 1 Tasks 1-4 already completed
 - Base Liquidsoap 2.4.0 already installed via OPAM
 - System encoder libraries already installed

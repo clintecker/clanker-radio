@@ -71,7 +71,7 @@ location = /now_playing.json {
 ### 1. Edit Nginx Config
 
 ```bash
-ssh clint@10.10.0.86
+ssh user@your-radio-host
 
 # Backup current config
 sudo cp /etc/nginx/sites-available/radio.clintecker.com /etc/nginx/sites-available/radio.clintecker.com.backup

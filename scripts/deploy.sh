@@ -95,22 +95,27 @@ log_success() {
 }
 
 deploy_frontend() {
+    log_info "Building frontend..."
+    # The web player is a Vite + TypeScript app in frontend/. Its build output
+    # (index.html + hashed assets/) is what nginx serves from ${BASE_REMOTE}/public.
+    (cd frontend && npm ci --no-audit --no-fund --silent && npm run build --silent) || { log_error "Frontend build failed"; exit 1; }
+
     log_info "Deploying frontend..."
-    scp nginx/index.html "${SERVER}:~/index.html" || { log_error "Failed to copy index.html"; exit 1; }
-
+    rsync -a --delete --exclude='*.map' frontend/dist/ "${SERVER}:~/frontend_dist/" || { log_error "Failed to sync frontend"; exit 1; }
     if [ -f nginx/stream.m3u ]; then
-        scp nginx/stream.m3u "${SERVER}:~/stream.m3u"
+        scp -q nginx/stream.m3u "${SERVER}:~/frontend_dist/stream.m3u" || log_warn "Failed to copy stream.m3u"
     fi
 
-    ssh "${SERVER}" "sudo mv ~/index.html ${BASE_REMOTE}/public/ && \
-                     sudo chmod 644 ${BASE_REMOTE}/public/index.html && \
-                     sudo chown ${USER}:${USER} ${BASE_REMOTE}/public/index.html" || { log_error "Failed to install frontend"; exit 1; }
-
-    if [ -f nginx/stream.m3u ]; then
-        ssh "${SERVER}" "sudo mv ~/stream.m3u ${BASE_REMOTE}/public/ && \
-                         sudo chmod 644 ${BASE_REMOTE}/public/stream.m3u && \
-                         sudo chown ${USER}:${USER} ${BASE_REMOTE}/public/stream.m3u" || log_warn "Failed to install stream.m3u"
-    fi
+    # Swap in atomically-ish: install new assets first, then index.html, then prune
+    # old hashed assets so a page already loading never 404s on its bundle.
+    ssh "${SERVER}" "sudo mkdir -p ${BASE_REMOTE}/public/assets && \
+                     sudo cp -r ~/frontend_dist/assets/. ${BASE_REMOTE}/public/assets/ && \
+                     sudo cp ~/frontend_dist/index.html ${BASE_REMOTE}/public/index.html && \
+                     ( [ -f ~/frontend_dist/stream.m3u ] && sudo cp ~/frontend_dist/stream.m3u ${BASE_REMOTE}/public/stream.m3u || true ) && \
+                     sudo find ${BASE_REMOTE}/public/assets -type f -mmin +1440 -delete && \
+                     sudo chown -R ${USER}:${USER} ${BASE_REMOTE}/public/index.html ${BASE_REMOTE}/public/assets && \
+                     sudo chmod -R a+rX ${BASE_REMOTE}/public/index.html ${BASE_REMOTE}/public/assets && \
+                     rm -rf ~/frontend_dist" || { log_error "Failed to install frontend"; exit 1; }
 
     log_success "Frontend deployed"
 }
@@ -314,7 +319,7 @@ case "$COMPONENT" in
         echo "Usage: $0 [frontend|scripts|code|config|systemd|all|health]"
         echo ""
         echo "Components:"
-        echo "  frontend - Deploy nginx/index.html and stream.m3u"
+        echo "  frontend - Build frontend/ (Vite) and deploy dist + stream.m3u"
         echo "  scripts  - Deploy Python scripts"
         echo "  code     - Deploy Python package (src/ai_radio/)"
         echo "  config   - Deploy Liquidsoap config (prompts for restart)"

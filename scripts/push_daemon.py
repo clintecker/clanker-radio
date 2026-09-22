@@ -80,10 +80,12 @@ async def sse_handler(request: web.Request) -> web.StreamResponse:
             data_str = json.dumps(data_compact, separators=(',', ':'))
             await response.write(f"data: {data_str}\n\n".encode())
 
-        # Keep connection alive with periodic pings
+        # Keep connection alive with periodic pings. This is a named event rather
+        # than a ": comment" line because browsers hide SSE comments from
+        # EventSource; the frontend listens for "ping" to know the feed is alive.
         while True:
             await asyncio.sleep(30)  # Send keepalive every 30 seconds
-            await response.write(": keepalive\n\n".encode())
+            await response.write("event: ping\ndata: {}\n\n".encode())
 
     except (ConnectionResetError, asyncio.CancelledError):
         pass

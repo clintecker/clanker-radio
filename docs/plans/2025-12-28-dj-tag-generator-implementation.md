@@ -1431,7 +1431,7 @@ location /api/dj-tag/ {
 
 ## Deployment Steps
 
-1. SSH to server: `ssh clint@10.10.0.86`
+1. SSH to server: `ssh user@your-radio-host`
 2. Edit nginx config: `sudo nano /etc/nginx/sites-enabled/radio`
 3. Add the three sections above
 4. Test configuration: `sudo nginx -t`
@@ -1584,7 +1584,7 @@ cd /Users/clint/code/clintecker/clanker-radio/.worktrees/dj-tag-generator
 
 SSH to server:
 ```bash
-ssh clint@10.10.0.86
+ssh user@your-radio-host
 ```
 
 On server:

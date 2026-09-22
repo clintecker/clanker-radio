@@ -66,10 +66,10 @@ Edit `/etc/icecast2/icecast.xml` and add this mount configuration inside the `<i
 ./scripts/deploy.sh
 
 # Or manually:
-scp config/fallback.liq clint@10.10.0.86:/tmp/
-scp systemd/ai-radio-liquidsoap-fallback.service clint@10.10.0.86:/tmp/
+scp config/fallback.liq user@your-radio-host:/tmp/
+scp systemd/ai-radio-liquidsoap-fallback.service user@your-radio-host:/tmp/
 
-ssh clint@10.10.0.86 << 'EOF'
+ssh user@your-radio-host << 'EOF'
 sudo mv /tmp/fallback.liq /srv/ai_radio/config/
 sudo chown ai-radio:ai-radio /srv/ai_radio/config/fallback.liq
 
@@ -82,7 +82,7 @@ EOF
 ### 2. Update Icecast Configuration
 
 ```bash
-ssh clint@10.10.0.86
+ssh user@your-radio-host
 
 # Backup current config
 sudo cp /etc/icecast2/icecast.xml /etc/icecast2/icecast.xml.backup

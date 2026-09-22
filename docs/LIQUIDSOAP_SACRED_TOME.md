@@ -260,7 +260,7 @@ log("  - Break callbacks: #{crossfade_break_duration}s delay (immediate)")
 ### Monitor Callback Timing
 ```bash
 # Watch for callback execution
-ssh clint@10.10.0.86 "sudo journalctl -u ai-radio-liquidsoap.service -f" | \
+ssh user@your-radio-host "sudo journalctl -u ai-radio-liquidsoap.service -f" | \
   grep -E 'MUSIC QUEUED|BREAK START|TRACK START|SUCCESS|ERROR'
 ```
 
@@ -268,7 +268,7 @@ ssh clint@10.10.0.86 "sudo journalctl -u ai-radio-liquidsoap.service -f" | \
 ```bash
 # Compare database timestamps with Icecast metadata updates
 # (Should be within 1-2 seconds)
-ssh clint@10.10.0.86 "
+ssh user@your-radio-host "
   # Get last 5 plays from database
   sqlite3 /srv/ai_radio/db/radio.sqlite3 '
     SELECT datetime(played_at, \"localtime\"), title
