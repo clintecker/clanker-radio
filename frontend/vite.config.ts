@@ -1,3 +1,5 @@
+import preact from '@preact/preset-vite';
+import tailwindcss from '@tailwindcss/vite';
 import { defineConfig } from 'vitest/config';
 
 // Build-time branding defaults. Override in frontend/.env.local (gitignored) or the
@@ -11,32 +13,22 @@ const BRANDING_DEFAULTS: Record<string, string> = {
 for (const [key, value] of Object.entries(BRANDING_DEFAULTS)) process.env[key] ??= value;
 
 const buildStamp = `${new Date().toISOString().slice(0, 16).replace('T', ' ')}Z`;
+const LIVE = 'https://radio.clintecker.com';
+const proxy = Object.fromEntries(
+  ['/api', '/radio', '/radio-128', '/radio-96', '/stream.m3u'].map((p) => [p, { target: LIVE, changeOrigin: true }]),
+);
 
 export default defineConfig({
-  define: {
-    // Shown in the footer so ops can tell which build a visitor is on.
-    __BUILD_STAMP__: JSON.stringify(buildStamp),
-  },
-  // Served from the nginx root, so assets resolve relative to /
+  plugins: [preact(), tailwindcss()],
   base: '/',
-  build: {
-    outDir: 'dist',
-    emptyOutDir: true,
-    sourcemap: true,
-    target: 'es2022',
-  },
-  server: {
-    // Local dev against the live station: SSE + audio proxied to production
-    proxy: {
-      '/api': { target: 'https://radio.clintecker.com', changeOrigin: true },
-      '/radio': { target: 'https://radio.clintecker.com', changeOrigin: true },
-      '/radio-128': { target: 'https://radio.clintecker.com', changeOrigin: true },
-      '/radio-96': { target: 'https://radio.clintecker.com', changeOrigin: true },
-      '/stream.m3u': { target: 'https://radio.clintecker.com', changeOrigin: true },
-    },
-  },
+  define: { __BUILD_STAMP__: JSON.stringify(buildStamp) },
+  build: { outDir: 'dist', emptyOutDir: true, sourcemap: true, target: 'es2022' },
+  server: { proxy },
+  preview: { proxy },
   test: {
     environment: 'jsdom',
-    include: ['src/**/*.test.ts'],
+    globals: true, // lets @testing-library auto-cleanup between tests
+    include: ['src/**/*.test.{ts,tsx}'],
+    setupFiles: ['src/test-setup.ts'],
   },
 });
