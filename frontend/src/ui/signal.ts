@@ -16,7 +16,10 @@ export class SignalDisplay {
   private readonly noise = new Float32Array(this.bars).map(() => Math.random());
   private readonly reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-  constructor(private readonly canvas: HTMLCanvasElement, private readonly player: Player) {
+  constructor(
+    private readonly canvas: HTMLCanvasElement,
+    private readonly player: Player,
+  ) {
     const ctx = canvas.getContext('2d');
     if (!ctx) throw new Error('canvas 2d unsupported');
     this.ctx = ctx;
@@ -55,7 +58,7 @@ export class SignalDisplay {
     const live = this.player.snapshot().state === 'playing' && this.analyser;
     const out = new Float32Array(this.bars);
     if (live && this.analyser) {
-      if (!this.buffer || this.buffer.length !== this.analyser.frequencyBinCount) {
+      if (this.buffer?.length !== this.analyser.frequencyBinCount) {
         this.buffer = new Uint8Array(this.analyser.frequencyBinCount);
       }
       this.analyser.getByteFrequencyData(this.buffer);
@@ -88,7 +91,10 @@ export class SignalDisplay {
     const gap = 2;
     const barW = (width - gap * (this.bars - 1)) / this.bars;
     const live = this.player.snapshot().state === 'playing';
-    const color = getComputedStyle(this.canvas).getPropertyValue(live ? '--phosphor' : '--phosphor-dim').trim() || '#7fff7f';
+    const color =
+      getComputedStyle(this.canvas)
+        .getPropertyValue(live ? '--phosphor' : '--phosphor-dim')
+        .trim() || '#7fff7f';
     ctx.fillStyle = color;
     ctx.globalAlpha = live ? 0.95 : 0.55;
     for (let i = 0; i < this.bars; i++) {

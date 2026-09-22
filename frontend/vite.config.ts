@@ -6,10 +6,17 @@ const BRANDING_DEFAULTS: Record<string, string> = {
   VITE_STATION_NAME: 'LAST BYTE RADIO',
   VITE_STATION_TAGLINE: 'CHICAGO WASTELAND // ENCRYPTED BROADCAST',
   VITE_PLAYLIST_URL: '/stream.m3u',
+  VITE_SITE_URL: 'https://radio.clintecker.com',
 };
 for (const [key, value] of Object.entries(BRANDING_DEFAULTS)) process.env[key] ??= value;
 
+const buildStamp = `${new Date().toISOString().slice(0, 16).replace('T', ' ')}Z`;
+
 export default defineConfig({
+  define: {
+    // Shown in the footer so ops can tell which build a visitor is on.
+    __BUILD_STAMP__: JSON.stringify(buildStamp),
+  },
   // Served from the nginx root, so assets resolve relative to /
   base: '/',
   build: {

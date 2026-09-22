@@ -56,6 +56,16 @@ window.setInterval(() => {
 
 new FeedConnection(station.sseUrl, store).start();
 
+byId('build-stamp').textContent = `BUILD ${__BUILD_STAMP__}`;
+
+// Last line of defence: a runtime error in the page script should not leave a
+// half-rendered screen with a LIVE badge on it.
+window.addEventListener('error', (ev) => {
+  console.error('Unhandled page error', ev.error ?? ev.message);
+  byId('status-text').textContent = 'PAGE ERROR';
+});
+window.addEventListener('unhandledrejection', (ev) => console.error('Unhandled rejection', ev.reason));
+
 // Media Session: lock-screen / hardware keys show the station and current track.
 if ('mediaSession' in navigator) {
   navigator.mediaSession.setActionHandler('play', () => void player.play());

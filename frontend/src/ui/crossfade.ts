@@ -21,19 +21,31 @@ export class Crossfade {
   private ghost: HTMLElement | null = null;
   private ghostTimer: number | null = null;
 
-  constructor(private readonly store: Store, private readonly view: NowPlayingView) {}
+  constructor(
+    private readonly store: Store,
+    private readonly view: NowPlayingView,
+  ) {}
 
   /** Runs each tick. Decides whether we are inside the window before the next track. */
   tick(): void {
     const data = this.store.get().data;
     const current = data?.current;
-    if (!data || !current || trackKind(current) !== 'music') return this.clearIncoming();
+    if (!data || !current || trackKind(current) !== 'music') {
+      this.clearIncoming();
+      return;
+    }
 
     const next = data.breaks_queue[0] ?? data.music_queue[0];
-    if (!next) return this.clearIncoming();
+    if (!next) {
+      this.clearIncoming();
+      return;
+    }
     const fade = data.breaks_queue.length ? data.crossfade.breaks_sec : data.crossfade.music_sec;
     const remaining = this.view.remainingSec();
-    if (remaining === null) return this.clearIncoming();
+    if (remaining === null) {
+      this.clearIncoming();
+      return;
+    }
 
     // One second early absorbs SSE latency; the ghost animation runs for the fade length.
     const inWindow = remaining <= fade + 1 && remaining > -5;
@@ -45,7 +57,8 @@ export class Crossfade {
   onTrackChanged(): void {
     this.clearIncoming();
     this.card.classList.remove('fade-in');
-    void this.card.offsetWidth; // restart the animation
+    // Reading offsetWidth forces a reflow so the animation restarts.
+    this.card.style.setProperty('--reflow', String(this.card.offsetWidth));
     this.card.classList.add('fade-in');
   }
 
@@ -53,7 +66,11 @@ export class Crossfade {
     this.anticipating = next.asset_id;
     const kind = trackKind(next);
     this.incoming.replaceChildren(
-      el('span', { class: 'incoming-label' }, kind === 'music' ? 'INCOMING' : kind === 'break' ? 'INCOMING · NEWS' : 'INCOMING · ID'),
+      el(
+        'span',
+        { class: 'incoming-label' },
+        kind === 'music' ? 'INCOMING' : kind === 'break' ? 'INCOMING · NEWS' : 'INCOMING · ID',
+      ),
       el('span', { class: 'incoming-title' }, next.title || 'Unknown'),
       el('span', { class: 'incoming-artist' }, next.artist || ''),
     );

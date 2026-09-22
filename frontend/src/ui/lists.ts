@@ -28,11 +28,22 @@ export function renderQueue(state: AppState): void {
   const rows: HTMLElement[] = [];
   if (nextBreak) {
     rows.push(trackRow(nextBreak, formatClock(nextBreak.duration_sec)));
-    if (nextMusic) rows.push(trackRow(nextMusic, formatClock(nextMusic.duration_sec), { muted: true, prefix: '↳ then' }));
+    if (nextMusic)
+      rows.push(trackRow(nextMusic, formatClock(nextMusic.duration_sec), { muted: true, prefix: '↳ then' }));
   } else if (nextMusic) {
     rows.push(trackRow(nextMusic, formatClock(nextMusic.duration_sec)));
   } else {
-    rows.push(el('div', { class: 'track track-empty' }, el('div', { class: 'track-info' }, el('div', { class: 'track-title' }, 'Queue empty · automation will pick the next track'))));
+    rows.push(
+      el(
+        'div',
+        { class: 'track track-empty' },
+        el(
+          'div',
+          { class: 'track-info' },
+          el('div', { class: 'track-title' }, 'Queue empty · automation will pick the next track'),
+        ),
+      ),
+    );
   }
   replaceChildren(container, ...rows);
 }
@@ -42,7 +53,14 @@ export function renderHistory(state: AppState, now: Date = new Date()): void {
   const list = byId('history-list');
   const history = state.data?.history ?? [];
   if (!history.length) {
-    replaceChildren(list, el('div', { class: 'track track-empty' }, el('div', { class: 'track-info' }, el('div', { class: 'track-title' }, 'No transmissions logged yet'))));
+    replaceChildren(
+      list,
+      el(
+        'div',
+        { class: 'track track-empty' },
+        el('div', { class: 'track-info' }, el('div', { class: 'track-title' }, 'No transmissions logged yet')),
+      ),
+    );
     return;
   }
   replaceChildren(
@@ -52,7 +70,7 @@ export function renderHistory(state: AppState, now: Date = new Date()): void {
 }
 
 export function pickSource(state: AppState, bitrate: number): IcecastSource | null {
-  const sources = state.data?.stream && 'source' in state.data.stream ? state.data.stream.source ?? [] : [];
+  const sources = state.data?.stream && 'source' in state.data.stream ? (state.data.stream.source ?? []) : [];
   return sources.find((s) => s.bitrate === bitrate) ?? sources[0] ?? null;
 }
 

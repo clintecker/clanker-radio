@@ -49,7 +49,7 @@ export class NowPlayingView {
 
     const kind = trackKind(current);
     this.card.dataset.kind = kind;
-    this.label.textContent = KIND_LABEL[kind] ?? KIND_LABEL.unknown!;
+    this.label.textContent = KIND_LABEL[kind] ?? 'NOW TRANSMITTING';
     this.title.textContent = current.title || 'Unknown Track';
     this.artist.textContent = current.artist || 'Unknown Artist';
     replaceChildren(this.meta, ...metaParts(current));

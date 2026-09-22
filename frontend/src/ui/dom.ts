@@ -27,6 +27,7 @@ export function replaceChildren(parent: Element, ...children: Child[]): void {
   parent.replaceChildren(...children.filter((c): c is Node | string => !!c));
 }
 
+// eslint-disable-next-line @typescript-eslint/no-unnecessary-type-parameters -- callers pick the element subtype
 export function byId<T extends HTMLElement = HTMLElement>(id: string): T {
   const node = document.getElementById(id);
   if (!node) throw new Error(`Missing element #${id}`);

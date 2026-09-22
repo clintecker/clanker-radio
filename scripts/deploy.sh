@@ -108,14 +108,16 @@ deploy_frontend() {
 
     # Swap in atomically-ish: install new assets first, then index.html, then prune
     # old hashed assets so a page already loading never 404s on its bundle.
+    # Install hashed assets first, then everything else (index.html, icons,
+    # og-image, manifest, stream.m3u), so a page mid-load never 404s on its bundle.
+    # cp -r never deletes, so now_playing.json and admin/ in public/ are untouched;
+    # stale hashed assets are pruned after a day.
     ssh "${SERVER}" "sudo mkdir -p ${BASE_REMOTE}/public/assets && \
                      sudo cp -r ~/frontend_dist/assets/. ${BASE_REMOTE}/public/assets/ && \
-                     sudo cp ~/frontend_dist/index.html ${BASE_REMOTE}/public/index.html && \
-                     ( [ -f ~/frontend_dist/stream.m3u ] && sudo cp ~/frontend_dist/stream.m3u ${BASE_REMOTE}/public/stream.m3u || true ) && \
+                     sudo cp -r ~/frontend_dist/. ${BASE_REMOTE}/public/ && \
                      sudo find ${BASE_REMOTE}/public/assets -type f -mmin +1440 -delete && \
-                     sudo chown -R ${USER}:${USER} ${BASE_REMOTE}/public/index.html ${BASE_REMOTE}/public/assets && \
-                     sudo chmod -R a+rX ${BASE_REMOTE}/public/index.html ${BASE_REMOTE}/public/assets && \
-                     rm -rf ~/frontend_dist" || { log_error "Failed to install frontend"; exit 1; }
+                     cd ~/frontend_dist && for f in \$(find . -type f); do sudo chown ${USER}:${USER} ${BASE_REMOTE}/public/\$f && sudo chmod a+r ${BASE_REMOTE}/public/\$f; done && \
+                     sudo chmod a+rx ${BASE_REMOTE}/public/assets && cd ~ && rm -rf ~/frontend_dist" || { log_error "Failed to install frontend"; exit 1; }
 
     log_success "Frontend deployed"
 }
