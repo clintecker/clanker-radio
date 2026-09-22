@@ -123,6 +123,9 @@
   .c-car[data-conn='reconnecting'] .conn-lamp::after {
     animation: lamp-blink 0.84s infinite;
   }
+  .c-lst .v {
+    gap: 0;
+  }
   .lz {
     color: var(--amber);
     opacity: 0.22;
@@ -281,6 +284,14 @@
     gap: 18px;
     margin-top: 20px;
     grid-template-columns: minmax(0, 1fr);
+  }
+  .prog .ctl-title > .engr-2 {
+    display: none;
+  }
+  @container prog (min-width: 900px) {
+    .prog .ctl-title > .engr-2 {
+      display: inline;
+    }
   }
   @container prog (min-width: 620px) {
     .strip {
@@ -505,7 +516,7 @@
     font-family: var(--font-mono);
     font-size: 10.5px;
   }
-  @container svc (min-width: 520px) {
+  @container svc (min-width: 720px) {
     .stats {
       grid-template-columns: repeat(4, 1fr);
     }

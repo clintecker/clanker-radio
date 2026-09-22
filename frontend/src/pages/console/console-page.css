@@ -1,10 +1,51 @@
-/* Page grid: the only viewport-level layout; modules size themselves by container. */
+/* Page grid: the only page-level layout; modules size themselves by container. Keyed to the rack width. */
 @layer components {
   .grid-live,
   .grid-archive {
     display: grid;
     gap: 18px;
     grid-template-columns: minmax(0, 1fr);
+  }
+  .grid-live {
+    grid-template-areas: 'band' 'prog' 'meters' 'next' 'log' 'arch' 'svc';
+  }
+  .grid-live > .band {
+    grid-area: band;
+  }
+  .grid-live > .prog {
+    grid-area: prog;
+  }
+  .grid-live > .meters {
+    grid-area: meters;
+  }
+  .grid-live > .next {
+    grid-area: next;
+  }
+  .grid-live > .log {
+    grid-area: log;
+  }
+  .grid-live > .arch {
+    grid-area: arch;
+  }
+  .grid-live > .svc {
+    grid-area: svc;
+  }
+  @container rack (min-width: 720px) {
+    .grid-live {
+      grid-template-columns: 1fr 1fr;
+      grid-template-areas: 'band band' 'prog prog' 'meters meters' 'next log' 'arch log' 'svc log';
+    }
+  }
+  @container rack (min-width: 1200px) {
+    .grid-live {
+      grid-template-columns: repeat(12, minmax(0, 1fr));
+      grid-template-areas:
+        'band band band band band band band band band band band band'
+        'prog prog prog prog prog prog prog prog next next next next'
+        'meters meters meters meters meters meters meters meters meters meters meters meters'
+        'log log log log log log arch arch arch arch arch arch'
+        'log log log log log log svc svc svc svc svc svc';
+    }
   }
   .build {
     margin-top: 24px;

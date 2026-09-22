@@ -48,3 +48,25 @@ Colours and type are Tailwind theme tokens at the top of `src/styles/app.css`.
   state stays on screen. All feed text is rendered as text, and ESLint forbids `innerHTML`.
 - `/archive` lists the last 24h of bulletins from `/api/breaks/index.json` (served read-only
   by nginx) and only accepts URLs under that endpoint.
+
+## Console 2043 (opt-in)
+
+The new face, built from `docs/design/console-2043-prototype.html`. Classic stays the
+default until rollout: `?ui=console` switches (remembered in localStorage), `?ui=classic`
+switches back. Each face loads its own CSS/JS chunk.
+
+```
+src/design/      tokens.css (tested for contrast), materials.css, fonts.css, textures.ts
+src/engine/      one rAF loop (pauses when hidden, owns reduced motion), spring, lamp, vu, scramble
+src/components/  primitives/ (Panel, Screw, Lamp, Legend, Readout, Sticker), instruments/
+                 (Meter + Vu/Position/Carrier, LatchButton, Fader, RotarySwitch, BandWatch),
+                 modules/ (StatusStrip, OnAir, NextUp, Log, Bulletins, MeterBay, BandWatchBay, ServicePanel)
+src/pages/console/  Live, Archive, Kit (/__kit, dev only)
+public/fonts/    self-hosted WOFF2; `npm run fonts` regenerates (Noto Sans SC is cut to the legend glyphs)
+```
+
+Animation never re-renders Preact: instruments register with `engine/loop` and write through
+refs. The VU and band watch read a real AnalyserNode (`STREAM_CORS_OK` in `lib/config.ts`) and
+fall back to a program model if the analyser reads silence for 2 s while playing.
+Debug switches (`?debug=1 ?playing=1 ?kind=break|bumper ?conn=reconnecting|dead ?vw=390`) exist
+only in dev builds or with `VITE_ENABLE_DEBUG=1`.
