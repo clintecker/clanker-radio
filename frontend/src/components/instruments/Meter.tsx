@@ -153,7 +153,8 @@ export function Meter({
     const off = loop.add((dt) => {
       spring.step(dt, loop.reduced);
       const a = angleOf(Math.min(1.06, Math.max(-0.08, spring.x)));
-      if (Math.abs(a - lastA) > 0.02) {
+      if (!(Math.abs(a - lastA) <= 0.02)) {
+        // NaN-safe: first frame always writes
         const tr = `rotate(${a.toFixed(2)} ${PX} ${PY})`;
         needle.current?.setAttribute('transform', tr);
         shadow.current?.setAttribute('transform', tr);

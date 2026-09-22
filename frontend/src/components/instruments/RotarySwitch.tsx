@@ -39,7 +39,8 @@ export function RotarySwitch({ legend, tri, name, options, value, onChange }: Ro
     let last = NaN;
     return loop.add((dt) => {
       const a = spring.step(dt, loop.reduced);
-      if (Math.abs(a - last) > 0.05) {
+      if (!(Math.abs(a - last) <= 0.05)) {
+        // NaN-safe: first frame always writes
         if (knob.current) knob.current.style.transform = `rotate(${a.toFixed(2)}deg)`;
         last = a;
       }
