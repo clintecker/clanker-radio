@@ -25,7 +25,7 @@ export interface LoopDeps {
 }
 
 /** Longest step we integrate; a backgrounded or janky frame must not fling a needle. */
-export const MAX_DT = 0.05;
+export const MAX_DT = 0.1; // springs sub-step, so a slow frame stays real-time instead of slow-motion
 
 export class Loop {
   private readonly subs = new Set<FrameFn>();

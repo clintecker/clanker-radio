@@ -133,8 +133,8 @@ export function Meter({
 }: MeterProps) {
   const id = useId().replace(/[^a-zA-Z0-9_-]/g, '');
   const svgRef = useRef<SVGSVGElement>(null);
-  const needle = useRef<SVGGElement>(null);
-  const shadow = useRef<SVGGElement>(null);
+  const needle = useRef<SVGSVGElement>(null);
+  const shadow = useRef<SVGSVGElement>(null);
   const [compact, setCompact] = useState(false);
 
   useEffect(() => {
@@ -155,9 +155,11 @@ export function Meter({
       const a = angleOf(Math.min(1.06, Math.max(-0.08, spring.x)));
       if (!(Math.abs(a - lastA) <= 0.02)) {
         // NaN-safe: first frame always writes
-        const tr = `rotate(${a.toFixed(2)} ${PX} ${PY})`;
-        needle.current?.setAttribute('transform', tr);
-        shadow.current?.setAttribute('transform', tr);
+        // Rotating the layer SVGs with a CSS transform stays on the compositor: no repaint of the
+        // face, the blurred shadow or the holo blend, just a matrix change on two GPU layers.
+        const tr = `rotate(${a.toFixed(2)}deg)`;
+        if (needle.current) needle.current.style.transform = tr;
+        if (shadow.current) shadow.current.style.transform = tr;
         lastA = a;
       }
     });
@@ -170,7 +172,7 @@ export function Meter({
     };
   }, [spring, thump]);
 
-  const initial = `rotate(${angleOf(spring.x).toFixed(2)} ${PX} ${PY})`;
+  const initial = { transform: `rotate(${angleOf(spring.x).toFixed(2)}deg)` };
   return (
     <div
       class={`meter${cls ? ` ${cls}` : ''}`}
@@ -189,8 +191,42 @@ export function Meter({
         <div class="face">
           <div class="holo" />
           <svg ref={svgRef} viewBox={`0 0 ${VIEW_W} ${VIEW_H}`} aria-hidden="true" focusable="false">
+            <ScaleFace spec={spec} compact={compact} />
+          </svg>
+          {/* Moving parts live on their own layers, rotated about the pivot by CSS. */}
+          <svg
+            ref={shadow}
+            class="layer layer-shadow"
+            viewBox={`0 0 ${VIEW_W} ${VIEW_H}`}
+            style={initial}
+            aria-hidden="true"
+            focusable="false"
+          >
             <defs>
               <filter id={`b${id}`} x="-50%" y="-10%" width="200%" height="120%">
+                <feGaussianBlur stdDeviation="1.4" />
+              </filter>
+            </defs>
+            <g transform="translate(3.5 5)" filter={`url(#b${id})`} opacity=".32">
+              <path d={SHAFT} fill="#000" />
+              <rect x="145.5" y="168" width="9" height="10" rx="1.5" fill="#000" />
+            </g>
+          </svg>
+          <svg
+            ref={needle}
+            class="layer layer-needle needle"
+            viewBox={`0 0 ${VIEW_W} ${VIEW_H}`}
+            style={initial}
+            aria-hidden="true"
+            focusable="false"
+          >
+            <rect x="145.5" y="168" width="9" height="10" rx="1.5" fill="#17130E" />
+            <path d={SHAFT} fill="#17130E" />
+            <path d="M149.5 34 L150.5 34 L150.85 60 L149.15 60 Z" fill="#FF2E88" />
+          </svg>
+          <svg class="layer layer-hub" viewBox={`0 0 ${VIEW_W} ${VIEW_H}`} aria-hidden="true" focusable="false">
+            <defs>
+              <filter id={`hb${id}`} x="-50%" y="-50%" width="200%" height="200%">
                 <feGaussianBlur stdDeviation="1.4" />
               </filter>
               <radialGradient id={`h${id}`} cx=".36" cy=".3" r=".75">
@@ -199,19 +235,7 @@ export function Meter({
                 <stop offset="1" stop-color="#0C0806" />
               </radialGradient>
             </defs>
-            <ScaleFace spec={spec} compact={compact} />
-            <g transform="translate(3.5 5)" filter={`url(#b${id})`} opacity=".32">
-              <g ref={shadow} transform={initial}>
-                <path d={SHAFT} fill="#000" />
-                <rect x="145.5" y="168" width="9" height="10" rx="1.5" fill="#000" />
-              </g>
-            </g>
-            <g ref={needle} transform={initial} class="needle">
-              <rect x="145.5" y="168" width="9" height="10" rx="1.5" fill="#17130E" />
-              <path d={SHAFT} fill="#17130E" />
-              <path d="M149.5 34 L150.5 34 L150.85 60 L149.15 60 Z" fill="#FF2E88" />
-            </g>
-            <circle cx={PX + 2} cy={PY + 3} r="15" fill="rgba(0,0,0,.28)" filter={`url(#b${id})`} />
+            <circle cx={PX + 2} cy={PY + 3} r="15" fill="rgba(0,0,0,.28)" filter={`url(#hb${id})`} />
             <circle cx={PX} cy={PY} r="14.5" fill={`url(#h${id})`} />
             <ellipse
               cx={PX - 4.5}

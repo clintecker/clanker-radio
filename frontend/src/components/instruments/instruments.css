@@ -85,6 +85,26 @@
     position: relative;
     z-index: 1;
   }
+  /* Needle, its shadow and the hub are stacked layers over the static scale. Pivot at
+     (150, 160) in the 300×184 viewBox; the shadow pivots 3.5/5 units lower-right. */
+  .face svg.layer {
+    position: absolute;
+    inset: 0;
+    height: 100%;
+    z-index: 1;
+    pointer-events: none;
+  }
+  .face .layer-needle,
+  .face .layer-shadow {
+    will-change: transform;
+    backface-visibility: hidden;
+  }
+  .face .layer-needle {
+    transform-origin: 50% 86.957%;
+  }
+  .face .layer-shadow {
+    transform-origin: 51.167% 89.674%;
+  }
   .scale-num {
     font-family: var(--font-mono);
     font-weight: 500;
@@ -476,6 +496,7 @@
       0 1px 0 var(--bevel-hi);
   }
   .knob {
+    will-change: transform;
     position: absolute;
     inset: 5px;
     border-radius: 50%;
