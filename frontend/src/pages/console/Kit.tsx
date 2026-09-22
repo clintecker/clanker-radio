@@ -1,4 +1,10 @@
 import type { ComponentChildren } from 'preact';
+import { useMemo, useState } from 'preact/hooks';
+import { CarrierMeter, Fader, LatchButton, Meter, PositionMeter, RotarySwitch } from '../../components/instruments';
+import { vuScale } from '../../components/instruments/scale';
+import { Spring } from '../../engine/spring';
+import { VU_SPRING, vuP } from '../../engine/vu';
+import { streams } from '../../lib/config';
 import { Ear, Lamp, Legend, Panel, Readout, Screw, Sticker, Tri } from '../../components/primitives';
 import type { LampColour } from '../../design/kind';
 
@@ -12,6 +18,52 @@ function Bin({ title, children }: { title: string; children: ComponentChildren }
       <Legend en={title} zh="零件" id="Suku cadang" ru="Детали" level={2} />
       <div class="flex flex-wrap items-center gap-6">{children}</div>
     </Panel>
+  );
+}
+
+function FixedVu({ db, label }: { db: number; label: string }) {
+  const spring = useMemo(() => {
+    const s = new Spring(VU_SPRING, vuP(db));
+    s.target = vuP(db);
+    return s;
+  }, [db]);
+  return (
+    <div class="w-[300px]">
+      <Meter
+        title="Level"
+        tri={{ zh: '电平', id: 'Level', ru: 'Уровень' }}
+        spec={vuScale}
+        spring={spring}
+        caption={label}
+        value={db}
+        min={-20}
+        max={3}
+        valueText={`${db} VU`}
+      />
+    </div>
+  );
+}
+
+function Controls() {
+  const [vol, setVol] = useState(80);
+  const [feed, setFeed] = useState('/radio-128');
+  return (
+    <>
+      <div class="w-[260px]">
+        <Fader value={vol} onInput={setVol} />
+      </div>
+      <div class="w-[260px]">
+        <Fader value={70} onInput={() => undefined} disabled />
+      </div>
+      <RotarySwitch
+        legend="Feed kbps"
+        tri={{ zh: '码率' }}
+        name="kit-feed"
+        options={streams.map((s) => ({ value: s.path, label: String(s.bitrate) }))}
+        value={feed}
+        onChange={setFeed}
+      />
+    </>
   );
 }
 
@@ -75,6 +127,39 @@ export function Kit() {
               ASSET 0x4471-C · <i>资产 DO NOT REMOVE</i>
             </span>
           </Sticker>
+        </Bin>
+        <Bin title="Meters">
+          <FixedVu db={-40} label="rest pin" />
+          <FixedVu db={0} label="0 VU reference" />
+          <FixedVu db={3} label="+3 full scale" />
+          <div class="w-[300px]">
+            <PositionMeter durationSec={213} crossfadeSec={4} elapsed={() => 80} elapsedNow={80} />
+          </div>
+          <div class="w-[190px]">
+            <PositionMeter durationSec={3725} crossfadeSec={0} elapsed={() => 3600} elapsedNow={3600} />
+          </div>
+          {(['live', 'reconnecting', 'nosignal'] as const).map((c) => (
+            <div key={c} class="w-[300px]">
+              <CarrierMeter conn={c} />
+            </div>
+          ))}
+        </Bin>
+        <Bin title="Latch">
+          {(['idle', 'loading', 'playing', 'error'] as const).map((st) => (
+            <div key={st} class="w-[300px]">
+              <LatchButton
+                state={st}
+                note={st === 'playing' ? 'stream 128 kbps' : undefined}
+                onPress={() => undefined}
+              />
+            </div>
+          ))}
+          <div class="w-[300px]">
+            <LatchButton state="loading" sub="Hopping to 96k" onPress={() => undefined} />
+          </div>
+        </Bin>
+        <Bin title="Controls">
+          <Controls />
         </Bin>
         <Bin title="Keys">
           <button class="key" type="button">

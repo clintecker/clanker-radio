@@ -3,3 +3,6 @@ dist
 test-results
 playwright-report
 .env.local
+
+# The repo root ignores Python lib/ dirs; the web player data layer is source.
+!src/lib/
