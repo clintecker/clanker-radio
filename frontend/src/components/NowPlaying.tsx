@@ -37,7 +37,7 @@ export function upNext(): { next: Track | null; fadeSec: number } {
   return { next, fadeSec: d.breaks_queue.length ? d.crossfade.breaks_sec : d.crossfade.music_sec };
 }
 
-function Card({ track, ghost = false }: { track: Track; ghost?: boolean }) {
+function Card({ track, ghost = false, animate = false }: { track: Track; ghost?: boolean; animate?: boolean }) {
   const kind = trackKind(track);
   const duration = track.duration_sec ?? 0;
   const e = elapsedSec(track, serverNow.value);
@@ -49,7 +49,7 @@ function Card({ track, ghost = false }: { track: Track; ghost?: boolean }) {
       class={
         ghost
           ? 'absolute inset-x-0 top-0 pointer-events-none animate-glitch-out motion-safe-only z-10'
-          : 'relative animate-fade-in motion-safe-only'
+          : `relative ${animate ? 'animate-fade-in motion-safe-only' : ''}`
       }
       data-kind={kind}
       aria-hidden={ghost}
@@ -103,10 +103,14 @@ export function NowPlaying() {
   const [ghost, setGhost] = useState<{ track: Track; key: string } | null>(null);
   const [lastKey, setLastKey] = useState<string | null>(null);
   const [lastTrack, setLastTrack] = useState<Track | null>(null);
+  const [changes, setChanges] = useState(0);
 
   useEffect(() => {
     if (key === lastKey) return;
-    if (lastTrack && current) setGhost({ track: lastTrack, key: lastKey ?? '' });
+    if (lastTrack && current) {
+      setGhost({ track: lastTrack, key: lastKey ?? '' });
+      setChanges((n) => n + 1);
+    }
     setLastKey(key);
     setLastTrack(current);
   }, [key]);
@@ -141,7 +145,8 @@ export function NowPlaying() {
   return (
     <div class="relative mb-10" aria-live="polite">
       {ghost && <Card key={`ghost-${ghost.key}`} track={ghost.track} ghost />}
-      <Card key={key ?? 'none'} track={current} />
+      {/* Fade in only when replacing a previous track; first paint is instant. */}
+      <Card key={key ?? 'none'} track={current} animate={changes > 0} />
       {incoming && (
         <div
           class="grid grid-cols-[auto_1fr_auto] max-sm:grid-cols-1 gap-3 max-sm:gap-0.5 items-baseline mt-3.5 pt-2.5 border-t border-dashed border-phosphor-faint text-[0.8rem] animate-rise motion-safe-only"

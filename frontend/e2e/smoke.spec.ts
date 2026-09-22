@@ -78,6 +78,7 @@ test('live page shows the feed, escapes titles, and does not autoplay', async ({
   await expect(page.getByRole('button', { name: 'TUNE IN' })).toHaveAttribute('aria-pressed', 'false');
   expect(await page.locator('audio[src]').count()).toBe(0);
   expect(errors).toEqual([]);
+  await page.waitForTimeout(300);
   await page.screenshot({ path: testInfo.outputPath('live.png'), fullPage: true });
 });
 
