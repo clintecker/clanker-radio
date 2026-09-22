@@ -4,7 +4,7 @@ import tseslint from 'typescript-eslint';
 import { defineConfig } from 'eslint/config';
 
 export default defineConfig(
-  { ignores: ['dist/', 'node_modules/', 'playwright-report/', 'test-results/'] },
+  { ignores: ['dist/', 'scripts/', 'node_modules/', 'playwright-report/', 'test-results/'] },
   js.configs.recommended,
   ...tseslint.configs.strictTypeChecked,
   ...tseslint.configs.stylisticTypeChecked,
@@ -34,7 +34,7 @@ export default defineConfig(
     },
   },
   {
-    files: ['**/*.test.ts', 'vite.config.ts'],
+    files: ['**/*.test.ts', '**/*.test.tsx', 'vite.config.ts'],
     rules: {
       '@typescript-eslint/no-unsafe-assignment': 'off',
       '@typescript-eslint/no-non-null-assertion': 'off',

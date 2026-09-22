@@ -1,0 +1,7 @@
+/* Console 2043 stylesheet entry. Tailwind supplies layout utilities only (no preflight: materials.css has its own reset). */
+@layer theme, base, components, utilities;
+@import 'tailwindcss/theme.css' layer(theme);
+@import 'tailwindcss/utilities.css' layer(utilities);
+@import '../design/fonts.css';
+@import '../design/tokens.css';
+@import '../design/materials.css';

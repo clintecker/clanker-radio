@@ -6,6 +6,7 @@ interface ImportMetaEnv {
   readonly VITE_SSE_URL?: string;
   readonly VITE_PLAYLIST_URL?: string;
   readonly VITE_SITE_URL?: string;
+  readonly VITE_ENABLE_DEBUG?: string;
 }
 interface ImportMeta {
   readonly env: ImportMetaEnv;

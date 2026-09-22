@@ -1,0 +1,81 @@
+/*
+ * Console 2043 design tokens. Single source of truth for colour, type and light.
+ * Tested for contrast by tokens.test.ts, which parses this file.
+ *
+ * gunmetal #23282D · void #05070A · stencil #C9D2D6
+ * amber #FFB347 = music · magenta #FF2E88 = bulletins / interrupts · cyan #3EF2E0 = station IDs + system
+ * hazard #E8C21A only on warning stripes.
+ */
+@layer base {
+  :root {
+    --cab: #05070a;
+    --panel: #23282d;
+    --panel-top: #2b3137;
+    --panel-bot: #181c20;
+    --ear: #1a1e22;
+    --glass: #040607;
+    --well: #05070a;
+
+    --engrave: #c9d2d6;
+    --engrave-2: #85929a;
+    --legend-k: #75838a;
+    --legend-zh: #8c999d;
+
+    --amber: #ffb347;
+    --amber-hot: #ffd9a0;
+    --amber-dim: #8e7a55;
+    --mag: #ff2e88;
+    --mag-dim: #c8508a;
+    --cyan: #3ef2e0;
+    --cyan-dim: #2b8c85;
+    --hazard: #e8c21a;
+    --white: #dffbf7;
+    --face: #d5e6e0;
+    --face-2: #9db5ae;
+    --ink: #15201e;
+    --scale-red: #d0204f;
+    --focus: #3ef2e0;
+
+    /* One key light, top-left. Every module is lit with these. */
+    --bevel-hi: rgba(200, 230, 240, 0.1);
+    --bevel-lo: rgba(0, 0, 0, 0.6);
+    --drop: rgba(0, 0, 0, 0.65);
+    --engrave-shadow: 0 1px 0 rgba(0, 0, 0, 0.7);
+    --recess:
+      inset 0 3px 9px rgba(0, 0, 0, 0.95), inset 0 0 0 1px rgba(0, 0, 0, 0.95),
+      inset 0 -1px 0 rgba(255, 255, 255, 0.05), 0 1px 0 var(--bevel-hi), 0 -1px 0 rgba(0, 0, 0, 0.25);
+    --cast: 2px 3px 1px rgba(0, 0, 0, 0.1), 4px 9px 18px var(--drop);
+
+    --font-display: 'Big Shoulders Display', 'BSD Fallback', 'Noto Sans SC', Impact, 'Arial Narrow', sans-serif;
+    --font-stencil:
+      'Big Shoulders Stencil Display', 'Big Shoulders Display', 'BSD Fallback', 'Noto Sans SC', Impact, sans-serif;
+    --font-body: 'Chakra Petch', 'Chakra Fallback', 'Noto Sans SC', system-ui, sans-serif;
+    --font-mono: 'Martian Mono', 'Noto Sans SC', ui-monospace, Menlo, monospace;
+    --font-cjk: 'Noto Sans SC', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+
+    /* Motion */
+    --t-press: 70ms;
+    --t-lamp-on: 0.12s;
+    --t-lamp-off: 0.42s;
+
+    color-scheme: dark;
+  }
+
+  /* Content kind: set once on a subtree, every child inherits --kind. */
+  [data-kind='music'],
+  [data-kind='unknown'] {
+    --kind: var(--amber);
+    --kind-dim: var(--amber-dim);
+    --kind-glow: rgba(255, 150, 40, 0.7);
+  }
+  [data-kind='break'] {
+    --kind: var(--mag);
+    --kind-dim: var(--mag-dim);
+    --kind-glow: rgba(255, 46, 136, 0.7);
+  }
+  [data-kind='bumper'] {
+    --kind: var(--cyan);
+    --kind-dim: var(--cyan-dim);
+    --kind-glow: rgba(62, 242, 224, 0.7);
+  }
+}

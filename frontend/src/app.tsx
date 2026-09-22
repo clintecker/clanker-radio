@@ -1,3 +1,4 @@
+import './styles/app.css';
 import { LocationProvider, Route, Router, useLocation } from 'preact-iso';
 import { useEffect } from 'preact/hooks';
 import { station } from './lib/config';
