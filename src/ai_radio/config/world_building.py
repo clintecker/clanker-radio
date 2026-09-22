@@ -13,6 +13,8 @@ class WorldBuildingConfig(BaseSettings):
         RADIO_WORLD_SETTING: The world/universe setting
         RADIO_WORLD_TONE: Emotional tone and vibe
         RADIO_WORLD_FRAMING: How to frame content through station personality
+        RADIO_WORLD_NEWS_MODE: "literal" (real news, kept exactly true) or "translate"
+            (real news retold as this world's own events, for worlds unlike ours)
     """
 
     model_config = SettingsConfigDict(
@@ -34,4 +36,10 @@ class WorldBuildingConfig(BaseSettings):
     world_framing: str = Field(
         default="Broadcasting from our little slice of paradise. The news and weather filtered through the lens of island living - warm sun, cool breezes, and the sound of waves. We keep it real but keep it chill.",
         description="How to frame all content through your station's personality"
+    )
+    world_news_mode: str = Field(
+        default="literal",
+        pattern="^(literal|translate)$",
+        description="How real headlines enter the broadcast: 'literal' keeps them exactly true; "
+                    "'translate' retells each as the nearest equivalent event in this world.",
     )
