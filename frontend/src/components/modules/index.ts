@@ -4,3 +4,4 @@ export { MeterBay } from './MeterBay';
 export { OnAir } from './OnAir';
 export { ServicePanel } from './ServicePanel';
 export { StatusStrip } from './StatusStrip';
+export { BandWatchBay } from './BandWatchBay';

@@ -511,3 +511,105 @@
     }
   }
 }
+
+/* ---------- band watch ---------- */
+@layer components {
+  .band {
+    padding-bottom: 18px;
+  }
+  .bandwin {
+    position: relative;
+    height: 136px;
+    color: var(--cyan);
+  }
+  .bandwin canvas {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    display: block;
+  }
+  .bandwin::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    z-index: 1;
+    opacity: 0.55;
+    background: repeating-linear-gradient(0deg, rgba(0, 0, 0, 0.45) 0 1px, transparent 1px 3px);
+  }
+  .band-scale {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 4px;
+    z-index: 2;
+    display: flex;
+    justify-content: space-between;
+    padding: 0 10px;
+    font-family: var(--font-mono);
+    font-size: 9px;
+    letter-spacing: 0.08em;
+    color: var(--cyan-dim);
+    pointer-events: none;
+  }
+  .band-msg {
+    position: absolute;
+    left: 10px;
+    top: 8px;
+    z-index: 2;
+    max-width: calc(100% - 20px);
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--cyan);
+    text-shadow: 0 0 6px rgba(62, 242, 224, 0.5);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .band[data-conn='reconnecting'] .band-msg,
+  .band[data-conn='nosignal'] .band-msg {
+    color: var(--mag);
+    text-shadow:
+      -1.5px 0 0 rgba(62, 242, 224, 0.5),
+      0 0 8px rgba(255, 46, 136, 0.7);
+  }
+  @keyframes tear {
+    0%,
+    70%,
+    100% {
+      transform: none;
+      filter: none;
+    }
+    74% {
+      transform: translateX(-4px);
+      filter: hue-rotate(-30deg) saturate(1.6);
+    }
+    78% {
+      transform: translateX(3px);
+    }
+    82% {
+      transform: translateX(-1px);
+    }
+  }
+  .band[data-conn='reconnecting'] canvas {
+    animation: tear 1.4s steps(1) infinite;
+  }
+  .band[data-conn='reconnecting'] .band-msg {
+    animation: jitter 1.1s steps(1) infinite;
+  }
+  .band .legend > .engr-2 {
+    display: none;
+  }
+  .band .legend > .engr-2 b {
+    font-weight: 500;
+    color: var(--engrave);
+  }
+  @container rack (min-width: 720px) {
+    .band .legend > .engr-2 {
+      display: inline;
+    }
+  }
+}
