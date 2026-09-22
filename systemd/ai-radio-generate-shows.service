@@ -1,0 +1,35 @@
+[Unit]
+Description=AI Radio Station - Scheduled Show Generation
+Documentation=https://github.com/clintecker/clanker-radio
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=ai-radio
+Group=ai-radio
+WorkingDirectory=/srv/ai_radio
+ExecStart=/srv/ai_radio/.venv/bin/python /srv/ai_radio/scripts/generate_shows.py
+
+Environment="PYTHONUNBUFFERED=1"
+Environment="PATH=/usr/local/bin:/usr/bin:/bin"
+EnvironmentFile=-/srv/ai_radio/.env
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=generate-shows
+
+# Security (same posture as break-gen; shows are ingested into assets/music)
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/srv/ai_radio/assets /srv/ai_radio/tmp /srv/ai_radio/logs /srv/ai_radio/state /srv/ai_radio/db
+
+# A full show (research, script, multi-voice TTS, whisper, mixing) can take
+# 10+ minutes. Well above that so a slow run is not killed mid-ingest.
+TimeoutSec=1800
+MemoryMax=2G
+
+[Install]
+WantedBy=multi-user.target

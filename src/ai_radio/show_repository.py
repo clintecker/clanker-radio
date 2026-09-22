@@ -342,6 +342,79 @@ class ShowRepository:
         finally:
             conn.close()
 
+    def _row_to_show(self, row: sqlite3.Row) -> GeneratedShow:
+        return GeneratedShow(
+            id=row['id'],
+            schedule_id=row['schedule_id'],
+            air_date=row['air_date'],
+            status=row['status'],
+            retry_count=row['retry_count'],
+            script_text=row['script_text'],
+            asset_id=row['asset_id'],
+            generated_at=row['generated_at'],
+            error_message=row['error_message'],
+            created_at=row['created_at'] if 'created_at' in row.keys() else None,
+            updated_at=row['updated_at'] if 'updated_at' in row.keys() else None,
+        )
+
+    def get_or_create_show(self, schedule_id: int, air_date: date) -> GeneratedShow:
+        """Return the show row for (schedule, air_date), creating a pending one if absent.
+
+        Safe to call repeatedly: the UNIQUE(schedule_id, air_date) constraint means
+        concurrent or repeated calls converge on a single row.
+
+        Raises:
+            sqlite3.Error: If database operation fails
+        """
+        conn = self._get_conn()
+        try:
+            conn.row_factory = sqlite3.Row
+            cursor = conn.cursor()
+            air_date_str = air_date.isoformat()
+
+            cursor.execute("""
+                INSERT OR IGNORE INTO generated_shows (schedule_id, air_date, status, retry_count)
+                VALUES (?, ?, ?, 0)
+            """, (schedule_id, air_date_str, ShowStatus.PENDING))
+            if cursor.rowcount:
+                logger.info(f"Created pending show for schedule {schedule_id} on {air_date_str}")
+            conn.commit()
+
+            cursor.execute("""
+                SELECT * FROM generated_shows WHERE schedule_id = ? AND air_date = ?
+            """, (schedule_id, air_date_str))
+            return self._row_to_show(cursor.fetchone())
+
+        except sqlite3.Error as e:
+            logger.error(f"Failed to get/create show for schedule {schedule_id} on {air_date}: {e}")
+            raise
+        finally:
+            conn.close()
+
+    def increment_retry_count(self, show_id: int) -> int:
+        """Bump retry_count after a failed generation attempt and return the new value.
+
+        Raises:
+            sqlite3.Error: If database operation fails
+        """
+        conn = self._get_conn()
+        try:
+            cursor = conn.cursor()
+            cursor.execute("""
+                UPDATE generated_shows
+                SET retry_count = retry_count + 1, updated_at = ?
+                WHERE id = ?
+            """, (datetime.now().isoformat(), show_id))
+            conn.commit()
+            cursor.execute("SELECT retry_count FROM generated_shows WHERE id = ?", (show_id,))
+            row = cursor.fetchone()
+            return row[0] if row else 0
+        except sqlite3.Error as e:
+            logger.error(f"Failed to increment retry count for show {show_id}: {e}")
+            raise
+        finally:
+            conn.close()
+
     def get_asset_path(self, asset_id: str) -> Path:
         """Get the full filesystem path for an asset.
 
