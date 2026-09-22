@@ -19,6 +19,7 @@ from typing import Optional
 
 from .audio_mixer import mix_voice_with_bed
 from .config import config
+from .broadcast_time import broadcast_hour
 from .news import get_news
 from .script_writer import generate_bulletin
 from .voice_synth import synthesize_bulletin
@@ -205,7 +206,7 @@ class BreakGenerator:
 
             # Round up to next hour for air time (matches spoken intro)
             # If generated at 3:52 PM, will air at 4:00 PM
-            next_hour = now.replace(minute=0, second=0, microsecond=0) + timedelta(hours=1)
+            next_hour = broadcast_hour(now)  # nearest top of hour, see broadcast_time.py
 
             # Format title as "Mon Dec 29, 2025 4 PM News Break"
             # Show hour only (no minutes) since it airs on the hour

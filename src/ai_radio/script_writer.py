@@ -17,6 +17,7 @@ import fasteners
 from anthropic import Anthropic, APIError
 
 from .config import config
+from .broadcast_time import broadcast_hour
 from .news import NewsData
 from .weather import WeatherData, ForecastPeriod
 
@@ -583,7 +584,7 @@ Write just the weather segment (20-30 seconds when read aloud). Follow the weath
             from zoneinfo import ZoneInfo
             now = datetime.now(ZoneInfo(config.station.station_tz))
             # Round up to next hour: if 10:43, round to 11:00; if 10:50, round to 11:00
-            next_hour = now.replace(minute=0, second=0, microsecond=0) + timedelta(hours=1)
+            next_hour = broadcast_hour(now)  # nearest top of hour, see broadcast_time.py
 
             # Format as "11 am" or "3 pm" (remove minutes since we're at the hour)
             hour_12 = next_hour.hour % 12
@@ -1004,7 +1005,7 @@ Write just the weather segment (20-30 seconds when read aloud). Follow the weath
             from datetime import timedelta
             from zoneinfo import ZoneInfo
             now = datetime.now(ZoneInfo(config.station.station_tz))
-            next_hour = now.replace(minute=0, second=0, microsecond=0) + timedelta(hours=1)
+            next_hour = broadcast_hour(now)  # nearest top of hour, see broadcast_time.py
 
             # Format time
             hour_12 = next_hour.hour % 12
@@ -1374,7 +1375,7 @@ Write just the weather segment (20-30 seconds when read aloud). Follow the weath
             from datetime import timedelta
             from zoneinfo import ZoneInfo
             now = datetime.now(ZoneInfo(config.station.station_tz))
-            next_hour = now.replace(minute=0, second=0, microsecond=0) + timedelta(hours=1)
+            next_hour = broadcast_hour(now)  # nearest top of hour, see broadcast_time.py
 
             # Format time
             hour_12 = next_hour.hour % 12
