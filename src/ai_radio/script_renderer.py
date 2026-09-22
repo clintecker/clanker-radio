@@ -7,17 +7,16 @@ from ai_radio.models.script_schema import FieldReportScript
 
 # Template phrases for interference acknowledgments (NOT model-generated)
 INTERFERENCE_TEMPLATES = [
-    "[nervous] Sorry about that, someone's trying to jam us again...",
-    "[frustrated] Damn corp jammers... [short pause] where was I?",
+    "[nervous] Sorry about that, we lost the signal for a second...",
+    "[frustrated] And it's gone again... [short pause] where was I?",
     "[worried] Can you still hear me? Signal's spotty...",
     "[annoyed] Hold on... [short pause] okay, signal's back",
-    "[tense] They're trying to block us... [short pause] still here",
-    "[defiant] Nice try, corps. [short pause] You can't silence us."
+    "[tense] Lost you there for a moment... [short pause] still here",
+    "[calm] That was the signal, not your set. [short pause] We're back."
 ]
 
 
 # Emotion pools for questions and answers
-# Richer set for dystopian resistance vibe
 QUESTION_EMOTIONS = [
     "curious", "concerned", "interested", "skeptical", "worried",
     "urgent", "intense", "direct", "probing", "careful"
@@ -73,7 +72,7 @@ def render_script(
         Tuple of (rendered_script, metadata) where metadata contains:
         {
             "acknowledgment_phrases": [
-                {"line_num": 5, "phrase": "Nice try, corps", "timestamp": None},
+                {"line_num": 5, "phrase": "Hold on... okay, signal's back", "timestamp": None},
                 ...
             ],
             "total_lines": 25,

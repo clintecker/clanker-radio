@@ -73,3 +73,4 @@ Known remaining weakness: the model still sometimes invents a small concrete det
 The "after" versions drop the sarcastic kickers and the advice lines. They let items simply stop and use physical texture instead of commentary.
 They still show the invented-detail slips described above: "Which three wasn't announced", "Lines at O'Hare", and "Kedzie".
 These are the slips the self-check is meant to catch.
+- The `news_rule` text (literal/translate) is shared with the station-ID and show prompts via `src/ai_radio/world_prompt.py` (`NEWS_RULES`, `world_fields`); the rendered bulletin prompt is unchanged.

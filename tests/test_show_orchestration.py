@@ -171,7 +171,8 @@ def test_generate_interview_happy_path(
     ]
     mock_interview.assert_called_once_with(
         topics=mock_research.return_value,
-        personas=personas
+        personas=personas,
+        show_name=interview_schedule.name,
     )
     mock_discussion.assert_not_called()
 
@@ -272,7 +273,8 @@ def test_generate_discussion_happy_path(
     ]
     mock_discussion.assert_called_once_with(
         topics=mock_research.return_value,
-        personas=personas
+        personas=personas,
+        show_name=discussion_schedule.name,
     )
     mock_interview.assert_not_called()
 

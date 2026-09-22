@@ -13,12 +13,215 @@ from .config import config
 from .voice_synth import AudioFile
 from .ingest import ingest_audio_file
 from .show_models import ShowStatus, ShowFormat
+from .world_prompt import build_world_preamble, news_mode, world_fields
 
 logger = logging.getLogger(__name__)
 
 
+# ---------------------------------------------------------------------------
+# Show prompts (canonical copies: docs/prompts/show/)
+#
+# The creative direction mirrors the hourly bulletin: the world comes entirely
+# from config and is carried as unspoken background, the register is plain
+# spoken radio, and a few small wonders of the world are stated flatly. The
+# output contracts below (JSON topic list, [speaker: Name] lines, word budget)
+# are parsed downstream and must not change.
+# ---------------------------------------------------------------------------
+
+_RESEARCH_PROMPTS = {
+    "literal": """{preamble}
+
+## YOUR JOB
+You produce a daily program of about eight minutes on {station}. Today's subject area: {topic_area}
+{guidance}
+Search for the real, current developments in this area and pick the 3 to 5 that matter most to people listening here.
+
+Each topic is one plain, complete sentence naming the company, product, person or institution, what they did, and the one concrete detail that matters. Use only facts you found; no speculation, no invented numbers, names or dates, and no commentary. The world notes are for choosing what matters, not for rewording the facts.
+
+Return ONLY a JSON array of strings, no markdown and no explanation:
+["Topic one.", "Topic two.", ...]""",
+    "translate": """{preamble}
+
+## YOUR JOB
+You produce a daily program of about eight minutes on {station}. The subject area has been given to you in the terms of a faraway world: {topic_area}
+{guidance}
+Search for the real, current developments in that area and pick the 3 to 5 that matter most. Then retell each one as the nearest equivalent development in THIS world, in its own names, places, institutions, crafts and idiom, so that a listener here would recognise it as their own news. Keep the shape of each true (who did what, what changed, the stakes, any numbers), but never mention the faraway world, its names, or its technology.
+
+Each topic is one plain, complete sentence, with no commentary.
+
+Return ONLY a JSON array of strings, no markdown and no explanation:
+["Topic one.", "Topic two.", ...]""",
+}
+
+# How the script treats the researched topics (config.world.world_news_mode).
+_TOPIC_RULES = {
+    "literal": (
+        "These topics are real. Keep every fact in them exactly true, and don't add numbers, names, dates or quotes "
+        "that aren't there, and never attach anything invented about this world to a named company, product or person. "
+        "The speakers can explain, weigh, doubt and disagree, and they say so plainly when "
+        "something isn't known. They talk about each topic the way people in this world would hear it: what it "
+        "changes for them, who it helps, who it costs."
+    ),
+    "translate": (
+        "These topics are this world's own news. Keep the facts in them as given and don't add numbers or names "
+        "to them. The speakers talk about each one as locals who care how it lands here. The program's name and the "
+        "speakers' descriptions above were written in a faraway world's terms: on air, call the program what this "
+        "world would call it, describe the speakers' trades in this world's terms, and have them mostly use first "
+        "names. Speaker tags stay exactly as written."
+    ),
+}
+
+_SHOW_ROLE = (
+    "You write the daily program \"{show_name}\" on {station}, broadcasting from {location}: about eight minutes "
+    "of two people talking on the radio."
+)
+
+_SHOW_FORMAT_RULES = """## OUTPUT FORMAT (parsed by the audio pipeline)
+- About 1,200 words: at least 1,150 and no more than 1,250, which is roughly thirty turns. If you're short, go deeper on the topics that matter most here.
+- Every turn is one line that starts with a speaker tag written exactly like this: {tags}. The words go on the same line as the tag. One blank line between turns.
+- After the speaker tag a line may carry one delivery cue in square brackets, a plain word such as [wry] or [serious]. Use two or three per speaker in the whole script, no more.
+- People talk loosely, with contractions and plain words, the way they'd speak with the mic on, not the way they'd write. Nobody sounds like a press release or a lecture.
+- Spoken words only: no title, headings, markdown, stage directions, or sound cues. Spell numbers the way a person would say them.{extra}
+
+## LAST CHECK BEFORE YOU ANSWER
+Read the script once as a listener. Cut any line that sounds written rather than said, any turn that just repeats back what the other person said, any line about what it all means, any "folks", and any detail added to a topic that the topic doesn't contain. Then count the words: under 1,150 is too short for the slot, so go deeper on the topics that matter most here until it fits."""
+
+_INTERVIEW_TEMPLATE = """{preamble}
+
+## THIS PROGRAM
+An interview. {host} hosts; {guest} is the guest.
+- {host}: {host_traits}
+- {guest}: {guest_traits}
+
+Topics:
+{topics}
+
+{topic_rule}
+
+How it goes: {host} opens by saying the program's name and who the guest is, in a sentence or two, and gets straight to the first topic. {host} asks short questions and follows up on what {guest} actually said, not on a list. {guest} answers with specifics and opinions in two to five sentences, sometimes just one; nobody gives a speech. {guest} is allowed to disagree or not know. Give the most time to what matters most to people listening here; cover every topic, even if one gets only a couple of lines. Nobody ends an answer on a quotable line or sums up what it all means. {host} thanks {guest} at the end and stops. No recap and no closing speech.
+
+{format_rules}"""
+
+_DISCUSSION_TEMPLATE = """{preamble}
+
+## THIS PROGRAM
+Two co-hosts talking it through as equals, not an interview.
+- {host_a}: {host_a_traits}
+- {host_b}: {host_b_traits}
+
+Topics:
+{topics}
+
+{topic_rule}
+
+How it goes: {host_a} opens with the first topic. {host_b} sees at least some of it differently. They talk in turns of one to five sentences, genuinely disagree somewhere, push on each other's reasons, and sometimes one of them changes their mind a little. No "great point", no "I agree" filler. Give the most time to what matters most to people listening here; cover every topic. {host_b} closes with where the two of them have landed, in a few plain sentences.
+
+{format_rules}"""
+
+_FIELD_REPORT_TEMPLATE = """{preamble}
+
+## THIS PROGRAM
+A field report. {reporter} ({reporter_traits}) is out in one real-feeling place in this world, talking to the people involved.
+People to hear from:
+{sources}
+
+Topics:
+{topics}
+
+{topic_rule}
+
+How it goes: {reporter} says the program's name, where they are and why, in a couple of plain sentences. Then the people involved speak for themselves; {reporter} asks short questions, connects one voice to the next, and reports rather than editorializes. Specifics come from what people say and do, not from scene-painting. It ends with what happens next, stated plainly.
+
+{format_rules}"""
+
+
+def _show_preamble(show_name: str) -> str:
+    fields = world_fields()
+    return build_world_preamble(
+        _SHOW_ROLE.format(show_name=show_name, station=fields["station"], location=fields["location"])
+    )
+
+
+def _format_rules(names: List[str], extra: str = "") -> str:
+    tags = " or ".join(f"[speaker: {n}]" for n in names)
+    return _SHOW_FORMAT_RULES.format(tags=tags, extra=extra)
+
+
+def _parse_json_list(text: str) -> list:
+    """Pull the JSON array out of a model reply (tolerates code fences and stray prose)."""
+    text = text.strip()
+    start, end = text.find("["), text.rfind("]")
+    if start != -1 and end > start:
+        text = text[start:end + 1]
+    return json.loads(text)
+
+
+def build_research_prompt(topic_area: str, content_guidance: str = "") -> str:
+    fields = world_fields()
+    role = f"You are a producer at {fields['station']}, broadcasting from {fields['location']}."
+    return _RESEARCH_PROMPTS[news_mode()].format(
+        preamble=build_world_preamble(role),
+        station=fields["station"],
+        topic_area=topic_area,
+        guidance=f"Producer's note: {content_guidance}" if content_guidance else "",
+    )
+
+
+def build_interview_prompt(topics: List[str], personas: List[Dict[str, str]], show_name: str = "the program") -> str:
+    host = personas[0] if len(personas) > 0 else {"name": "Host", "traits": "engaging"}
+    guest = personas[1] if len(personas) > 1 else {"name": "Expert", "traits": "knowledgeable"}
+    return _INTERVIEW_TEMPLATE.format(
+        preamble=_show_preamble(show_name),
+        host=host["name"], host_traits=host["traits"],
+        guest=guest["name"], guest_traits=guest["traits"],
+        topics="\n".join(f"- {t}" for t in topics),
+        topic_rule=_TOPIC_RULES[news_mode()],
+        format_rules=_format_rules([host["name"], guest["name"]]),
+    )
+
+
+def build_discussion_prompt(topics: List[str], personas: List[Dict[str, str]], show_name: str = "the program") -> str:
+    host_a = personas[0] if len(personas) > 0 else {"name": "Host A", "traits": "engaging"}
+    host_b = personas[1] if len(personas) > 1 else {"name": "Host B", "traits": "thoughtful"}
+    return _DISCUSSION_TEMPLATE.format(
+        preamble=_show_preamble(show_name),
+        host_a=host_a["name"], host_a_traits=host_a["traits"],
+        host_b=host_b["name"], host_b_traits=host_b["traits"],
+        topics="\n".join(f"- {t}" for t in topics),
+        topic_rule=_TOPIC_RULES[news_mode()],
+        format_rules=_format_rules(
+            [host_a["name"], host_b["name"]], extra="\n- The whole script must be under 7,500 bytes."
+        ),
+    )
+
+
+def build_field_report_prompt(topics: List[str], personas: List[Dict[str, str]], show_name: str = "the program") -> str:
+    reporter = personas[0] if len(personas) > 0 else {"name": "Reporter", "traits": "field journalist"}
+    sources = personas[1:]
+    if sources:
+        source_lines = "\n".join(f"- {s['name']}: {s['traits']}" for s in sources)
+        names = [reporter["name"]] + [s["name"] for s in sources]
+        extra = ""
+    else:
+        source_lines = "- Two or three people involved; give each a name that belongs in this world."
+        names = [reporter["name"], "<their name>"]
+        extra = "\n- Tag each person you invent with their own name the same way."
+    return _FIELD_REPORT_TEMPLATE.format(
+        preamble=_show_preamble(show_name),
+        reporter=reporter["name"], reporter_traits=reporter["traits"],
+        sources=source_lines,
+        topics="\n".join(f"- {t}" for t in topics),
+        topic_rule=_TOPIC_RULES[news_mode()],
+        format_rules=_format_rules(names, extra=extra),
+    )
+
+
 def research_topics(topic_area: str, content_guidance: str = "") -> List[str]:
     """Research current topics for a show.
+
+    Follows config.world.world_news_mode like the bulletin: 'literal' returns
+    real, search-grounded developments; 'translate' retells them as this
+    world's own equivalents.
 
     Args:
         topic_area: General topic area (e.g., "Bitcoin news")
@@ -49,45 +252,18 @@ def research_topics(topic_area: str, content_guidance: str = "") -> List[str]:
 
     try:
         client = genai.Client(api_key=config.api_keys.gemini_api_key.get_secret_value())
+        prompt = build_research_prompt(topic_area, content_guidance)
 
-        # Add world-building context
-        world_context = f"""
-WORLD SETTING: {config.world.world_setting}
-TONE: {config.world.world_tone}
-FRAMING: {config.world.world_framing}
-"""
-
-        prompt = f"""You are researching topics for an 8-minute radio show broadcasting from a pirate radio station.
-
-{world_context}
-
-Topic Area: {topic_area}
-{f'Content Guidance: {content_guidance}' if content_guidance else ''}
-
-Research and return 3-5 topics that FIT THIS FICTIONAL UNIVERSE.
-These are NOT real news - you are creating plausible-sounding but fictional developments that match the dystopian, absurdist tone.
-Think: corporate nightmares, AI surveillance gone wrong, tech feudalism, resistance movements.
-
-Return ONLY a JSON array of strings (no markdown, no explanation):
-["Topic 1 description", "Topic 2 description", ...]
-
-Be specific and concrete. Each topic should be a complete sentence.
-Make it feel like news FROM this wasteland, not news ABOUT technology."""
-
+        # Ground in live search so topics are current and real.
         response = client.models.generate_content(
             model=config.gemini_text_model,
-            contents=prompt
+            contents=prompt,
+            config=genai.types.GenerateContentConfig(
+                tools=[genai.types.Tool(google_search=genai.types.GoogleSearch())],
+            ),
         )
 
-        # Extract JSON from response
-        text = response.text.strip()
-        if text.startswith("```"):
-            # Remove markdown code blocks
-            text = text.split("```")[1]
-            if text.startswith("json"):
-                text = text[4:]
-
-        topics = json.loads(text.strip())
+        topics = _parse_json_list(response.text)
 
         # Validate response structure
         if not isinstance(topics, list):
@@ -113,13 +289,16 @@ Make it feel like news FROM this wasteland, not news ABOUT technology."""
         raise RuntimeError(f"Failed to research topics: {e}")
 
 
-def generate_interview_script(topics: List[str], personas: List[Dict[str, str]]) -> str:
+def generate_interview_script(
+    topics: List[str], personas: List[Dict[str, str]], show_name: str = "the program"
+) -> str:
     """Generate interview-format radio script.
 
     Args:
         topics: List of topic strings to cover
         personas: List of persona dicts with 'name' and 'traits' keys
                   First persona is the host, second is the expert
+        show_name: Program name the host says on air
 
     Returns:
         Generated script with [speaker: Name] tags
@@ -141,63 +320,7 @@ def generate_interview_script(topics: List[str], personas: List[Dict[str, str]])
 
     try:
         client = genai.Client(api_key=config.api_keys.gemini_api_key.get_secret_value())
-
-        # Safely access personas with default fallback for test scenarios
-        host = personas[0] if len(personas) > 0 else {"name": "Host", "traits": "engaging"}
-        expert = personas[1] if len(personas) > 1 else {"name": "Expert", "traits": "knowledgeable"}
-        topics_text = "\n".join([f"- {topic}" for topic in topics])
-
-        # Add world-building context
-        world_context = f"""
-WORLD SETTING: {config.world.world_setting}
-TONE: {config.world.world_tone}
-FRAMING: {config.world.world_framing}
-
-This is a pirate radio broadcast FROM the ruins. The topics below are fictional developments in this dystopian world.
-The hosts are survivors broadcasting truth (or their version of it) from the wasteland.
-Mix dark humor with genuine information sharing. This isn't cosplay - this IS their reality.
-"""
-
-        prompt = f"""Generate an 8-minute interview-style radio dialogue (~1,200 words).
-
-{world_context}
-
-PERSONAS:
-- Host: {host['name']} - {host['traits']}
-- Expert: {expert['name']} - {expert['traits']}
-
-TOPICS TO COVER (fictional developments in this dystopian world):
-{topics_text}
-
-OUTPUT FORMAT - Use speaker aliases AND add emotion/performance tags:
-[speaker: {host['name']}] [excited] Opening dialogue here...
-[speaker: {expert['name']}] [weary] Response with emotion tags...
-
-EMOTION TAGS to use naturally throughout (don't overuse, be selective):
-- [sarcastic] - for dark humor and irony
-- [concerned] - when discussing serious threats
-- [excited] - for interesting developments
-- [weary] - when discussing exhausting dystopian reality
-- [resigned] - acceptance of the wasteland
-- [defiant] - resistance spirit
-
-Use these tags sparingly - maybe 2-3 times per speaker across the whole script.
-
-STRUCTURE:
-1. Host opens with welcoming the expert and introducing the first topic
-2. Expert provides detailed answer (with dystopian context)
-3. Host asks follow-up question
-4. Continue Q&A pattern through all topics
-5. Host thanks the expert and closes
-
-CONSTRAINTS:
-- Exactly 1,200 words (±50 words)
-- Natural Q&A flow: question → answer → follow-up
-- Dark humor, resilient spirit, broadcasting from the ruins
-- End with host thanking expert
-- Use the EXACT speaker format shown above
-
-Generate the dialogue now:"""
+        prompt = build_interview_prompt(topics, personas, show_name)
 
         logger.debug(f"Generating interview script with topics: {topics}")
 
@@ -223,13 +346,16 @@ Generate the dialogue now:"""
         raise RuntimeError(f"Failed to generate interview script: {e}")
 
 
-def generate_discussion_script(topics: List[str], personas: List[Dict[str, str]]) -> str:
+def generate_discussion_script(
+    topics: List[str], personas: List[Dict[str, str]], show_name: str = "the program"
+) -> str:
     """Generate two-host discussion format script.
 
     Args:
         topics: List of topic strings to cover
         personas: List of persona dicts with 'name' and 'traits' keys
                   Both personas are co-equal hosts (not host/expert)
+        show_name: Program name said on air
 
     Returns:
         Generated script with [speaker: Name] tags
@@ -251,70 +377,7 @@ def generate_discussion_script(topics: List[str], personas: List[Dict[str, str]]
 
     try:
         client = genai.Client(api_key=config.api_keys.gemini_api_key.get_secret_value())
-
-        # Both personas are co-equal hosts (not host/expert dynamic)
-        host_a = personas[0] if len(personas) > 0 else {"name": "Host A", "traits": "engaging"}
-        host_b = personas[1] if len(personas) > 1 else {"name": "Host B", "traits": "thoughtful"}
-        topics_text = "\n".join([f"- {topic}" for topic in topics])
-
-        # Add world-building context
-        world_context = f"""
-WORLD SETTING: {config.world.world_setting}
-TONE: {config.world.world_tone}
-FRAMING: {config.world.world_framing}
-
-This is a pirate radio broadcast FROM the ruins. The topics below are fictional developments in this dystopian world.
-The hosts are survivors broadcasting truth (or their version of it) from the wasteland.
-Mix dark humor with genuine information sharing. This isn't cosplay - this IS their reality.
-"""
-
-        prompt = f"""Generate an 8-minute discussion-style radio dialogue (~1,200 words).
-
-{world_context}
-
-PERSONAS (both are CO-EQUAL hosts, not host/expert):
-- Host A: {host_a['name']} - {host_a['traits']}
-- Host B: {host_b['name']} - {host_b['traits']}
-
-TOPICS TO COVER (fictional developments in this dystopian world):
-{topics_text}
-
-OUTPUT FORMAT - Use speaker aliases AND add emotion/performance tags:
-[speaker: {host_a['name']}] [excited] Opening argument...
-[speaker: {host_b['name']}] [skeptical] Counter-argument...
-
-EMOTION TAGS to use naturally throughout (don't overuse, be selective):
-- [sarcastic] - for dark humor and irony
-- [concerned] - when discussing serious threats
-- [excited] - for interesting developments
-- [skeptical] - challenging the other's viewpoint
-- [resigned] - acceptance of the wasteland
-- [defiant] - resistance spirit
-- [frustrated] - when debating intensifies
-
-Use these tags sparingly - maybe 2-3 times per speaker across the whole script.
-
-STRUCTURE:
-1. {host_a['name']} opens with topic overview
-2. {host_b['name']} presents a contrasting perspective
-3. Back-and-forth debate with genuine disagreement
-4. {host_b['name']} closes with synthesis
-
-CRITICAL REQUIREMENTS:
-- Create genuine disagreement and contrasting viewpoints
-- Avoid "I agree" or "great point" filler
-- No one-sided validation - they should challenge each other
-- Both hosts are equals debating ideas, not interviewing
-- Natural conversational flow with back-and-forth exchanges
-- Dark humor, resilient spirit, broadcasting from the ruins
-- End with {host_b['name']} synthesizing the discussion
-
-CONSTRAINTS:
-- Exactly 1,200 words (±50 words)
-- Must be under 7,500 bytes total
-- Use the EXACT speaker format shown above
-
-Generate the dialogue now:"""
+        prompt = build_discussion_prompt(topics, personas, show_name)
 
         logger.debug(f"Generating discussion script with topics: {topics}")
 
@@ -340,12 +403,15 @@ Generate the dialogue now:"""
         raise RuntimeError(f"Failed to generate discussion script: {e}")
 
 
-def generate_field_report_script(topics: List[str], personas: List[Dict[str, str]]) -> str:
+def generate_field_report_script(
+    topics: List[str], personas: List[Dict[str, str]], show_name: str = "the program"
+) -> str:
     """Generate field report style radio script.
 
     Args:
-        topics: List of civic groups/movements to cover
+        topics: List of topics/groups to cover
         personas: List of persona dicts - first is field reporter, rest are interviewees/witnesses
+        show_name: Program name said on air
 
     Returns:
         Generated script with [speaker: Name] tags
@@ -367,66 +433,7 @@ def generate_field_report_script(topics: List[str], personas: List[Dict[str, str
 
     try:
         client = genai.Client(api_key=config.api_keys.gemini_api_key.get_secret_value())
-
-        reporter = personas[0] if len(personas) > 0 else {"name": "Reporter", "traits": "field journalist"}
-        sources = personas[1:] if len(personas) > 1 else []
-
-        topics_text = "\n".join([f"- {topic}" for topic in topics])
-
-        # Add world-building context
-        world_context = f"""
-WORLD SETTING: {config.world.world_setting}
-TONE: {config.world.world_tone}
-FRAMING: {config.world.world_framing}
-
-This is a field report from a pirate radio journalist embedded with resistance/civic groups.
-The reporter is out in the ruins, talking to organizers, mutual aid workers, and resistance fighters.
-This is grassroots journalism from the streets - raw, urgent, real.
-"""
-
-        source_personas = "\n".join([f"- {s['name']} - {s['traits']}" for s in sources]) if sources else "- Various community members (make up 2-3 names and roles)"
-
-        prompt = f"""Generate an 8-minute field report style radio segment (~1,200 words).
-
-{world_context}
-
-FIELD REPORTER:
-- {reporter['name']} - {reporter['traits']}
-
-SOURCES/INTERVIEWEES TO INCLUDE:
-{source_personas}
-
-GROUPS/MOVEMENTS TO COVER:
-{topics_text}
-
-OUTPUT FORMAT - Use speaker tags AND emotion tags:
-[speaker: {reporter['name']}] [urgent] Opening from the field...
-[speaker: Local Organizer] [defiant] Quote from source...
-
-EMOTION TAGS (use sparingly):
-- [urgent] - breaking news energy
-- [defiant] - resistance spirit
-- [weary] - exhaustion from struggle
-- [hopeful] - moments of solidarity
-- [concerned] - real threats
-- [determined] - organizing resolve
-
-STRUCTURE:
-1. Reporter opens from a specific location in the ruins/wasteland
-2. Brief context on why they're there
-3. Interview/quotes from 2-3 different sources from different groups
-4. Reporter provides connective tissue between sources
-5. Close with what's happening next / call to action
-
-CRITICAL REQUIREMENTS:
-- Feels like BEING THERE - specific locations, sounds, details
-- Real voices from the movement - let sources speak in their own words
-- Reporter is documenting, not editorializing
-- Raw, immediate, urgent energy
-- End with concrete next steps or upcoming actions
-- Exactly 1,200 words (±50 words)
-
-Generate the field report now:"""
+        prompt = build_field_report_prompt(topics, personas, show_name)
 
         logger.debug(f"Generating field report script with topics: {topics}")
 
@@ -642,21 +649,15 @@ def identify_interference_points_with_llm(
 
         transcript_text = "\n".join(formatted_lines)
 
-        prompt = f"""Analyze this timestamped transcript from a pirate radio show.
-The presenter acknowledges signal interference/jamming at certain moments.
+        prompt = f"""Analyze this timestamped transcript from a radio show.
+The presenter acknowledges signal interference or dropouts at certain moments.
 
 Your task: Identify the EXACT timestamps where interference should be placed.
 The interference should occur 0.5-1.0 seconds BEFORE the acknowledgment phrase.
 
-Common acknowledgment phrases:
-- "sorry about that" / "sorry"
-- "can you still hear me" / "hear me"
-- "signal's spotty" / "signal's weak" / "signal's cutting"
-- "damn corp jammers" / "damn jammers"
-- "where was I" / "where was i"
-- "hold on" (when referring to signal issues)
-- "someone's trying to jam" / "trying to jam us"
-- "let me adjust" (the signal)
+An acknowledgment is any line where the presenter reacts to the signal dropping out, being
+jammed or coming back: apologising for it, asking if listeners can still hear, saying the
+signal's back, or picking the thread up again ("where was I").
 
 TIMESTAMPED TRANSCRIPT:
 {transcript_text}
@@ -1761,19 +1762,22 @@ class ShowGenerator:
                 if schedule.format == ShowFormat.INTERVIEW:
                     script_text = generate_interview_script(
                         topics=topics,
-                        personas=personas
+                        personas=personas,
+                        show_name=schedule.name,
                     )
                     logger.info("Generated interview script")
                 elif schedule.format == ShowFormat.TWO_HOST_DISCUSSION:
                     script_text = generate_discussion_script(
                         topics=topics,
-                        personas=personas
+                        personas=personas,
+                        show_name=schedule.name,
                     )
                     logger.info("Generated discussion script")
                 elif schedule.format == ShowFormat.FIELD_REPORT:
                     script_text = generate_field_report_script(
                         topics=topics,
-                        personas=personas
+                        personas=personas,
+                        show_name=schedule.name,
                     )
                     logger.info("Generated field report script")
                 else:

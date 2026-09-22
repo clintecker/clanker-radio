@@ -20,6 +20,7 @@ from .config import config
 from .broadcast_time import broadcast_hour, spoken_hour
 from .news import NewsData
 from .weather import WeatherData, ForecastPeriod
+from .world_prompt import NEWS_RULES, build_world_preamble, world_fields
 
 logger = logging.getLogger(__name__)
 
@@ -253,22 +254,8 @@ Stories ({story_instruction}):
 
 About 80 to 100 words. Pick your own order. Don't restate the weather, don't open with "in the news", and don't sign off. Keep every story true to its rule above; the world around them can be quietly marvellous."""
 
-_NEWS_RULES = {
-    # Our own world: the stories are real and stay exactly true.
-    "literal": (
-        "The stories you're given are real and stay exactly true. Never add a number, name, place, date, "
-        "quote, or cause that isn't in a story, and don't change what a story is. If it doesn't say where, "
-        "when, how many, or why, you don't either."
-    ),
-    # A world unlike ours (Middle-earth, a generation ship, 1920s Atlantis...): real stories arrive
-    # as dispatches from beyond and are retold as the nearest thing this world would have.
-    "translate": (
-        "The stories you're given come from a faraway world. Retell each one as the nearest equivalent event "
-        "in THIS world, in its own names, places, institutions, and idiom, so a listener here would recognise "
-        "it as their own news. Keep the shape of each story true (who did what to whom, what changed, the "
-        "stakes, any numbers), but never mention the faraway world, its names, or its technology."
-    ),
-}
+# Shared with the station-ID and show prompts (see world_prompt.py).
+_NEWS_RULES = NEWS_RULES
 
 _SEASONS = {
     12: "winter", 1: "winter", 2: "winter",
@@ -280,14 +267,7 @@ _SEASONS = {
 
 def build_system_prompt() -> str:
     """System prompt shared by every script-writer backend."""
-    return _SYSTEM_PROMPT_TEMPLATE.format(
-        station=config.station.station_name,
-        location=config.station_location,
-        world_setting=config.world.world_setting,
-        world_tone=config.world.world_tone,
-        world_framing=config.world.world_framing,
-        news_rule=_NEWS_RULES.get(config.world.world_news_mode, _NEWS_RULES["literal"]),
-    )
+    return _SYSTEM_PROMPT_TEMPLATE.format(**world_fields())
 
 
 def build_weather_prompt(weather: WeatherData) -> str:
@@ -1016,11 +996,78 @@ class StationIDScript:
     target_hour: int  # Hour this station ID announces (0-23)
 
 
-def generate_station_id(target_hour: int) -> Optional[StationIDScript]:
+# ---------------------------------------------------------------------------
+# Station ID prompts (canonical copy: docs/prompts/station_id/)
+# ---------------------------------------------------------------------------
+
+_STATION_ID_ROLE = (
+    "You are the voice of {station}, broadcasting from {location}. Between songs you give the station ID: "
+    "a few seconds that tell whoever just tuned in what they're listening to and where it comes from."
+)
+
+_STATION_ID_TEMPLATE = """{preamble}
+
+## THE STATION ID
+- One to three short sentences, 8 to 25 words. It has to fit in about eight seconds.
+- Say the station name exactly as written: {station}. Say {location}, or whatever people here call it.
+- A real ID is plain: the name, the place, and at most one small thing about right now, such as who is likely awake at this hour, where the signal reaches, or one flat fact from this world. Plenty of good IDs are only the name and the place.
+- It is the thing a host says forty times a day without thinking about it. No wordplay, no description of lights, smells, sounds or weather, no slogan, no tagline, no teaser, no sign-off, no greeting.
+- Nothing from the world notes, word for word or close to it.
+
+## OUTPUT
+Spoken words only. No quotation marks, labels, markdown, or sound cues. Spell numbers the way a person would say them."""
+
+_STATION_ID_USER_TEMPLATE = """Station ID for {when}, {time_of_day}.
+{time_rule}
+This time: {shape}"""
+
+# One is drawn per ID so a day of IDs doesn't settle into one shape.
+_STATION_ID_SHAPES = [
+    "just the name and the place.",
+    "the name and the place, then who is likely listening at this hour.",
+    "lead with the place, then the name.",
+    "the name and the place, and where the signal reaches.",
+    "the name and the place, and one small flat fact from this world.",
+    "the name and the place, and one plain thing about this hour here.",
+]
+
+
+def build_station_id_prompts(target_hour: int, minute: int = 0) -> tuple[str, str]:
+    """(system, user) prompts for a station ID aired at target_hour:minute."""
+    import random
+
+    system = _STATION_ID_TEMPLATE.format(
+        preamble=build_world_preamble(_STATION_ID_ROLE.format(**world_fields())),
+        **world_fields(),
+    )
+    hour = datetime(2000, 1, 1, target_hour)
+    if minute == 0:
+        when = f"the top of the {spoken_hour(hour)} hour"
+        time_rule = f"Say the time: it's {spoken_hour(hour)}."
+    else:
+        when = f"a quarter-hour break in the {spoken_hour(hour)} hour"
+        time_rule = "Don't give the time."
+    if 5 <= target_hour < 12:
+        time_of_day = "morning"
+    elif 12 <= target_hour < 17:
+        time_of_day = "afternoon"
+    elif 17 <= target_hour < 21:
+        time_of_day = "evening"
+    else:
+        time_of_day = "night"
+    user = _STATION_ID_USER_TEMPLATE.format(
+        when=when, time_of_day=time_of_day, time_rule=time_rule, shape=random.choice(_STATION_ID_SHAPES)
+    )
+    return system, user
+
+
+def generate_station_id(target_hour: int, minute: int = 0) -> Optional[StationIDScript]:
     """Generate a dynamic station ID script for the specified hour.
 
     Args:
-        target_hour: The hour to announce (0-23), e.g., 22 for "10pm"
+        target_hour: The hour it airs in (0-23), e.g., 22 for "10pm"
+        minute: 0 for the top of the hour (the time is given); 15/30/45 for a
+            quarter-hour ID (no time, so the file can be reused)
 
     Returns:
         StationIDScript or None if generation fails
@@ -1034,62 +1081,19 @@ def generate_station_id(target_hour: int) -> Optional[StationIDScript]:
 
         client = Anthropic(api_key=api_key)
         now = datetime.now(ZoneInfo(config.station.station_tz))
+        system_prompt, prompt = build_station_id_prompts(target_hour, minute)
 
-        # Convert 24-hour to 12-hour format
-        if target_hour == 0:
-            hour_12 = 12
-            am_pm = "midnight"
-            descriptor = "midnight"
-        elif target_hour < 12:
-            hour_12 = target_hour
-            am_pm = "am"
-            descriptor = "morning" if 6 <= target_hour < 12 else "night"
-        elif target_hour == 12:
-            hour_12 = 12
-            am_pm = "noon"
-            descriptor = "noon"
-        else:
-            hour_12 = target_hour - 12
-            am_pm = "pm"
-            if 17 <= target_hour < 21:
-                descriptor = "evening"
-            else:
-                descriptor = "night"
-
-        # Build system prompt for station ID
-        system_prompt = f"""You are a DJ for {config.station.station_name}, broadcasting from {config.station_location}.
-
-WORLD SETTING: {config.world_setting}
-TONE: {config.world_tone}
-
-YOUR TASK: Write a SHORT (5-10 second) station identification announcement for {hour_12}{am_pm}.
-
-REQUIREMENTS:
-- Start with something like "It's {hour_12} {am_pm}" or "{hour_12} o'clock"
-- Include the station name: "{config.station.station_name}"
-- Include the location: "{config.station_location}"
-- Keep it BRIEF - this is just a station ID, not a full segment
-- Match the station's world setting and tone naturally
-- Sound authentic, like a real DJ
-- NO melodrama, NO heavy-handed exposition
-
-BANNED PHRASES: {config.banned_ai_phrases}
-
-Write ONLY the script text, no labels or markup."""
-
-        prompt = f"Write a brief station ID for {hour_12}{am_pm} ({descriptor})."
-
-        logger.info(f"Generating station ID script for {hour_12}{am_pm} using {config.llm_model}")
+        logger.info(f"Generating station ID script for {target_hour:02d}:{minute:02d} using {config.llm_model}")
 
         response = client.messages.create(
             model=config.llm_model,
             max_tokens=256,
-            temperature=0.7,
+            temperature=1.0,
             system=system_prompt,
             messages=[{"role": "user", "content": prompt}],
         )
 
-        script_text = response.content[0].text.strip()
+        script_text = response.content[0].text.strip().strip('"')
         word_count = len(script_text.split())
 
         logger.info(f"Station ID script generated: {word_count} words")

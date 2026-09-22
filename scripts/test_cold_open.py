@@ -10,6 +10,7 @@ import google.genai as genai
 
 from ai_radio.config import config
 from ai_radio.show_generator import synthesize_show_audio
+from ai_radio.world_prompt import build_world_preamble
 
 # Add src to path
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
@@ -39,118 +40,64 @@ def generate_field_report_json(
 
     theme_guidance = f"\n\nTHEME FOCUS: {seed_theme}" if seed_theme else ""
 
-    prompt = f"""Generate a pirate radio field report as structured JSON.
+    preamble = build_world_preamble(
+        f"You write a field report for {config.station.station_name}, broadcasting from "
+        f"{config.station_location}: a reporter out somewhere in this world, talking with one person "
+        "they know and trust about something that matters here."
+    )
+    prompt = f"""{preamble}
 
-YOU MUST INVENT EVERYTHING - this is world-building:
-- Create the field reporter's name (first + last, diverse backgrounds)
-- Create the interviewee's name (first + last, diverse backgrounds)
-- Invent 2-3 resistance organizations with specific names (NOT generic like "Resistance Group")
-- Create specific Chicago neighborhood locations (West Side, Pilsen, Bridgeport, etc.)
-- Invent recent events (raids, victories, losses) with named people and places
-- Create specific tactics and resources (mesh networks, patrol routes, supply caches, coded signals)
-- Generate consequences (injuries, arrests, victories) with real stakes{theme_guidance}
+## THIS REPORT
+Invent all of it from inside this world: the reporter's name, the person they're talking to, where they are, what's going on, the people and groups involved, and what it costs them. Names, places and groups belong to this world and are specific, never generic. Things that happened have consequences: who it helped, who it hurt, what changed.{theme_guidance}
 
-WORLD CONTEXT:
-{config.world.world_setting}
+The two of them know each other, so the questions are direct and personal and build on the last answer, not on a list. Answers are concrete: named people and places, what was done, how it went. They talk loosely, with contractions, and sometimes correct themselves; nobody sounds like a press release or makes a speech.
 
-TONE & ENERGY:
-{config.world.world_tone}
+## THE FIELDS (parsed by the renderer; keep every field and every limit)
+cold_open:
+- complaint_line: the reporter, not yet aware the mic is live, mutters about something going wrong where they are. Target about 15 words, max 25.
+- realization: the reporter realizes they're on air. Three to five words, max 5.
+- intro_sentence_1: normal voice now; the reporter gives their name and the program. Target about 20 words, max 30.
+- intro_sentence_2: a routine on-air formality that belongs to how broadcasting works in this world, said in passing. Target 25 to 30 words, max 35.
+- guest_intro: introduces the guest by name and what they do. Target 20 to 30 words, max 35.
 
-This is ILLEGAL underground radio - urgent, raw, passionate. Not a polite interview.
-- Field reporter is broadcasting under threat from a specific location in Chicago
-- Interviewee is a fellow resistance fighter sharing front-line intel
-- They KNOW each other, trust each other - this is comrades talking, not journalist/subject
-- Questions are DIRECT and PERSONAL - "How are YOU dealing with..." not "Can you tell our listeners..."
-- Answers are CONCRETE and SPECIFIC - named people, exact locations, specific tactics
-- Both are ANGRY at corps, HOPEFUL about resistance, SCARED but DETERMINED
+interview_segments: 8 to 10 items, each with:
+- question: the reporter's question. Target 35 to 40 words, max 50.
+- answer: the guest's answer. Target 50 to 60 words, max 70.
+- interference_after: true ONLY on segments 0, 3 and 6; false on all others.
+- interference_phrase: only when interference_after is true. The reporter's short, plain reaction to the signal dropping out, 5 to 12 words, starting with one delivery cue in square brackets. Word it differently each time.
 
-MAKE IT REAL:
-- Make conversation natural, not a formal interview
-- Reporter actively listens and responds emotionally
-- Questions build on answers, not a pre-written list
-- Mix tactical details with personal feelings
-- Vary pacing between heavy/light/urgent moments
-- People interrupt, correct themselves, get emotional
-- Include humor and vulnerability alongside resistance talk
+signoff: the reporter signs off plainly. Target 20 to 25 words, max 30.
 
-CRITICAL WORLDBUILDING REQUIREMENTS:
-- Organization names must be SPECIFIC with neighborhood/focus (not generic like "Community Aid Group")
-- People names must be REAL and diverse
-- Locations must be SPECIFIC Chicago neighborhoods/streets
-- Events must have CONSEQUENCES - who got hurt, who won, what changed
-- No vague language: use concrete numbers, specific outcomes, named consequences
+Whole script: 1,000 to 1,200 words, never more than 1,400. These limits are checked; stay inside them.
 
-STRUCTURE REQUIREMENTS:
-
-**cold_open** (5 fields):
-- complaint_line: Field reporter whispers complaint about equipment/patrol/situation (~15 words)
-- realization: Sudden shocked exclamation (~3-5 words, BE CREATIVE about what they realize!)
-- intro_sentence_1: First introduction in normal voice, include reporter's name (~20 words)
-- intro_sentence_2: Authentication check - casual, routine mention of encrypted broadcast with code (~25-30 words)
-  * Include: encryption mention, numeric code (4-6 digits), reference to one-time pads
-- guest_intro: Natural introduction of guest by name and affiliation (~20-30 words)
-
-**interview_segments** (8-10 items, each with 4 fields):
-- question: Reporter's question (~35-40 words) - build on previous answers, show emotional response
-- answer: Interviewee's response (~50-60 words) - concrete specifics, personal feelings, natural speech patterns
-
-- interference_after: Boolean - true for segments 0, 3, and 6 (spread throughout)
-- interference_phrase: String (ONLY when interference_after=true) - Short creative reaction (5-12 words, vary emotion)
-
-**signoff**: Field reporter signs off (~15-20 words)
-
-WORD BUDGETS - MANDATORY LIMITS:
-You MUST stay within these strict per-field word count limits:
-
-Cold Open:
-  - complaint_line: MAX 25 words (target ~15)
-  - realization: MAX 5 words (target ~3)
-  - intro_sentence_1: MAX 30 words (target ~20)
-  - intro_sentence_2: MAX 35 words (target 25-30, includes authentication)
-  - guest_intro: MAX 35 words (target 20-30, introduces guest)
-
-Interview Segments (per segment):
-  - question: MAX 50 words (target 35-40)
-  - answer: MAX 70 words (target 50-60)
-
-Signoff: MAX 30 words (target 20-25)
-
-Total Script: Target 1000-1200 words, NEVER exceed 1400 words
-
-These are HARD LIMITS enforced by validation. Fields exceeding limits will be flagged as errors.
-Generate content WITHIN budget to avoid compression.
-
-CRITICAL: Set interference_after=true ONLY on segments 0, 3, and 6. This places interference IMMEDIATELY after 1st, 4th, and 7th answers (spread throughout the interview).
-
-OUTPUT: Valid JSON matching this exact structure:
-{{{{
+## OUTPUT
+Valid JSON with exactly this structure:
+{{
   "presenter_name": "First Last",
   "source_name": "First Last",
-  "cold_open": {{{{
+  "cold_open": {{
     "complaint_line": "...",
     "realization": "...",
     "intro_sentence_1": "...",
     "intro_sentence_2": "...",
     "guest_intro": "..."
-  }}}},
+  }},
   "interview_segments": [
-    {{{{
+    {{
       "question": "...",
       "answer": "...",
       "interference_after": true,
-      "interference_phrase": "[emotion] creative acknowledgment..."
-    }}}},
-    {{{{
+      "interference_phrase": "[cue] ..."
+    }},
+    {{
       "question": "...",
       "answer": "...",
       "interference_after": false
-    }}}},
+    }},
     ...
   ],
   "signoff": "..."
-}}}}
-
-REMEMBER: You are CREATING the universe - invent everything!"""
+}}"""
 
     response = client.models.generate_content(
         model=config.gemini_text_model,
@@ -169,7 +116,7 @@ def generate_cold_open_with_field_report(presenter_name: str, source_name: str, 
     Args:
         presenter_name: Name of the field reporter
         source_name: Name of the interview source
-        topics: List of resistance group topics to cover
+        topics: List of topics to cover
 
     Returns:
         Complete script with cold open + field report
@@ -178,89 +125,29 @@ def generate_cold_open_with_field_report(presenter_name: str, source_name: str, 
 
     topics_text = '\n'.join([f"- {topic}" for topic in topics])
 
-    prompt = f"""Generate a complete field report with cold open for a pirate radio show.
+    preamble = build_world_preamble(
+        f"You write a field report for {config.station.station_name}, broadcasting from "
+        f"{config.station_location}: {presenter_name} is out somewhere in this world talking with {source_name}."
+    )
+    prompt = f"""{preamble}
 
-WORLD CONTEXT:
-{config.world.world_setting}
-{config.world.world_tone}
+## THIS REPORT
+- {presenter_name}: the field reporter.
+- {source_name}: someone involved, whom {presenter_name} knows.
+Topics:
+{topics_text}
+They talk about the work, what's going wrong, who it affects here, and what happens next. Questions are short and direct; answers are two or three plain sentences with specifics.
 
-SPEAKERS:
-- {presenter_name} (field reporter for resistance radio)
-- {source_name} (organizer from resistance movement)
+## STRUCTURE (the audio pipeline depends on it)
+1. Cold open: one or two lines where {presenter_name}, not knowing the mic is live, mutters in [whispering] about something going wrong where they are. Then a short line realizing they're on air. Then exactly two sentences of introduction in a normal voice, no [whispering] from here on.
+2. After {source_name}'s first answer, {presenter_name} says a short plain line acknowledging the signal dropped.
+3. Right after {presenter_name}'s third question, a second such line, worded differently.
+4. After the fifth or sixth exchange, a third, worded differently.
+5. Near the end, a fourth, worded differently; then {presenter_name} wraps up and signs off plainly.
+Total: 700 to 900 words.
 
-<INTERVIEW_CONTEXT>
-Topics for {source_name} from: {topics_text}
-Interview should cover: organizing work, challenges, community impact, calls to action
-Tone: Raw, immediate, grassroots energy
-</INTERVIEW_CONTEXT>
-
-CRITICAL VOICE DIRECTION:
-- {presenter_name} should whisper VERY QUIETLY during cold open, as if trying not to be heard
-- Use [whispering] tag for quiet delivery during cold open
-- After embarrassment/realization, remove whispering tag and speak normally
-- Do NOT continue whispering after the cold open!
-- The contrast between whispered and normal should be DRAMATIC
-
-EMOTION TAGS - Gemini 2.5 Pro supports 64+ emotions from Fish-Speech:
-Basic: [happy] [sad] [angry] [excited] [calm] [nervous] [confident] [surprised] [satisfied] [worried] [upset] [frustrated] [embarrassed] [proud] [grateful] [curious]
-Advanced: [anxious] [confused] [disappointed] [regretful] [guilty] [hopeful] [optimistic] [determined] [resigned] [contemptuous] [sympathetic] [compassionate]
-Tone: [whispering] [shouting] [soft tone]
-Sounds: [sigh] [laughing] [chuckling] [uhm] [gasping]
-Pauses: [short pause] [medium pause] [long pause]
-
-USE RICH EMOTIONS throughout to make the dialogue come alive! Be expressive!
-
-OUTPUT FORMAT - Use speaker markers with expressive emotion tags:
-[speaker: {presenter_name}] [whispering] [annoyed] Sam, I swear if that generator fails one more time...
-[speaker: {presenter_name}] [whispering] [frustrated] ...and then the patrol almost caught us...
-[speaker: {presenter_name}] [shocked] Oh shit. Oh. [medium pause]
-[speaker: {presenter_name}] [embarrassed] [sigh] Right. Okay. So.
-[speaker: {presenter_name}] [nervous] This is... {presenter_name}... with Field Reports...
-[speaker: {presenter_name}] [confident] Broadcasting from the ruins...
-[speaker: {presenter_name}] [determined] Today I'm out in Sector...
-[speaker: {source_name}] [earnest] Yeah, so what we're doing is...
-
-Make it feel REAL - technical difficulties, genuine embarrassment, then actual field reporting.
-
-<MANDATORY_SCRIPT_STRUCTURE>
-
-Follow these steps IN ORDER to construct the script. This is a MANDATORY SEQUENCE.
-
-**STEP 1: GENERATE THE COLD OPEN**
-- Write EXACTLY 1-2 lines where {presenter_name} complains about equipment/patrol in [whispering]
-- Follow IMMEDIATELY with: {presenter_name} realizes mic is live: "[shocked] Oh shit."
-- End cold open with EXACTLY 2 sentences of show introduction in NORMAL SPEAKING VOICE
-- DO NOT add any other content to the cold open
-- Cold open MUST end after these 2 introduction sentences
-
-**STEP 2: BEGIN INTERVIEW AND INSERT FIRST INTERFERENCE**
-- {presenter_name} asks the first interview question about {source_name}'s organizing work
-- {source_name} gives a 2-3 sentence answer
-- IMMEDIATELY after {source_name}'s first answer, {presenter_name} acknowledges signal interference
-- Use one of: "Sorry about that, someone's trying to jam us again" / "Can you still hear me? Signal's spotty" / "Hold on... [short pause] okay, signal's back"
-
-**STEP 3: CONTINUE INTERVIEW WITH INTERFERENCE AT QUESTION 3**
-- {presenter_name} asks second question
-- {source_name} answers (2-3 sentences)
-- {presenter_name} asks third question
-- IMMEDIATELY after third question, insert SECOND interference acknowledgment before {source_name} can answer
-- Use different phrase: "Damn corp jammers... where was I?" / "Let me adjust the antenna... there, that's better"
-
-**STEP 4: MID-INTERVIEW INTERFERENCE**
-- Continue interview with 3-4 more question/answer exchanges
-- After the 5th or 6th exchange, insert THIRD interference acknowledgment
-- Use different phrase from previous ones
-
-**STEP 5: LATE INTERVIEW INTERFERENCE**
-- Continue interview with 2-3 more exchanges
-- Insert FOURTH interference acknowledgment near the end
-- {presenter_name} wraps up the interview and signs off
-
-**STEP 6: VERIFY WORD COUNT**
-- Total script should be approximately 700-900 words
-- If over 1000 words, you have made the interview exchanges too long
-
-</MANDATORY_SCRIPT_STRUCTURE>"""
+## OUTPUT FORMAT
+Every line starts with [speaker: {presenter_name}] or [speaker: {source_name}], then the words on the same line. A line may carry delivery cues in square brackets (such as [whispering], [sigh], [short pause]); use them where a performer needs them, not everywhere. Spoken words only."""
 
     response = client.models.generate_content(
         model=config.gemini_text_model,

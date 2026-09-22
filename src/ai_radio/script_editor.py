@@ -69,7 +69,8 @@ TARGET: Cut approximately {words_to_cut} words total
 
 RULES:
 - Make answers more concise while preserving key information
-- Maintain natural speaking tone
+- Keep each speaker's voice, plain spoken register, and the names and terms they use for things
+- Cut words, don't rephrase into writing: no new imagery, no summing-up lines
 - Keep answers substantial (not too terse)
 - Distribute cuts across all answers proportionally
 
