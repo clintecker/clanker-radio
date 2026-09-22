@@ -6,3 +6,5 @@
 @import '../design/tokens.css';
 @import '../design/materials.css';
 @import '../components/instruments/instruments.css';
+@import '../components/modules/modules.css';
+@import '../pages/console/console-page.css';

@@ -3,6 +3,7 @@ import { LocationProvider, Route, Router, lazy } from 'preact-iso';
 import './styles/console.css';
 import { DEBUG_ENABLED, parseDebug } from './debug';
 import { applyTextures } from './design/textures';
+import { ConsoleArchive } from './pages/console/ConsoleArchive';
 import { ConsoleLive } from './pages/console/ConsoleLive';
 
 const Kit = import.meta.env.DEV ? lazy(() => import('./pages/console/Kit').then((m) => m.Kit)) : null;
@@ -25,6 +26,7 @@ export function ConsoleApp() {
     <LocationProvider>
       <Router>
         <Route path="/" component={ConsoleLive} />
+        <Route path="/archive" component={ConsoleArchive} />
         <Route path="/__kit" component={Kit ?? NotFound} />
         <Route default component={NotFound} />
       </Router>

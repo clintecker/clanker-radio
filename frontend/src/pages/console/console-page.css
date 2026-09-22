@@ -1,0 +1,14 @@
+/* Page grid: the only viewport-level layout; modules size themselves by container. */
+@layer components {
+  .grid-live,
+  .grid-archive {
+    display: grid;
+    gap: 18px;
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .build {
+    margin-top: 24px;
+    text-align: center;
+    opacity: 0.6;
+  }
+}
