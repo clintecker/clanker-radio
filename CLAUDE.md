@@ -2,11 +2,11 @@
 
 ## Server Connection
 
-**Production Server IP:** `10.10.0.86`
+**Production Server:** `your-radio-host` (Tailscale) or `your-radio-host` (LAN). The old `10.10.0.86` address is gone.
 **User:** `clint`
-**Connection:** `ssh clint@10.10.0.86`
+**Connection:** `ssh clint@your-radio-host` (or `make <target> SERVER=clint@your-radio-host`)
 
-All deployment and remote operations use this IP address. The server is only accessible via local network.
+All deployment and remote operations use the `SERVER` variable in the Makefile. Override per-call with `make deploy SERVER=...`.
 
 ## Common Operations
 

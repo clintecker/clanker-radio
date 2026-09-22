@@ -199,7 +199,7 @@ class BreakGenerator:
             # Use station timezone for metadata title (Chicago time)
             from datetime import timedelta
             from zoneinfo import ZoneInfo
-            now = datetime.now(ZoneInfo(config.station_tz))
+            now = datetime.now(ZoneInfo(config.station.station_tz))
             output_filename = f"break_{now.strftime('%Y%m%d_%H%M%S')}.mp3"
             output_path = self.breaks_path / output_filename
 

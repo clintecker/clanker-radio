@@ -49,6 +49,12 @@ class RadioConfig(BaseSettings):
         default="claude-3-5-sonnet-latest",
         description="Claude model for bulletin script generation"
     )
+    gemini_text_model: str = Field(
+        default="gemini-2.5-flash",
+        description="Gemini model for text generation (show scripts, script editing, schedule parsing). "
+                    "Env: RADIO_GEMINI_TEXT_MODEL. Must be a model the key can call; "
+                    "gemini-2.0-flash-exp was retired and now returns 404."
+    )
     weather_script_temperature: float = Field(
         default=0.8,
         ge=0.0,
@@ -60,6 +66,18 @@ class RadioConfig(BaseSettings):
         ge=0.0,
         le=1.0,
         description="Temperature for news script generation (0.0=deterministic, 1.0=creative)"
+    )
+    show_generation_lead_hours: float = Field(
+        default=6.0,
+        gt=0,
+        description="Start generating a scheduled show this many hours before it airs. "
+                    "Env: RADIO_SHOW_GENERATION_LEAD_HOURS."
+    )
+    show_generation_max_retries: int = Field(
+        default=3,
+        ge=0,
+        description="Give up on a failed show after this many retries. "
+                    "Env: RADIO_SHOW_GENERATION_MAX_RETRIES."
     )
 
     # Icecast integration (external system, doesn't fit domain model)

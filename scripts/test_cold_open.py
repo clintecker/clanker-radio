@@ -153,7 +153,7 @@ OUTPUT: Valid JSON matching this exact structure:
 REMEMBER: You are CREATING the universe - invent everything!"""
 
     response = client.models.generate_content(
-        model="gemini-2.0-flash-exp",
+        model=config.gemini_text_model,
         contents=prompt,
         config=genai.types.GenerateContentConfig(
             temperature=0.3,
@@ -263,7 +263,7 @@ Follow these steps IN ORDER to construct the script. This is a MANDATORY SEQUENC
 </MANDATORY_SCRIPT_STRUCTURE>"""
 
     response = client.models.generate_content(
-        model="gemini-2.0-flash-exp",
+        model=config.gemini_text_model,
         contents=prompt
     )
 

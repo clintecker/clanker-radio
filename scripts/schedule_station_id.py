@@ -37,7 +37,7 @@ def get_scheduler_state(conn: sqlite3.Connection, key: str) -> str | None:
 def set_scheduler_state(conn: sqlite3.Connection, key: str, value: str) -> None:
     """Set scheduler state in database."""
     cursor = conn.cursor()
-    now = datetime.now(ZoneInfo(config.station_tz)).isoformat()
+    now = datetime.now(ZoneInfo(config.station.station_tz)).isoformat()
     cursor.execute(
         """INSERT INTO scheduler_state (key, value, updated_at)
            VALUES (?, ?, ?)
@@ -59,7 +59,7 @@ def should_schedule_station_id(conn: sqlite3.Connection) -> tuple[bool, int | No
     Returns:
         (should_schedule, target_minute): Whether to schedule and which minute target
     """
-    now = datetime.now(ZoneInfo(config.station_tz))
+    now = datetime.now(ZoneInfo(config.station.station_tz))
     current_minute = now.minute
     current_hour = now.hour
 
@@ -141,7 +141,7 @@ def main():
             logger.info(f"Queued station ID: {station_id_file.name}")
 
             # Record that we scheduled for this target in this hour (format: "hour:target")
-            now = datetime.now(ZoneInfo(config.station_tz))
+            now = datetime.now(ZoneInfo(config.station.station_tz))
             set_scheduler_state(conn, "station_id_scheduled", f"{now.hour}:{target_minute}")
 
             sys.exit(0)

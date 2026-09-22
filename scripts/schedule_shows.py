@@ -103,7 +103,7 @@ def check_scheduled_shows() -> None:
             continue
 
         # Get ready show for today
-        air_date = now.date().isoformat()
+        air_date = now.date()
         show = repository.get_ready_show(schedule_id=schedule.id, air_date=air_date)
 
         # Check if show is ready

@@ -10,7 +10,7 @@ from ai_radio.models.script_schema import FieldReportScript, InterviewSegment
 logger = logging.getLogger(__name__)
 
 # Model configuration constants
-EDITOR_MODEL = "gemini-2.0-flash-exp"
+EDITOR_MODEL = config.gemini_text_model
 # Temperature 0.0 ensures deterministic, consistent compression results
 EDITOR_TEMPERATURE = 0.0
 

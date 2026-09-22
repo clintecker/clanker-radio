@@ -62,7 +62,7 @@ def select_next_tracks(
 
         # Time-based Malware Groove filtering (1 AM - 8 AM Chicago time only)
         from ai_radio.config import config
-        now = datetime.now(ZoneInfo(config.station_tz))
+        now = datetime.now(ZoneInfo(config.station.station_tz))
         hour = now.hour
 
         # Exclude Malware Grooves outside of 1 AM - 8 AM window

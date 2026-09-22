@@ -1,6 +1,6 @@
 [Unit]
 Description=AI Radio Break Generation
-Documentation=https://github.com/your-username/ai-radio-station
+Documentation=https://github.com/clintecker/clanker-radio
 After=network-online.target
 Wants=network-online.target
 
@@ -12,6 +12,10 @@ WorkingDirectory=/srv/ai_radio
 
 # Execute break generation script
 ExecStart=/srv/ai_radio/.venv/bin/python /srv/ai_radio/scripts/generate_break.py
+
+# Update next.mp3 symlink after generation
+ExecStartPost=/srv/ai_radio/.venv/bin/python /srv/ai_radio/scripts/update_next_break.py
+ExecStartPost=/srv/ai_radio/.venv/bin/python /srv/ai_radio/scripts/generate_breaks_index.py
 
 # Environment
 Environment="PYTHONUNBUFFERED=1"
@@ -28,7 +32,7 @@ NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=strict
 ProtectHome=true
-ReadWritePaths=/srv/ai_radio/assets/breaks /srv/ai_radio/tmp /srv/ai_radio/logs
+ReadWritePaths=/srv/ai_radio/assets/breaks /srv/ai_radio/tmp /srv/ai_radio/logs /srv/ai_radio/state /srv/ai_radio/db
 
 # Resource limits
 MemoryMax=1G

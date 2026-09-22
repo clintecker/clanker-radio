@@ -118,7 +118,7 @@ def _get_time_of_day() -> str:
     """
     from zoneinfo import ZoneInfo
 
-    now = datetime.now(ZoneInfo(config.station_tz))
+    now = datetime.now(ZoneInfo(config.station.station_tz))
     hour = now.hour
 
     if 5 <= hour < 12:
@@ -139,7 +139,7 @@ def _get_upcoming_holidays() -> str:
     """
     from zoneinfo import ZoneInfo
 
-    now = datetime.now(ZoneInfo(config.station_tz))
+    now = datetime.now(ZoneInfo(config.station.station_tz))
 
     # Major US holidays (month, day, name)
     holidays = [
@@ -173,7 +173,7 @@ def _get_temporal_context() -> dict:
     """
     from zoneinfo import ZoneInfo
 
-    now = datetime.now(ZoneInfo(config.station_tz))
+    now = datetime.now(ZoneInfo(config.station.station_tz))
     hour = now.hour
     day_of_week = now.strftime("%A")  # e.g., "Monday"
     is_weekend = now.weekday() >= 5  # Saturday=5, Sunday=6
@@ -377,7 +377,7 @@ ONLY the script text that will be spoken. NO stage directions, sound effects, or
         """
         from zoneinfo import ZoneInfo
 
-        now = datetime.now(ZoneInfo(config.station_tz))
+        now = datetime.now(ZoneInfo(config.station.station_tz))
         temporal = _get_temporal_context()
         upcoming_holidays = _get_upcoming_holidays()
 
@@ -490,7 +490,7 @@ Write just the weather segment (20-30 seconds when read aloud). Follow the weath
         """
         from zoneinfo import ZoneInfo
 
-        now = datetime.now(ZoneInfo(config.station_tz))
+        now = datetime.now(ZoneInfo(config.station.station_tz))
         upcoming_holidays = _get_upcoming_holidays()
 
         prompt = f"""Write ONLY the news portion of a radio bulletin.
@@ -581,7 +581,7 @@ Write just the weather segment (20-30 seconds when read aloud). Follow the weath
             # Round up to the next hour boundary (when the break will actually play)
             from datetime import timedelta
             from zoneinfo import ZoneInfo
-            now = datetime.now(ZoneInfo(config.station_tz))
+            now = datetime.now(ZoneInfo(config.station.station_tz))
             # Round up to next hour: if 10:43, round to 11:00; if 10:50, round to 11:00
             next_hour = now.replace(minute=0, second=0, microsecond=0) + timedelta(hours=1)
 
@@ -805,7 +805,7 @@ ONLY the script text that will be spoken. NO stage directions, sound effects, or
         """
         from zoneinfo import ZoneInfo
 
-        now = datetime.now(ZoneInfo(config.station_tz))
+        now = datetime.now(ZoneInfo(config.station.station_tz))
         temporal = _get_temporal_context()
         upcoming_holidays = _get_upcoming_holidays()
         recent_phrases = load_recent_weather_phrases()
@@ -915,7 +915,7 @@ Write just the weather segment (20-30 seconds when read aloud). Follow the weath
         """
         from zoneinfo import ZoneInfo
 
-        now = datetime.now(ZoneInfo(config.station_tz))
+        now = datetime.now(ZoneInfo(config.station.station_tz))
         upcoming_holidays = _get_upcoming_holidays()
 
         prompt = f"""Write ONLY the news portion of a radio bulletin.
@@ -1003,7 +1003,7 @@ Write just the weather segment (20-30 seconds when read aloud). Follow the weath
             # Combine segments with intro and sign-off
             from datetime import timedelta
             from zoneinfo import ZoneInfo
-            now = datetime.now(ZoneInfo(config.station_tz))
+            now = datetime.now(ZoneInfo(config.station.station_tz))
             next_hour = now.replace(minute=0, second=0, microsecond=0) + timedelta(hours=1)
 
             # Format time
@@ -1173,7 +1173,7 @@ ONLY the script text that will be spoken. NO stage directions, sound effects, or
         """
         from zoneinfo import ZoneInfo
 
-        now = datetime.now(ZoneInfo(config.station_tz))
+        now = datetime.now(ZoneInfo(config.station.station_tz))
         temporal = _get_temporal_context()
         upcoming_holidays = _get_upcoming_holidays()
         recent_phrases = load_recent_weather_phrases()
@@ -1284,7 +1284,7 @@ Write just the weather segment (20-30 seconds when read aloud). Follow the weath
         """
         from zoneinfo import ZoneInfo
 
-        now = datetime.now(ZoneInfo(config.station_tz))
+        now = datetime.now(ZoneInfo(config.station.station_tz))
         upcoming_holidays = _get_upcoming_holidays()
 
         prompt = f"""Write ONLY the news portion of a radio bulletin.
@@ -1373,7 +1373,7 @@ Write just the weather segment (20-30 seconds when read aloud). Follow the weath
             # Combine segments with intro and sign-off
             from datetime import timedelta
             from zoneinfo import ZoneInfo
-            now = datetime.now(ZoneInfo(config.station_tz))
+            now = datetime.now(ZoneInfo(config.station.station_tz))
             next_hour = now.replace(minute=0, second=0, microsecond=0) + timedelta(hours=1)
 
             # Format time
@@ -1498,7 +1498,7 @@ def generate_station_id(target_hour: int) -> Optional[StationIDScript]:
             raise ValueError("RADIO_LLM_API_KEY not configured")
 
         client = Anthropic(api_key=api_key)
-        now = datetime.now(ZoneInfo(config.station_tz))
+        now = datetime.now(ZoneInfo(config.station.station_tz))
 
         # Convert 24-hour to 12-hour format
         if target_hour == 0:

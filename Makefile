@@ -1,9 +1,9 @@
 # Production server connection
-SERVER = clint@10.10.0.86
+SERVER = clint@your-radio-host
 REMOTE_BASE = /srv/ai_radio
 
 .PHONY: help sync-db tui build-tui clean test
-.PHONY: deploy deploy-frontend deploy-scripts deploy-code
+.PHONY: deploy deploy-frontend deploy-scripts deploy-code deploy-systemd
 .PHONY: status logs-liquidsoap logs-push logs-break-gen logs-station-id
 .PHONY: check-exports test-sse check-db check-callbacks now-playing
 .PHONY: restart-liquidsoap restart-push restart-all tail-all
@@ -33,7 +33,7 @@ clean: ## Clean build artifacts
 test: ## Run tests
 	@uv run pytest tests/ -v
 
-# --- Server Operations (10.10.0.86) ---
+# --- Server Operations (your-radio-host / your-radio-host on LAN) ---
 
 deploy: ## Deploy all (frontend + scripts + code)
 	@./scripts/deploy.sh lastbyte all
@@ -47,6 +47,9 @@ deploy-scripts: ## Deploy Python scripts only
 deploy-code: ## Deploy ai_radio package only
 	@./scripts/deploy.sh lastbyte code
 
+deploy-systemd: ## Deploy systemd units (daemon-reload; services may need restart)
+	@./scripts/deploy.sh lastbyte systemd
+
 status: ## Show all service statuses
 	@ssh $(SERVER) "systemctl list-units 'ai-radio-*' --no-pager"
 
@@ -58,6 +61,22 @@ logs-push: ## Tail SSE push daemon logs
 
 logs-break-gen: ## Show break-gen service logs
 	@ssh $(SERVER) "sudo journalctl -u ai-radio-break-gen.service -n 50"
+
+logs-generate-shows: ## Show recent scheduled-show generation logs
+	@ssh $(SERVER) "sudo journalctl -u ai-radio-generate-shows.service -n 80 --no-pager"
+
+logs-schedule-shows: ## Show recent scheduled-show enqueue logs
+	@ssh $(SERVER) "sudo journalctl -u ai-radio-schedule-shows.service -n 40 --no-pager"
+
+run-generate-shows: ## Run the show generation service now (timer logic applies)
+	@ssh $(SERVER) "sudo systemctl start ai-radio-generate-shows.service"
+
+force-generate-show: ## Force one show now: make force-generate-show SCHEDULE=1 DATE=2026-09-23
+	@test -n "$(SCHEDULE)" -a -n "$(DATE)" || (echo 'usage: make force-generate-show SCHEDULE=<id> DATE=YYYY-MM-DD'; exit 1)
+	@ssh $(SERVER) "cd $(REMOTE_BASE) && sudo -u ai-radio $(REMOTE_BASE)/.venv/bin/python $(REMOTE_BASE)/scripts/generate_shows.py --schedule $(SCHEDULE) --date $(DATE)"
+
+show-status: ## Show schedules and generated show rows
+	@ssh $(SERVER) "sudo sqlite3 -header -column $(REMOTE_BASE)/db/radio.sqlite3 'select id,name,start_time,timezone,active from show_schedules; select id,schedule_id,air_date,status,retry_count,substr(error_message,1,60) err from generated_shows order by air_date desc limit 10;'"
 
 logs-station-id: ## Show station-id service logs
 	@ssh $(SERVER) "sudo journalctl -u ai-radio-station-id.service -n 50"
@@ -102,7 +121,7 @@ refresh-breaks-index: ## Regenerate the public breaks index.json
 	@ssh $(SERVER) "cd $(REMOTE_BASE) && sudo -u ai-radio $(REMOTE_BASE)/.venv/bin/python $(REMOTE_BASE)/scripts/generate_breaks_index.py"
 
 list-breaks: ## Show recent breaks from the public API
-	@curl -s http://10.10.0.86/api/breaks/index.json | python3 -m json.tool
+	@curl -s http://your-radio-host/api/breaks/index.json | python3 -m json.tool
 
 check-export-stderr: ## Check stderr from recent export attempts
 	@ssh $(SERVER) "ls -lt /tmp/ai_radio_logs/export_*.err 2>/dev/null | head -5 && echo '---' && for f in \$$(ls -t /tmp/ai_radio_logs/export_*.err 2>/dev/null | head -3); do echo \"=== \$$f ===\"tail -20 \"\$$f\" 2>/dev/null || echo 'empty'; done"

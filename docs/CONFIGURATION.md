@@ -138,6 +138,8 @@ RADIO_LLM_MODEL=claude-sonnet-4-5
 
 ### Gemini (TTS for voice synthesis)
 
+**RADIO_GEMINI_TEXT_MODEL:** Gemini model used for scheduled-show scripts, LLM script compression and natural-language schedule parsing. Default `gemini-2.5-flash`. Must be a model your key can call; `gemini-2.0-flash-exp` was retired by Google and returns 404.
+
 ```bash
 RADIO_TTS_PROVIDER=gemini
 RADIO_GEMINI_API_KEY=AIza...
@@ -158,6 +160,8 @@ RADIO_GEMINI_TTS_VOICE=Kore
 **RADIO_GEMINI_TTS_MODEL:**
 - Flash (faster, cheaper) or Pro (better quality)
 - Recommended: `gemini-2.5-pro-preview-tts`
+
+**RADIO_TTS_REQUEST_TIMEOUT_SEC:** Per-request HTTP timeout for Gemini and OpenAI TTS calls, in seconds (default 90). A hung provider fails over to the next one instead of running until systemd kills the whole break generation at 300s.
 
 **RADIO_GEMINI_TTS_VOICE:**
 - Voice persona
@@ -1003,3 +1007,15 @@ For a complete alphabetical list of ALL variables with descriptions, see `.env.e
 13. Vocal Style (accent, delivery)
 14. Radio Fundamentals (IDs, listener relationship)
 15. Liquidsoap Variables (stream metadata)
+
+
+### Scheduled Shows
+
+```bash
+RADIO_SHOW_GENERATION_LEAD_HOURS=6
+RADIO_SHOW_GENERATION_MAX_RETRIES=3
+```
+
+**RADIO_SHOW_GENERATION_LEAD_HOURS:** `ai-radio-generate-shows.timer` (every 15 min) starts generating a show once its next air time is within this many hours. Generation takes several minutes, so keep this well above 1.
+
+**RADIO_SHOW_GENERATION_MAX_RETRIES:** A show whose generation failed is retried on later timer runs until it has failed this many times, then logged as an error and left alone. `make show-status` shows each show's status and retry count.

@@ -1,6 +1,6 @@
 """Tests for scripts/schedule_shows.py - Liquidsoap show polling/scheduling."""
 import json
-from datetime import datetime, time
+from datetime import date, datetime, time
 from zoneinfo import ZoneInfo
 from unittest.mock import Mock, patch, call
 import pytest
@@ -316,7 +316,7 @@ class TestCheckScheduledShows:
         mock_repo.get_active_schedules.assert_called_once()
         mock_repo.get_ready_show.assert_called_once_with(
             schedule_id=1,
-            air_date="2026-01-23"
+            air_date=date(2026, 1, 23)
         )
         mock_repo.get_asset_path.assert_called_once_with("abc123def456")
 
@@ -535,8 +535,8 @@ class TestCheckScheduledShows:
 
         # Verify both schedules checked
         assert mock_repo.get_ready_show.call_count == 2
-        mock_repo.get_ready_show.assert_any_call(schedule_id=1, air_date="2026-01-23")
-        mock_repo.get_ready_show.assert_any_call(schedule_id=2, air_date="2026-01-23")
+        mock_repo.get_ready_show.assert_any_call(schedule_id=1, air_date=date(2026, 1, 23))
+        mock_repo.get_ready_show.assert_any_call(schedule_id=2, air_date=date(2026, 1, 23))
 
         # Verify only schedule1 enqueued
         mock_client.push_track.assert_called_once_with(

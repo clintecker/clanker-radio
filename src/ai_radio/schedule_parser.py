@@ -85,7 +85,7 @@ Format: Use "interview" for host+expert, "two_host_discussion" for two hosts deb
 
         try:
             response = self.client.models.generate_content(
-                model="gemini-2.0-flash-exp",
+                model=config.gemini_text_model,
                 contents=prompt
             )
 

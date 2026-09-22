@@ -41,7 +41,7 @@ class OpenAIVoiceSynthesizer:
         if not self.api_key:
             raise ValueError("RADIO_TTS_API_KEY not configured")
 
-        self.client = OpenAI(api_key=self.api_key)
+        self.client = OpenAI(api_key=self.api_key, timeout=config.tts.tts_request_timeout_sec)
         self.model = "tts-1"  # Standard quality (faster, lower cost)
         self.voice = config.tts_voice
         self.format = "mp3"
@@ -126,7 +126,12 @@ class GeminiVoiceSynthesizer:
         except ImportError:
             raise ValueError("google-genai package not installed. Run: pip install google-genai")
 
-        self.client = self.genai.Client(api_key=self.api_key)
+        # Bound every request so a hung TTS call fails over to the next provider
+        # instead of running until systemd's TimeoutSec kills the whole break run.
+        self.client = self.genai.Client(
+            api_key=self.api_key,
+            http_options=self.types.HttpOptions(timeout=config.tts.tts_request_timeout_sec * 1000),
+        )
         self.model_name = config.gemini_tts_model
         self.voice = config.gemini_tts_voice
 

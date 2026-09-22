@@ -1,0 +1,25 @@
+[Unit]
+Description=AI Radio Station - Drop-in File Watchdog
+After=network.target ai-radio-liquidsoap.service
+Requires=ai-radio-liquidsoap.service
+
+[Service]
+Type=simple
+User=ai-radio
+Group=ai-radio
+WorkingDirectory=/srv/ai_radio
+
+# Use uv run to execute with proper Python environment
+ExecStart=/usr/local/bin/uv run --directory /srv/ai_radio python /srv/ai_radio/scripts/watch_drops.py
+
+# Restart on failure
+Restart=always
+RestartSec=10
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=ai-radio-watch-drops
+
+[Install]
+WantedBy=multi-user.target

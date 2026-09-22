@@ -14,6 +14,7 @@ class TTSConfig(BaseSettings):
         RADIO_GEMINI_TTS_MODEL: Gemini TTS model name
         RADIO_GEMINI_TTS_VOICE: Gemini TTS voice name
         RADIO_TTS_VOICE: OpenAI TTS voice name
+        RADIO_TTS_REQUEST_TIMEOUT_SEC: Per-request TTS HTTP timeout in seconds
     """
 
     model_config = SettingsConfigDict(
@@ -44,4 +45,13 @@ class TTSConfig(BaseSettings):
     tts_voice: str = Field(
         default="alloy",
         description="OpenAI TTS voice"
+    )
+
+    # Shared request limits
+    tts_request_timeout_sec: float = Field(
+        default=90.0,
+        gt=0,
+        description="Per-request HTTP timeout for TTS providers, in seconds. "
+                    "Must be well under the systemd TimeoutSec of the break-gen unit (300s) "
+                    "so a hung provider fails over instead of killing the whole run."
     )

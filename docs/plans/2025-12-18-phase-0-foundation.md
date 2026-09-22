@@ -105,7 +105,11 @@ Run:
 ```bash
 sudo mkdir -p /srv/ai_radio/logs
 sudo chown -R ai-radio:ai-radio /srv/ai_radio/logs
-sudo chmod -R 755 /srv/ai_radio/logs
+# 2775 = setgid + group-write: the dir is owned by ai-radio (the app user), but
+# dj-tag-api runs as `clint` (a member of the ai-radio group) and also writes here.
+# setgid makes clint-created files inherit group ai-radio so both users can read them.
+# The ai-radio ownership is also what lets logrotate's `su ai-radio ai-radio` rotate these logs.
+sudo chmod 2775 /srv/ai_radio/logs
 ```
 
 Expected: Logs directory created
@@ -709,6 +713,7 @@ Expected: .gitignore created
 Create file `/etc/logrotate.d/ai-radio`:
 ```
 /srv/ai_radio/logs/*.jsonl {
+    su ai-radio ai-radio
     daily
     rotate 7
     compress
@@ -721,12 +726,31 @@ Create file `/etc/logrotate.d/ai-radio`:
         # No service reload needed - append-only logs
     endscript
 }
+
+# liquidsoap keeps its log file descriptor open, so copytruncate (copy then
+# truncate-in-place) is required — a plain rename would leave liquidsoap writing
+# to the unlinked inode and the new file empty. No delaycompress with copytruncate:
+# the rotated copy is a fresh file nothing holds open, so compress immediately.
+/srv/ai_radio/logs/liquidsoap.log /srv/ai_radio/logs/liquidsoap-fallback.log {
+    su ai-radio ai-radio
+    daily
+    rotate 7
+    compress
+    missingok
+    notifempty
+    copytruncate
+}
 ```
+
+> **Note:** `su ai-radio ai-radio` is required because `/srv/ai_radio/logs` is
+> group-writable (mode 2775, see log-dir setup above). logrotate refuses to rotate a
+> group-writable directory not owned by root unless told which user/group to run as.
 
 Run:
 ```bash
 sudo tee /etc/logrotate.d/ai-radio << 'EOF'
 /srv/ai_radio/logs/*.jsonl {
+    su ai-radio ai-radio
     daily
     rotate 7
     compress
@@ -738,6 +762,16 @@ sudo tee /etc/logrotate.d/ai-radio << 'EOF'
     postrotate
         # No service reload needed - append-only logs
     endscript
+}
+
+/srv/ai_radio/logs/liquidsoap.log /srv/ai_radio/logs/liquidsoap-fallback.log {
+    su ai-radio ai-radio
+    daily
+    rotate 7
+    compress
+    missingok
+    notifempty
+    copytruncate
 }
 EOF
 ```

@@ -75,7 +75,7 @@ Be specific and concrete. Each topic should be a complete sentence.
 Make it feel like news FROM this wasteland, not news ABOUT technology."""
 
         response = client.models.generate_content(
-            model="gemini-2.0-flash-exp",
+            model=config.gemini_text_model,
             contents=prompt
         )
 
@@ -202,7 +202,7 @@ Generate the dialogue now:"""
         logger.debug(f"Generating interview script with topics: {topics}")
 
         response = client.models.generate_content(
-            model="gemini-2.0-flash-exp",
+            model=config.gemini_text_model,
             contents=prompt
         )
 
@@ -319,7 +319,7 @@ Generate the dialogue now:"""
         logger.debug(f"Generating discussion script with topics: {topics}")
 
         response = client.models.generate_content(
-            model="gemini-2.0-flash-exp",
+            model=config.gemini_text_model,
             contents=prompt
         )
 
@@ -431,7 +431,7 @@ Generate the field report now:"""
         logger.debug(f"Generating field report script with topics: {topics}")
 
         response = client.models.generate_content(
-            model="gemini-2.0-flash-exp",
+            model=config.gemini_text_model,
             contents=prompt
         )
 
@@ -676,7 +676,7 @@ JSON array:"""
 
         logger.info("Asking LLM to identify interference injection points...")
         response = client.models.generate_content(
-            model="gemini-2.0-flash-exp",
+            model=config.gemini_text_model,
             contents=prompt,
             config=genai.types.GenerateContentConfig(
                 temperature=0.0,  # Deterministic
