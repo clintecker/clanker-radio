@@ -67,7 +67,7 @@ test.beforeEach(async ({ page }) => mockFeed(page));
 test('live page shows the feed, escapes titles, and does not autoplay', async ({ page }, testInfo) => {
   const errors: string[] = [];
   page.on('pageerror', (e) => errors.push(e.message));
-  await page.goto('/');
+  await page.goto('/?ui=classic');
   await expect(page.getByRole('heading', { level: 2 })).toHaveText('Smoke Test Song');
   await expect(page.getByRole('status')).toContainText(/LIVE|RECONNECTING/);
   await expect(page.getByText('Station ID 0xE2E')).toBeVisible();
@@ -83,7 +83,7 @@ test('live page shows the feed, escapes titles, and does not autoplay', async ({
 });
 
 test('archive route lists bulletins and deep-links', async ({ page }, testInfo) => {
-  await page.goto('/archive');
+  await page.goto('/archive?ui=classic');
   await expect(page.getByText('BULLETIN ARCHIVE', { exact: false })).toBeVisible();
   await expect(page.getByText(/Sep 22, 11:07/)).toBeVisible();
   await page.getByRole('link', { name: 'LIVE' }).click();
@@ -93,7 +93,7 @@ test('archive route lists bulletins and deep-links', async ({ page }, testInfo) 
 });
 
 test('has rich preview metadata and security-relevant headers in markup', async ({ page }) => {
-  await page.goto('/');
+  await page.goto('/?ui=classic');
   await expect(page.locator('meta[property="og:image"]')).toHaveAttribute('content', /og-image\.png$/);
   await expect(page.locator('link[rel="manifest"]')).toHaveCount(1);
   await expect(page.locator('script:not([type="module"])')).toHaveCount(0);

@@ -153,11 +153,13 @@ test('bulletins expand in place and the archive route lists every reel', async (
   expect(errors).toEqual([]);
 });
 
-test('classic stays the default and ?ui=classic opts back out', async ({ page }) => {
+test('console is the default for new visitors and ?ui=classic opts out, remembered', async ({ page }) => {
   await setup(page);
-  await page.goto('/?ui=console');
+  await page.goto('/');
   await expect(page.locator('.rack.console')).toBeVisible();
   await page.goto('/?ui=classic');
   await expect(page.getByRole('button', { name: 'TUNE IN' })).toBeVisible();
   await expect(page.locator('.rack')).toHaveCount(0);
+  await page.goto('/');
+  await expect(page.locator('.rack')).toHaveCount(0); // choice remembered
 });

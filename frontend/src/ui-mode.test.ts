@@ -8,14 +8,14 @@ function mem() {
 }
 
 describe('ui mode', () => {
-  it('defaults to classic and remembers an explicit choice', () => {
+  it('defaults to console and remembers an explicit choice', () => {
     const s = mem();
-    expect(resolveUiMode('', s)).toBe('classic');
-    expect(resolveUiMode('?ui=console', s)).toBe('console');
     expect(resolveUiMode('', s)).toBe('console');
     expect(resolveUiMode('?ui=classic', s)).toBe('classic');
     expect(resolveUiMode('', s)).toBe('classic');
     expect(resolveUiMode('?ui=bogus', s)).toBe('classic');
+    expect(resolveUiMode('?ui=console', s)).toBe('console');
+    expect(resolveUiMode('', s)).toBe('console');
   });
   it('survives blocked storage', () => {
     const broken = {
@@ -26,9 +26,9 @@ describe('ui mode', () => {
         throw new Error('blocked');
       },
     };
-    expect(resolveUiMode('?ui=console', broken)).toBe('console');
-    expect(resolveUiMode('', broken)).toBe('classic');
-    expect(resolveUiMode('', null)).toBe('classic');
+    expect(resolveUiMode('?ui=classic', broken)).toBe('classic');
+    expect(resolveUiMode('', broken)).toBe('console');
+    expect(resolveUiMode('', null)).toBe('console');
   });
 });
 

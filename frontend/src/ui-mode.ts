@@ -1,7 +1,6 @@
 /**
- * Which face the station wears. The classic player stays the default until the
- * Console 2043 build passes its rollout checks; `?ui=console` opts in (and
- * `?ui=classic` opts back out), remembered per browser.
+ * Which face the station wears. Console 2043 is the default; `?ui=classic` opts out (and `?ui=console`
+ * back in), remembered per browser.
  */
 export type UiMode = 'classic' | 'console';
 
@@ -31,8 +30,8 @@ export function resolveUiMode(search: string, store: KV | null = storage()): UiM
     return asked;
   }
   try {
-    return store?.getItem(KEY) === 'console' ? 'console' : 'classic';
+    return store?.getItem(KEY) === 'classic' ? 'classic' : 'console';
   } catch {
-    return 'classic';
+    return 'console';
   }
 }
