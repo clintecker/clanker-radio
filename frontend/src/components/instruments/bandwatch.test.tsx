@@ -8,7 +8,7 @@ import { CARRIER_POS } from './BandWatch';
 
 beforeEach(() => {
   connOverride.value = null;
-  app.value = { connection: 'live', receivedAt: NOW, clockOffsetMs: 0, data: fixture() };
+  app.value = { connection: 'live', receivedAt: NOW, clockOffsetMs: 0, listenerDelayMs: 0, data: fixture() };
 });
 
 describe('BandWatch', () => {

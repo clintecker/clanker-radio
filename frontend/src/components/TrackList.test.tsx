@@ -9,6 +9,7 @@ function feed(partial: Record<string, unknown>) {
     connection: 'live',
     receivedAt: Date.now(),
     clockOffsetMs: 0,
+    listenerDelayMs: 0,
     data: parsePayload({ system_status: 'online', current: null, ...partial }),
   };
 }

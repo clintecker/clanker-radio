@@ -31,6 +31,8 @@ function track(v: unknown): Track | null {
   if (kind) t.kind = kind;
   const played_at = str(v.played_at);
   if (played_at) t.played_at = played_at;
+  const on_air_at = str(v.on_air_at);
+  if (on_air_at) t.on_air_at = on_air_at;
   return t;
 }
 
@@ -78,6 +80,8 @@ export function parsePayload(raw: unknown): NowPlayingPayload {
     music_queue: trackList(raw.music_queue),
     history: trackList(raw.history),
   };
+  const server_time = str(raw.server_time);
+  if (server_time) payload.server_time = server_time;
   const message = str(raw.message);
   if (message) payload.message = message;
   return payload;

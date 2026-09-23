@@ -7,13 +7,21 @@ export interface AppState {
   receivedAt: number | null;
   /** Estimated (serverTime - clientTime) in ms, so progress bars use the server's clock. */
   clockOffsetMs: number;
+  /** How far this listener's audio lags the encoder, ms (0 when not tuned in). See listener-delay.ts. */
+  listenerDelayMs: number;
 }
 
 type Listener = (state: AppState, prev: AppState) => void;
 
 /** Minimal observable store: one object, whole-state updates, synchronous listeners. */
 export class Store {
-  private state: AppState = { connection: 'connecting', data: null, receivedAt: null, clockOffsetMs: 0 };
+  private state: AppState = {
+    connection: 'connecting',
+    data: null,
+    receivedAt: null,
+    clockOffsetMs: 0,
+    listenerDelayMs: 0,
+  };
   private listeners = new Set<Listener>();
 
   get(): AppState {
@@ -34,5 +42,10 @@ export class Store {
   /** Current time on the server's clock, in ms. */
   serverNow(): number {
     return Date.now() + this.state.clockOffsetMs;
+  }
+
+  /** Programme time this listener is hearing right now (server clock minus playback delay), ms. */
+  programNow(): number {
+    return this.serverNow() - this.state.listenerDelayMs;
   }
 }

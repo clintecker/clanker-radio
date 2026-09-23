@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'preact/hooks';
 import { formatClock } from '../lib/format';
 import { trackKind, type Track } from '../lib/types';
-import { app, serverNow } from '../state';
+import { app, programNow } from '../state';
 import { Signal } from './Signal';
 import { StatusBadge } from './StatusBadge';
 
@@ -40,7 +40,7 @@ export function upNext(): { next: Track | null; fadeSec: number } {
 function Card({ track, ghost = false, animate = false }: { track: Track; ghost?: boolean; animate?: boolean }) {
   const kind = trackKind(track);
   const duration = track.duration_sec ?? 0;
-  const e = elapsedSec(track, serverNow.value);
+  const e = elapsedSec(track, programNow.value);
   const shown = e === null ? null : duration > 0 ? Math.min(e, duration) : e;
   const pct = shown !== null && duration > 0 ? (shown / duration) * 100 : 0;
   const overrun = e !== null && duration > 0 && e > duration + 2;
@@ -138,7 +138,7 @@ export function NowPlaying() {
   }
 
   const { next, fadeSec } = upNext();
-  const remaining = trackKind(current) === 'music' ? remainingSec(current, serverNow.value) : null;
+  const remaining = trackKind(current) === 'music' ? remainingSec(current, programNow.value) : null;
   const incoming =
     next && fadeSec > 0 && remaining !== null && remaining <= fadeSec + 1 && remaining > -5 ? next : null;
 

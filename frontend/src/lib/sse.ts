@@ -1,4 +1,5 @@
 import { STALE_AFTER_MS } from './config';
+import { AudibleQueue } from './audible';
 import { ClockSync } from './clock';
 import type { Store } from './store';
 import { parsePayload } from './payload';
@@ -22,11 +23,22 @@ export class FeedConnection {
   private reconnectAttempts = 0;
   private badMessages = 0;
   private readonly clock = new ClockSync();
+  /** Payloads wait here until this listener can hear them (on_air_at + playback delay). */
+  private readonly audible: AudibleQueue;
 
   constructor(
     private readonly url: string,
     private readonly store: Store,
-  ) {}
+  ) {
+    this.audible = new AudibleQueue(
+      { serverNow: () => store.serverNow(), delayMs: () => store.get().listenerDelayMs },
+      (data) => this.store.update({ data }),
+    );
+    // Tuning in or out changes the delay: re-time whatever is still pending.
+    store.subscribe((s, prev) => {
+      if (s.listenerDelayMs !== prev.listenerDelayMs) this.audible.flush();
+    });
+  }
 
   start(): void {
     this.open();
@@ -77,17 +89,16 @@ export class FeedConnection {
     }
     this.badMessages = 0;
     this.reconnectAttempts = 0;
-    // updated_at is stamped when the state was exported, not when this message was
-    // sent. Only live broadcasts (every message after the replayed initial state)
-    // are usable as clock samples.
+    // server_time is stamped as each message is sent, so every message is a clock
+    // sample. Older daemons only had updated_at, stamped at export time, which is
+    // only trustworthy on live broadcasts (not the replayed initial state).
     const isLiveBroadcast = !this.awaitingFirstMessage;
     this.awaitingFirstMessage = false;
-    const clockOffsetMs =
-      isLiveBroadcast && data.updated_at
-        ? this.clock.sample(data.updated_at, receivedAt)
-        : this.store.get().clockOffsetMs;
+    const stamp = data.server_time ?? (isLiveBroadcast ? data.updated_at : '');
+    const clockOffsetMs = stamp ? this.clock.sample(stamp, receivedAt) : this.store.get().clockOffsetMs;
     const connection = data.system_status === 'restarting' ? 'restarting' : 'live';
-    this.store.update({ data, receivedAt, clockOffsetMs, connection });
+    this.store.update({ receivedAt, clockOffsetMs, connection });
+    this.audible.push(data);
   }
 
   /** Exponential backoff with jitter: 2s, 4s, 8s … capped at 60s. Reset on any good message. */
@@ -112,6 +123,7 @@ export class FeedConnection {
   }
 
   stop(): void {
+    this.audible.clear();
     this.source?.close();
     if (this.watchdog) window.clearInterval(this.watchdog);
   }

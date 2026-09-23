@@ -6,7 +6,7 @@ import { KIND_LABEL, KIND_LAMP } from '../../design/kind';
 import { streams } from '../../lib/config';
 import { formatClock } from '../../lib/format';
 import type { TrackKind } from '../../lib/types';
-import { app, player, playerState, serverNow } from '../../state';
+import { app, player, playerState, programNow } from '../../state';
 import { Fader, LatchButton, RotarySwitch } from '../instruments';
 import { Lamp } from '../primitives/Lamp';
 import { Legend } from '../primitives/Legend';
@@ -150,7 +150,7 @@ export function OnAir() {
     if (state === 'playing' || state === 'idle') tuneSub.value = undefined;
   }, [state]);
 
-  const elapsed = elapsedSec(t, serverNow.value) ?? 0;
+  const elapsed = elapsedSec(t, programNow.value) ?? 0;
   const dur = t?.duration_sec ?? 0;
   const pct = dur > 0 ? Math.min(100, (elapsed / dur) * 100) : 0;
   const xf = data?.crossfade.music_sec ?? 0;

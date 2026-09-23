@@ -1,7 +1,7 @@
 import { KIND_LABEL, KIND_LAMP } from '../../design/kind';
 import { formatTimeAgo } from '../../lib/format';
 import type { Track } from '../../lib/types';
-import { app, serverNow } from '../../state';
+import { app, programNow } from '../../state';
 import { Lamp } from '../primitives/Lamp';
 import { Legend } from '../primitives/Legend';
 import { Panel } from '../primitives/Panel';
@@ -65,7 +65,7 @@ export function NextUp() {
 
 export function Log() {
   const history = app.value.data?.history ?? [];
-  const now = new Date(serverNow.value);
+  const now = new Date(programNow.value);
   return (
     <Panel name="log" aria-labelledby="l-log">
       <Sticker variant="cyr" style={{ right: '40px', bottom: '-6px' }}>

@@ -126,4 +126,39 @@ describe('FeedConnection', () => {
     es().message({ ...payload('One'), system_status: 'restarting' });
     expect(store.get().connection).toBe('restarting');
   });
+
+  it('uses server_time on every message, including the replayed initial state', () => {
+    es().open();
+    es().message({ ...payload('One'), server_time: '2026-09-22T12:00:02.000Z' });
+    expect(store.get().clockOffsetMs).toBe(2000);
+  });
+
+  it('holds a track change until this listener can hear it', () => {
+    es().open();
+    es().message({
+      ...payload('Old'),
+      current: { asset_id: 'o', title: 'Old', source: 'music', on_air_at: '2026-09-22T11:57:00Z' },
+    });
+    store.update({ listenerDelayMs: 8000 });
+    es().message({
+      ...payload('New'),
+      server_time: '2026-09-22T12:00:00Z',
+      current: { asset_id: 'n', title: 'New', source: 'music', on_air_at: '2026-09-22T12:00:00Z' },
+    });
+    expect(store.get().data?.current?.title).toBe('Old');
+    vi.advanceTimersByTime(7_900);
+    expect(store.get().data?.current?.title).toBe('Old');
+    vi.advanceTimersByTime(200);
+    expect(store.get().data?.current?.title).toBe('New');
+  });
+
+  it('shows changes at on_air_at on the server clock when not tuned in', () => {
+    es().open();
+    es().message({
+      ...payload('Now'),
+      server_time: '2026-09-22T12:00:00Z',
+      current: { asset_id: 'n', title: 'Now', source: 'music', on_air_at: '2026-09-22T12:00:00Z' },
+    });
+    expect(store.get().data?.current?.title).toBe('Now');
+  });
 });

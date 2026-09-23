@@ -1,4 +1,5 @@
 import { STREAM_CORS_OK, defaultStream, streams, type StreamOption } from './config';
+import type { PlaybackTiming } from './listener-delay';
 
 export type PlayerState = 'idle' | 'loading' | 'playing' | 'error';
 
@@ -26,13 +27,20 @@ export class Player {
   private readonly listeners = new Set<Listener>();
   private context: AudioContext | null = null;
   private analyser: AnalyserNode | null = null;
+  /** Date.now() when the current stream connection was requested; null when stopped. */
+  private connectedAtMs: number | null = null;
+  /** True once this connection has produced audio (so later stalls still count as tuned in). */
+  private started = false;
 
   constructor(audio: HTMLAudioElement) {
     this.audio = audio;
     audio.preload = 'none';
     // CORS mode lets Web Audio read the samples; without a valid ACAO header it would block playback.
     if (STREAM_CORS_OK) audio.crossOrigin = 'anonymous';
-    audio.addEventListener('playing', () => this.set('playing'));
+    audio.addEventListener('playing', () => {
+      this.started = true;
+      this.set('playing');
+    });
     audio.addEventListener('waiting', () => this.set('loading'));
     audio.addEventListener('stalled', () => this.set('loading'));
     audio.addEventListener('pause', () => this.set('idle'));
@@ -71,6 +79,8 @@ export class Player {
   async play(): Promise<void> {
     this.set('loading');
     // Live streams must not resume from a buffered position: always reload the source.
+    this.connectedAtMs = Date.now();
+    this.started = false;
     this.audio.src = this.stream.path;
     this.audio.load();
     try {
@@ -83,11 +93,24 @@ export class Player {
   }
 
   stop(): void {
+    this.connectedAtMs = null;
+    this.started = false;
     this.audio.pause();
     // Drop the connection so Icecast stops counting us and the buffer does not grow.
     this.audio.removeAttribute('src');
     this.audio.load();
     this.set('idle');
+  }
+
+  /**
+   * What the delay estimator needs, or null when the listener is not hearing the
+   * stream (stopped, errored, or still connecting). A stall after playback began
+   * still returns timing: the listener is falling further behind.
+   */
+  timing(): PlaybackTiming | null {
+    if (this.connectedAtMs === null || !this.started) return null;
+    if (this.state === 'idle' || this.state === 'error') return null;
+    return { connectedAtMs: this.connectedAtMs, currentTime: this.audio.currentTime, bitrateKbps: this.stream.bitrate };
   }
 
   setVolume(v: number): void {

@@ -13,6 +13,7 @@ function feed(
     connection,
     receivedAt: Date.now(),
     clockOffsetMs: 0,
+    listenerDelayMs: 0,
     data: parsePayload({ system_status: 'online', current, crossfade: { music_sec: 4, breaks_sec: 0 }, ...extra }),
   };
 }

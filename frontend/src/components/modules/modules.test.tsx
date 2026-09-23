@@ -18,7 +18,7 @@ import {
 } from './select';
 
 function feed(over: Record<string, unknown> = {}, connection: ConnectionState = 'live') {
-  app.value = { connection, receivedAt: NOW, clockOffsetMs: 0, data: fixture(over) };
+  app.value = { connection, receivedAt: NOW, clockOffsetMs: 0, listenerDelayMs: 0, data: fixture(over) };
 }
 
 beforeEach(() => {

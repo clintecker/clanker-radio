@@ -67,4 +67,14 @@ describe('parsePayload', () => {
   it('treats a null current track as off-air, not an error', () => {
     expect(parsePayload({ system_status: 'online', current: null }).current).toBeNull();
   });
+
+  it('keeps on_air_at and server_time when present', () => {
+    const p = parsePayload({
+      ...good,
+      server_time: '2026-09-22T15:38:50.000000+00:00',
+      current: { ...good.current, on_air_at: '2026-09-22T15:38:49.100000+00:00' },
+    });
+    expect(p.server_time).toBe('2026-09-22T15:38:50.000000+00:00');
+    expect(p.current?.on_air_at).toBe('2026-09-22T15:38:49.100000+00:00');
+  });
 });

@@ -11,8 +11,10 @@ export interface Track {
   /** Origin queue: music, break (news), bumper (station ID). */
   source: string;
   kind?: string;
-  /** ISO timestamp; present on current + history, absent on queued tracks. */
+  /** ISO timestamp; present on current + history, absent on queued tracks. Equals on_air_at. */
   played_at?: string;
+  /** ISO time Liquidsoap put this track on air (encoder input). Authoritative. */
+  on_air_at?: string;
 }
 
 export interface IcecastSource {
@@ -28,6 +30,8 @@ export interface IcecastSource {
 
 export interface NowPlayingPayload {
   updated_at: string;
+  /** Server clock when this message was sent. */
+  server_time?: string;
   /** 'online' | 'restarting' in practice; kept open for forward compatibility. */
   system_status: string;
   message?: string;

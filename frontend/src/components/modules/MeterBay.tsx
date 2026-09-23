@@ -1,4 +1,4 @@
-import { app, serverNow, store } from '../../state';
+import { app, programNow, store } from '../../state';
 import { CarrierMeter, PositionMeter, VuMeter } from '../instruments';
 import { Panel } from '../primitives/Panel';
 import { Sticker } from '../primitives/Sticker';
@@ -11,7 +11,7 @@ export function MeterBay() {
   const kind = currentKind.value;
   const car = carrier.value;
   const playedAt = t?.played_at ? Date.parse(t.played_at) : NaN;
-  const elapsed = () => (Number.isNaN(playedAt) ? 0 : Math.max(0, (store.serverNow() - playedAt) / 1000));
+  const elapsed = () => (Number.isNaN(playedAt) ? 0 : Math.max(0, (store.programNow() - playedAt) / 1000));
   return (
     <Panel name="meters" aria-label="Meter bridge">
       <Sticker variant="zhs" style={{ right: '34px', bottom: '-9px' }}>
@@ -24,7 +24,7 @@ export function MeterBay() {
           durationSec={t?.duration_sec ?? 0}
           crossfadeSec={crossfadeFor(app.value.data, kind)}
           elapsed={elapsed}
-          elapsedNow={elapsedSec(t, serverNow.value) ?? 0}
+          elapsedNow={elapsedSec(t, programNow.value) ?? 0}
         />
         <CarrierMeter conn={car} />
       </div>
