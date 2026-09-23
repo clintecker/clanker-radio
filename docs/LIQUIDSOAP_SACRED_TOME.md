@@ -2,11 +2,13 @@
 
 > **Current implementation (2026-09, Liquidsoap 2.4):** none of the `process.run`
 > paths below are used any more. `config/radio.liq` attaches
-> `radio.on_track(synchronous=true, emit_track_event)` to the final on-air source
+> `radio.on_metadata(synchronous=true, emit_track_event)` to the final on-air source
 > (after `cross()`, fallback, `mksafe`, `normalize`), stamps `time()` there, and
-> `http.post`s JSON to the push daemon from `thread.run`. In 2.4 `on_track` is a
-> method returning `unit`, and `cross()` keeps track boundaries, so Path 1 works
-> without the caveats listed below. See docs/SSE_INTEGRATION_GUIDE.md "Timing".
+> `http.post`s JSON to the push daemon from `thread.run`. Verified on the server:
+> a crossfade built with `add()` emits **no track mark**, and `add()` forwards
+> metadata **only from its first source**, so the transition must list the
+> incoming track first and the trigger must be `on_metadata`, not `on_track`.
+> See docs/SSE_INTEGRATION_GUIDE.md "Timing".
 
 ## The Fundamental Truth
 

@@ -92,12 +92,21 @@ end
 # Called synchronously on the streaming thread: only stamp the time and build
 # the payload here; the HTTP POST runs on a worker thread so a slow or dead
 # daemon can never stall audio.
+#
+# Triggered by on_metadata, not on_track: the crossfade's add() merges the two
+# tracks into one, so music-to-music transitions carry the new track's metadata
+# but no track mark. A request's metadata arrives once, when its first frame
+# reaches the output. Re-sent metadata for the same request (e.g. a fallback
+# switching back) is skipped here; the daemon is idempotent as well.
+last_event_key = ref("")
 def emit_track_event(m) =
   on_air_at = time()
   filename = m["filename"] ?? ""
-  if filename != "" then
+  rid = m["rid"] ?? ""
+  key = "#{rid}|#{filename}"
+  if filename != "" and key != last_event_key() then
+    last_event_key := key
     kind = track_kind(filename)
-    rid = m["rid"] ?? ""
     payload = json.stringify(compact=true, {
       event="track",
       rid=rid,
@@ -191,10 +200,13 @@ def smart_transition(a, b) =
     sequence([a.source, b.source])
   else
     # Smooth crossfade for music (4 seconds total: 2s fade-out + 2s fade-in)
+    # The incoming track MUST be first: add() only forwards metadata from its
+    # first source, so with the outgoing track first the new track's metadata
+    # never reached the outputs (no now-playing event, stale Icecast title).
     log("Smart transition: Crossfading to music")
     add([
-      sequence([fade.out(duration=2.0, a.source)]),
-      sequence([fade.in(duration=2.0, b.source)])
+      sequence([fade.in(duration=2.0, b.source)]),
+      sequence([fade.out(duration=2.0, a.source)])
     ])
   end
 end
@@ -287,7 +299,7 @@ log("Volume normalization enabled (gentle settings)")
 
 # Track starts are reported from the final on-air source, after every
 # switch, crossfade, fallback and normalization stage.
-radio.on_track(synchronous=true, emit_track_event)
+radio.on_metadata(synchronous=true, emit_track_event)
 log("Now-playing events: final on-air source -> #{push_event_url}")
 
 # =============================================================================

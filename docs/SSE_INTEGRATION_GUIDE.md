@@ -295,9 +295,11 @@ widget.connect();
 
 ## Timing Considerations
 
-**Pipeline.** Liquidsoap is the single source of truth. `radio.on_track` on the
+**Pipeline.** Liquidsoap is the single source of truth. `radio.on_metadata` on the
 final on-air source (after `cross()`, the safety fallback and normalization, i.e.
-exactly what the encoders see) stamps `time()` and POSTs
+exactly what the encoders see) fires when a request's first frame reaches the
+output (on_track is not used: crossfades merge tracks and carry no track mark),
+stamps `time()` and POSTs
 `{rid, filename, kind, on_air_at, duration, title, artist}` to the push daemon
 (`POST 127.0.0.1:8001/event`) from a worker thread. The daemon
 (`scripts/push_daemon.py`, state in `src/ai_radio/now_playing.py`) applies events in
