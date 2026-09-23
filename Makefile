@@ -13,7 +13,7 @@ REMOTE_BASE = /srv/ai_radio
 .PHONY: help sync-db tui build-tui clean test
 .PHONY: deploy deploy-frontend deploy-scripts deploy-code deploy-systemd
 .PHONY: status logs-liquidsoap logs-push logs-break-gen logs-station-id
-.PHONY: check-exports test-sse check-db check-callbacks now-playing
+.PHONY: check-exports test-sse check-db check-callbacks now-playing check-liquidsoap-config
 .PHONY: restart-liquidsoap restart-push restart-all tail-all
 .PHONY: check-station-ids status-station-id logs-station-id-timer check-last-station-id
 .PHONY: refresh-breaks-index list-breaks
@@ -106,11 +106,15 @@ test-sse: ## Manually trigger SSE notification
 check-db: ## Verify database file and permissions
 	@ssh $(SERVER) "ls -lh $(REMOTE_BASE)/db/*.sqlite3 $(REMOTE_BASE)/db/*.db 2>/dev/null"
 
-check-callbacks: ## Check if callbacks are firing
-	@ssh $(SERVER) "grep -A 15 'CALLBACK FIRED' $(REMOTE_BASE)/logs/liquidsoap.log | tail -40"
+check-callbacks: ## Show recent on-air events Liquidsoap POSTed to the push daemon
+	@ssh $(SERVER) "grep -E 'ON AIR|EVENT POST' $(REMOTE_BASE)/logs/liquidsoap.log | tail -20"
 
-now-playing: ## Show current now_playing.json
-	@ssh $(SERVER) "cat $(REMOTE_BASE)/public/now_playing.json | python3 -m json.tool"
+now-playing: ## Show the push daemon's current now-playing state
+	@ssh $(SERVER) "curl -s http://127.0.0.1:8001/state | python3 -m json.tool"
+
+check-liquidsoap-config: ## Type-check the repo's radio.liq on the server without touching the live one
+	@scp -q config/radio.liq $(SERVER):/tmp/radio.liq.check
+	@ssh $(SERVER) "sudo -n -u ai-radio $(REMOTE_BASE)/.opam/5.2.0/bin/liquidsoap --check /tmp/radio.liq.check && echo 'radio.liq OK'; rm -f /tmp/radio.liq.check"
 
 restart-liquidsoap: ## Restart Liquidsoap service
 	@ssh $(SERVER) "sudo systemctl restart ai-radio-liquidsoap.service"

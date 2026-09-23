@@ -1,5 +1,13 @@
 # The Sacred Tome of Liquidsoap: Ultimate Callback & Timing Solution
 
+> **Current implementation (2026-09, Liquidsoap 2.4):** none of the `process.run`
+> paths below are used any more. `config/radio.liq` attaches
+> `radio.on_track(synchronous=true, emit_track_event)` to the final on-air source
+> (after `cross()`, fallback, `mksafe`, `normalize`), stamps `time()` there, and
+> `http.post`s JSON to the push daemon from `thread.run`. In 2.4 `on_track` is a
+> method returning `unit`, and `cross()` keeps track boundaries, so Path 1 works
+> without the caveats listed below. See docs/SSE_INTEGRATION_GUIDE.md "Timing".
+
 ## The Fundamental Truth
 
 **Track marks propagate before audio plays.** The `cross()` operator buffers audio `duration` seconds in advance, causing callbacks attached before crossfade to fire early. This is not a bug—it's architectural.

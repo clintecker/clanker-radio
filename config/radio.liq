@@ -16,9 +16,7 @@ log("Unix socket enabled: /run/liquidsoap/radio.sock")
 # =============================================================================
 
 base_path = environment.get("LIQUIDSOAP_BASE_PATH", default="/srv/ai_radio")
-python_bin = "#{base_path}/.venv/bin/python"
 assets_path = "#{base_path}/assets"
-scripts_path = "#{base_path}/scripts"
 
 # =============================================================================
 # Logging Configuration
@@ -69,42 +67,61 @@ log("Break queue initialized (Level 2)")
 music_queue_raw = request.queue(id="music")
 
 # ============================================================================
-# CALLBACK CONFIGURATION - Compensates for crossfade timing
+# NOW-PLAYING EVENTS
 # ============================================================================
 #
-# IMPORTANT: Music callbacks fire when track is QUEUED for crossfade, not when
-# it actually plays. The cross() operator buffers audio 4 seconds in advance.
-# Solution: Delay callback execution to match actual playback time.
-#
-# See docs/LIQUIDSOAP_SACRED_TOME.md for full documentation.
+# Liquidsoap is the single source of truth for what is on air. Track starts are
+# observed on the FINAL source (after cross(), the safety fallback, mksafe and
+# normalize: exactly what the Icecast outputs encode) and POSTed as JSON to the
+# push daemon, which owns now-playing state, play_history and the SSE feed.
+# No Python process is spawned per track. See docs/SSE_INTEGRATION_GUIDE.md.
 
-# Crossfade duration (must match cross() operator below)
-crossfade_music_duration = 4.0
-crossfade_break_duration = 0.0
+push_event_url = environment.get("LIQUIDSOAP_PUSH_EVENT_URL", default="http://127.0.0.1:8001/event")
 
-# Unified callback execution with delay compensation
-def execute_record_play(filename, source_type, delay_sec) =
-  def delayed_execution() =
-    log("[TRACK START] #{source_type}: #{filename}")
-
-    cmd = "#{python_bin} #{scripts_path}/record_play.py #{string.quote(filename)} #{source_type}"
-    _ = process.run(cmd)
-
-    log("[CALLBACK] Executed record_play for #{filename}")
-  end
-
-  # Execute immediately or after delay
-  if delay_sec > 0.0 then
-    thread.run(delay=delay_sec, delayed_execution)
-  else
-    thread.run(delayed_execution)
+def track_kind(filename) =
+  if string.contains(substring="/bumpers/", filename) then "bumper"
+  elsif string.contains(substring="/breaks/", filename) then "break"
+  elsif string.contains(substring="/music/", filename) then "music"
+  elsif string.contains(substring="/beds/", filename) then "bed"
+  elsif string.contains(substring="/safety/", filename) then "safety"
+  elsif string.contains(substring="startup", filename) then "jingle"
+  else "unknown"
   end
 end
 
-# Music queue - no callback here
-# Music tracks are tracked at the output level (radio.on_track) after all
-# switching/crossfading decisions are made, so interrupted tracks aren't recorded
-log("Music queue initialized (tracking handled at output level)")
+# Called synchronously on the streaming thread: only stamp the time and build
+# the payload here; the HTTP POST runs on a worker thread so a slow or dead
+# daemon can never stall audio.
+def emit_track_event(m) =
+  on_air_at = time()
+  filename = m["filename"] ?? ""
+  if filename != "" then
+    kind = track_kind(filename)
+    rid = m["rid"] ?? ""
+    payload = json.stringify(compact=true, {
+      event="track",
+      rid=rid,
+      filename=filename,
+      kind=kind,
+      on_air_at=on_air_at,
+      duration=float_of_string(default=-1.0, m["duration"] ?? ""),
+      title=m["title"] ?? "",
+      artist=m["artist"] ?? ""
+    })
+    log("[ON AIR] #{kind} rid=#{rid} at=#{on_air_at}: #{filename}")
+    thread.run(fun () -> begin
+      r = http.post(
+        timeout=2.0,
+        headers=[("Content-Type", "application/json")],
+        data=payload,
+        push_event_url
+      )
+      log("[EVENT POST] rid=#{rid} status=#{r.status_code}")
+    end)
+  end
+end
+
+log("Music queue initialized (tracking handled at the final on-air source)")
 
 # ============================================================================
 # BREAK QUEUE SETUP
@@ -211,28 +228,6 @@ station_content_raw = switch(
 
 log("Switch configured: overrides and breaks interrupt music at track boundaries")
 
-# Track all content types at switch output level (before crossfade)
-# This ensures callbacks fire when tracks are actually selected to play
-station_content_raw.on_track(synchronous=true, fun(m) -> begin
-    filename = m["filename"] ?? ""
-
-    if filename != "" then
-        # Track different content types based on path
-        if string.contains(substring="/breaks/", filename) then
-            log("[BREAK START] #{filename}")
-            execute_record_play(filename, "break", 0.0)
-        elsif string.contains(substring="/bumpers/", filename) then
-            log("[BUMPER START] #{filename}")
-            execute_record_play(filename, "bumper", 0.0)
-        elsif string.contains(substring="/music/", filename) then
-            log("[MUSIC START] #{filename}")
-            execute_record_play(filename, "music", 0.0)
-        end
-    end
-end)
-
-log("Play tracking enabled at switch output level (before crossfade)")
-
 # Apply smart transition using cross() operator
 # Duration should accommodate the longest transition (4 seconds)
 station_content = cross(duration=4.0, smart_transition, station_content_raw)
@@ -290,8 +285,10 @@ log("Volume normalization enabled (gentle settings)")
 # Play Tracking
 # =============================================================================
 
-# All play tracking is done at the switch output level (station_content_raw)
-# See lines 215-231 where callbacks are attached before the cross() operator
+# Track starts are reported from the final on-air source, after every
+# switch, crossfade, fallback and normalization stage.
+radio.on_track(synchronous=true, emit_track_event)
+log("Now-playing events: final on-air source -> #{push_event_url}")
 
 # =============================================================================
 # Icecast Output - Multiple Bitrates

@@ -83,7 +83,8 @@ Each SSE message contains a complete state snapshot:
 ### Field Reference
 
 **Top-level fields:**
-- `updated_at` - ISO 8601 timestamp of when this state was generated
+- `updated_at` - ISO 8601 timestamp of when this message was sent (same as `server_time`)
+- `server_time` - Server clock when this message was sent; use it to estimate your clock offset
 - `system_status` - `"online"` or `"restarting"`
 - `crossfade` - Crossfade durations for music and breaks
 - `current` - Currently playing track (see below)
@@ -98,7 +99,9 @@ Each SSE message contains a complete state snapshot:
 - `artist` - Artist name
 - `album` - Album name (may be "Unknown Album")
 - `duration_sec` - Track duration in seconds
-- `played_at` - ISO 8601 timestamp when track started playing
+- `on_air_at` - ISO 8601 time Liquidsoap put the track on air (authoritative, stamped inside Liquidsoap at the encoder input)
+- `played_at` - Same value as `on_air_at` (kept for compatibility)
+- `rid` - Liquidsoap request id (empty for plays loaded from the database after a daemon restart)
 - `source` - `"music"`, `"break"`, or `"bumper"`
 - `kind` - Same as `source` (redundant, kept for compatibility)
 
@@ -292,12 +295,31 @@ widget.connect();
 
 ## Timing Considerations
 
-**Important:** Due to audio crossfading, the `current` track appears in the SSE feed **4-5 seconds before it actually starts playing**. This is by design to allow frontend animations.
+**Pipeline.** Liquidsoap is the single source of truth. `radio.on_track` on the
+final on-air source (after `cross()`, the safety fallback and normalization, i.e.
+exactly what the encoders see) stamps `time()` and POSTs
+`{rid, filename, kind, on_air_at, duration, title, artist}` to the push daemon
+(`POST 127.0.0.1:8001/event`) from a worker thread. The daemon
+(`scripts/push_daemon.py`, state in `src/ai_radio/now_playing.py`) applies events in
+`on_air_at` order (duplicates ignored), writes `play_history` asynchronously,
+refreshes next-up from the Liquidsoap socket after each event and every 15 s,
+polls Icecast every 10 s, and broadcasts the full payload. `POST /notify` still
+works: it re-syncs from sqlite and rebroadcasts. `GET /state` returns the payload.
 
-If you need precise timing:
-- Use `played_at` timestamp to calculate actual elapsed time
-- The track becomes audible approximately 4 seconds after `played_at`
-- For visual displays, you can start showing the track immediately (matches the radio's own frontend)
+**Listener delay.** `on_air_at` is when audio enters the encoders. A listener hears
+it later: Icecast bursts 64 KiB of past audio on connect (about 4 s at 128 kbps)
+and the browser adds its own buffering and stalls, so the lag is 5-15 s and
+different for every listener. The SSE message itself arrives within a second. To
+change the display when the listener hears the change, show a payload at
+`current.on_air_at + delay`, where
+
+```
+delay = (now - connect_time) - audio.currentTime + burst_bytes * 8 / bitrate
+```
+
+This is what the station's own player does (`frontend/src/lib/listener-delay.ts`,
+`frontend/src/lib/audible.ts`). If you are not playing audio, show changes at
+`on_air_at` on the server clock (estimate the offset from `server_time`).
 
 ## Keepalive Messages
 
