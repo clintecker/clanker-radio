@@ -74,6 +74,48 @@ def trigger_export():
         logger.exception("Failed to export now_playing")
 
 
+def kind_from_path(file_path: str) -> str:
+    for folder, kind in (("/bumpers/", "bumper"), ("/breaks/", "break"), ("/music/", "music"), ("/beds/", "bed")):
+        if folder in file_path:
+            return kind
+    return "music"
+
+
+def resolve_unknown_asset(cursor, file_path: str):
+    """Find an asset by audio content when its path isn't registered, else register it in place.
+
+    Returns (asset_id, kind) or None. Every branch logs a WARNING so unregistered files are visible.
+    """
+    import hashlib
+    from pathlib import Path
+
+    path = Path(file_path)
+    if not path.exists():
+        logger.warning(f"UNREGISTERED FILE (missing on disk): {file_path}")
+        return None
+    h = hashlib.sha256()
+    with open(path, "rb") as f:
+        for chunk in iter(lambda: f.read(1 << 16), b""):
+            h.update(chunk)
+    asset_id = h.hexdigest()
+    cursor.execute("SELECT id, kind FROM assets WHERE id = ?", (asset_id,))
+    row = cursor.fetchone()
+    if row:
+        logger.warning(f"UNREGISTERED PATH, known audio: {file_path} is a copy of asset {asset_id[:16]}; recording that asset")
+        return row
+    kind = kind_from_path(file_path)
+    logger.warning(f"UNREGISTERED FILE: registering {file_path} as new {kind} asset {asset_id[:16]}")
+    try:
+        from ai_radio.ingest import ingest_audio_file
+
+        ingest_audio_file(source_path=path, kind=kind, db_path=config.paths.db_path, ingest_existing=True)
+    except Exception:
+        logger.exception(f"Auto-registration failed for {file_path}")
+        return None
+    cursor.execute("SELECT id, kind FROM assets WHERE id = ?", (asset_id,))
+    return cursor.fetchone()
+
+
 def main():
     """Entry point for script."""
     try:
@@ -96,10 +138,14 @@ def main():
         row = cursor.fetchone()
 
         if not row:
-            logger.error(f"Asset not found in database: {file_path}")
-            logger.error("Make sure all assets are ingested before playback")
-            conn.close()
-            sys.exit(1)
+            # Never drop a play silently: the UI would keep showing the previous track
+            # while this one is on air. Resolve by content, then register if truly new.
+            row = resolve_unknown_asset(cursor, file_path)
+            conn.commit()
+            if not row:
+                logger.error(f"UNTRACKED PLAY: could not identify or register {file_path}; UI not updated")
+                conn.close()
+                sys.exit(1)
 
         asset_id, asset_kind = row
         logger.info(f"Found asset: {asset_id[:16]}... kind={asset_kind}")
