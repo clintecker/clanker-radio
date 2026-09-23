@@ -26,7 +26,7 @@ NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=strict
 ProtectHome=true
-ReadWritePaths=/srv/ai_radio/public
+ReadWritePaths=/srv/ai_radio/public /srv/ai_radio/db
 
 [Install]
 WantedBy=multi-user.target

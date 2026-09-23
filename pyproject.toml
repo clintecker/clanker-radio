@@ -22,6 +22,7 @@ dependencies = [
     "watchdog>=6.0.0",
     "thefuzz>=0.22.1",
     "python-levenshtein>=0.27.3",
+    "aiohttp>=3.14.3",
 ]
 
 [dependency-groups]

@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
-"""AI Radio Station - Record Play CLI.
+"""AI Radio Station - Record Play CLI (manual / legacy).
 
-Called by Liquidsoap on track transitions to log plays to the database.
-Triggers immediate now_playing.json export for real-time frontend updates.
+No longer on the hot path: Liquidsoap now POSTs track starts straight to the push
+daemon (/event), which records play_history itself at the Liquidsoap on-air time.
+This CLI remains for manual backfills: record_play.py <file_path>
 """
 
 # DIAGNOSTIC: Write immediately before any imports
@@ -74,46 +75,14 @@ def trigger_export():
         logger.exception("Failed to export now_playing")
 
 
-def kind_from_path(file_path: str) -> str:
-    for folder, kind in (("/bumpers/", "bumper"), ("/breaks/", "break"), ("/music/", "music"), ("/beds/", "bed")):
-        if folder in file_path:
-            return kind
-    return "music"
-
-
 def resolve_unknown_asset(cursor, file_path: str):
     """Find an asset by audio content when its path isn't registered, else register it in place.
 
-    Returns (asset_id, kind) or None. Every branch logs a WARNING so unregistered files are visible.
+    Shared with the push daemon (ai_radio.now_playing). Returns (asset_id, kind) or None.
     """
-    import hashlib
-    from pathlib import Path
+    from ai_radio.now_playing import resolve_unknown_asset as _resolve
 
-    path = Path(file_path)
-    if not path.exists():
-        logger.warning(f"UNREGISTERED FILE (missing on disk): {file_path}")
-        return None
-    h = hashlib.sha256()
-    with open(path, "rb") as f:
-        for chunk in iter(lambda: f.read(1 << 16), b""):
-            h.update(chunk)
-    asset_id = h.hexdigest()
-    cursor.execute("SELECT id, kind FROM assets WHERE id = ?", (asset_id,))
-    row = cursor.fetchone()
-    if row:
-        logger.warning(f"UNREGISTERED PATH, known audio: {file_path} is a copy of asset {asset_id[:16]}; recording that asset")
-        return row
-    kind = kind_from_path(file_path)
-    logger.warning(f"UNREGISTERED FILE: registering {file_path} as new {kind} asset {asset_id[:16]}")
-    try:
-        from ai_radio.ingest import ingest_audio_file
-
-        ingest_audio_file(source_path=path, kind=kind, db_path=config.paths.db_path, ingest_existing=True)
-    except Exception:
-        logger.exception(f"Auto-registration failed for {file_path}")
-        return None
-    cursor.execute("SELECT id, kind FROM assets WHERE id = ?", (asset_id,))
-    return cursor.fetchone()
+    return _resolve(cursor.connection, file_path, config.paths.db_path)
 
 
 def main():
