@@ -361,3 +361,31 @@ class TestGenerateBulletinConvenience:
                     mock_claude.assert_called_once()
                     mock_gemini.assert_called_once()
                     mock_openai.assert_called_once()
+
+
+def test_top_of_hour_id_uses_generated_id_and_falls_back(monkeypatch):
+    from ai_radio import script_writer as sw
+
+    class SID:
+        script_text = "LAST BYTE RADIO, broadcasting from Chicago. It's five o'clock."
+
+    monkeypatch.setattr(sw.config.station, "station_name", "LAST BYTE RADIO")
+    monkeypatch.setattr(sw, "generate_station_id", lambda h, minute=0: SID())
+    assert sw.top_of_hour_id(17, "5 pm") == SID.script_text
+    monkeypatch.setattr(sw, "generate_station_id", lambda h, minute=0: None)
+    assert sw.top_of_hour_id(17, "5 pm").endswith("It's 5 pm.")
+    def boom(h, minute=0):
+        raise RuntimeError("api down")
+    monkeypatch.setattr(sw, "generate_station_id", boom)
+    assert "5 pm" in sw.top_of_hour_id(17, "5 pm")
+
+
+import pytest as _pytest
+
+
+@_pytest.fixture(autouse=True)
+def _no_live_station_id(monkeypatch):
+    """Bulletin tests mock one LLM client; keep the top-of-hour ID off it (tests override as needed)."""
+    from ai_radio import script_writer as sw
+
+    monkeypatch.setattr(sw, "generate_station_id", lambda h, minute=0: None)

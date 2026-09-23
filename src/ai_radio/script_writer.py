@@ -549,7 +549,7 @@ class ClaudeScriptWriter:
             else:
                 time_phrase = f"{hour_12} {am_pm}"
 
-            intro = f"{config.station.station_name}, {config.station_location}. It's {time_phrase}."
+            intro = top_of_hour_id(next_hour.hour, time_phrase)
             sign_off = config.station.station_name + "."
             script_parts = [intro] + segments + [sign_off]
             script_text = " ".join(script_parts)
@@ -730,7 +730,7 @@ class GeminiScriptWriter:
             else:
                 time_phrase = f"{hour_12} {am_pm}"
 
-            intro = f"{config.station.station_name}, {config.station_location}. It's {time_phrase}."
+            intro = top_of_hour_id(next_hour.hour, time_phrase)
             sign_off = config.station.station_name + "."
             script_parts = [intro] + segments + [sign_off]
             script_text = " ".join(script_parts)
@@ -904,7 +904,7 @@ class OpenAIScriptWriter:
             else:
                 time_phrase = f"{hour_12} {am_pm}"
 
-            intro = f"{config.station.station_name}, {config.station_location}. It's {time_phrase}."
+            intro = top_of_hour_id(next_hour.hour, time_phrase)
             sign_off = config.station.station_name + "."
             script_parts = [intro] + segments + [sign_off]
             script_text = " ".join(script_parts)
@@ -1060,6 +1060,23 @@ def build_station_id_prompts(target_hour: int, minute: int = 0) -> tuple[str, st
     )
     return system, user
 
+
+
+def top_of_hour_id(hour: int, time_phrase: str) -> str:
+    """Freshly generated top-of-hour station ID (gives the time), falling back to the fixed formula.
+
+    Quarter-hour IDs stay pre-recorded; only the one that opens each hourly bulletin is written new.
+    """
+    fallback = f"{config.station.station_name}, {config.station_location}. It's {time_phrase}."
+    try:
+        sid = generate_station_id(hour, minute=0)
+    except Exception:
+        logger.exception("Top-of-hour station ID generation failed; using fixed intro")
+        return fallback
+    text = (sid.script_text or "").strip() if sid else ""
+    if not text or config.station.station_name.lower() not in text.lower():
+        return fallback
+    return text
 
 def generate_station_id(target_hour: int, minute: int = 0) -> Optional[StationIDScript]:
     """Generate a dynamic station ID script for the specified hour.
