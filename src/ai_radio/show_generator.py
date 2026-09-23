@@ -1,3 +1,4 @@
+import re
 """Show generation pipeline orchestration."""
 import json
 import logging
@@ -163,7 +164,22 @@ def build_research_prompt(topic_area: str, content_guidance: str = "") -> str:
         preamble=build_world_preamble(role),
         station=fields["station"],
         topic_area=topic_area,
-        guidance=f"Producer's note: {content_guidance}" if content_guidance else "",
+        guidance=_recency_note() + (f"\nProducer's note: {content_guidance}" if content_guidance else ""),
+    )
+
+
+def _recency_note(days: int = 7) -> str:
+    """Anchor research to the actual current week so the show never drifts to stale news."""
+    from datetime import timedelta
+    from zoneinfo import ZoneInfo
+
+    today = datetime.now(ZoneInfo(config.station.station_tz)).date()
+    start = today - timedelta(days=days)
+    fmt = lambda d: d.strftime("%B %-d, %Y")  # noqa: E731
+    return (
+        f"Today is {today.strftime('%A')}, {fmt(today)}. Cover only developments from the past {days} days "
+        f"({fmt(start)} to {fmt(today)}). Nothing older, even if it is famous; if a story has an older origin, "
+        f"cover only what changed this week."
     )
 
 
@@ -276,7 +292,8 @@ def research_topics(topic_area: str, content_guidance: str = "") -> List[str]:
             raise ValueError("Not all topics are strings")
 
         logger.info(f"Researched {len(topics)} topics for '{topic_area}': {topics}")
-        return topics
+        # Grounded search leaves citation markers like "[1.3.1]"; they must never reach the script.
+        return [re.sub(r"\s*\[[\d.,\s]+\]", "", t).strip() for t in topics]
 
     except json.JSONDecodeError as e:
         logger.error(f"Failed to parse Gemini response as JSON: {e}")

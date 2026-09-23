@@ -50,7 +50,7 @@ class RadioConfig(BaseSettings):
         description="Claude model for bulletin script generation"
     )
     gemini_text_model: str = Field(
-        default="gemini-2.5-flash",
+        default="gemini-3.1-pro-preview",
         description="Gemini model for text generation (show scripts, script editing, schedule parsing). "
                     "Env: RADIO_GEMINI_TEXT_MODEL. Must be a model the key can call; "
                     "gemini-2.0-flash-exp was retired and now returns 404."
