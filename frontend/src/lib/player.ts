@@ -27,6 +27,8 @@ export class Player {
   private readonly listeners = new Set<Listener>();
   private context: AudioContext | null = null;
   private analyser: AnalyserNode | null = null;
+  /** Output gain: the only volume control that works on iOS, and used everywhere once the graph exists. */
+  private gain: GainNode | null = null;
   /** Date.now() when the current stream connection was requested; null when stopped. */
   private connectedAtMs: number | null = null;
   /** True once this connection has produced audio (so later stalls still count as tuned in). */
@@ -56,9 +58,17 @@ export class Player {
     audio.volume = this.volume;
   }
 
-  /** iOS Safari ignores audio.volume entirely; hide the slider there rather than show a dead control. */
+  /**
+   * iOS Safari ignores audio.volume, but a Web Audio gain node works there. That needs the
+   * stream to be CORS-readable (STREAM_CORS_OK), so iOS gets a working fader only then.
+   */
   get volumeSupported(): boolean {
-    return !/iPad|iPhone|iPod/.test(navigator.userAgent);
+    if (!/iPad|iPhone|iPod/.test(navigator.userAgent)) return true;
+    return (
+      STREAM_CORS_OK &&
+      typeof (window.AudioContext ?? (window as unknown as { webkitAudioContext?: unknown }).webkitAudioContext) !==
+        'undefined'
+    );
   }
 
   snapshot(): PlayerSnapshot {
@@ -78,6 +88,9 @@ export class Player {
 
   async play(): Promise<void> {
     this.set('loading');
+    // Build the Web Audio graph inside this user gesture so the gain (volume) and analyser
+    // are live from the first sample; required for volume on iOS.
+    if (STREAM_CORS_OK) this.getAnalyser();
     // Live streams must not resume from a buffered position: always reload the source.
     this.connectedAtMs = Date.now();
     this.started = false;
@@ -115,7 +128,7 @@ export class Player {
 
   setVolume(v: number): void {
     this.volume = Math.min(1, Math.max(0, v));
-    this.audio.volume = this.volume;
+    this.applyVolume();
     try {
       localStorage.setItem('radio.volume', String(this.volume));
     } catch {
@@ -153,12 +166,26 @@ export class Player {
       this.analyser = this.context.createAnalyser();
       this.analyser.fftSize = 128;
       this.analyser.smoothingTimeConstant = 0.8;
+      this.gain = this.context.createGain();
+      // Analyser taps the program before the gain, so meters show program level at any volume.
       src.connect(this.analyser);
-      this.analyser.connect(this.context.destination);
+      this.analyser.connect(this.gain);
+      this.gain.connect(this.context.destination);
+      this.applyVolume();
       return this.analyser;
     } catch (err) {
       console.warn('Web Audio unavailable; signal display will idle', err);
       return null;
+    }
+  }
+
+  /** Volume lives on the gain node once the graph exists (element volume pinned to 1), else on the element. */
+  private applyVolume(): void {
+    if (this.gain) {
+      this.audio.volume = 1;
+      this.gain.gain.value = this.volume;
+    } else {
+      this.audio.volume = this.volume;
     }
   }
 
